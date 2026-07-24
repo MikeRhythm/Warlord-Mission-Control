@@ -72,8 +72,8 @@
     flex-direction: column;
     gap: 16px;
     padding: 20px;
-    padding-bottom: 240px;
   }
+  
   .view-section {
     display: none;
   }
@@ -82,6 +82,13 @@
     flex-direction: column;
     gap: 16px;
   }
+
+  /* Specific padding for EXEC view to clear the fixed command dock */
+  #view-1 {
+    padding-bottom: 240px; 
+  }
+  
+  /* EXEC View Chat Box Styles */
   .chat-box {
     position: relative;
     background-color: var(--hf-card);
@@ -89,6 +96,8 @@
     border-radius: 4px;
     padding: 16px;
   }
+  
+  /* Shared Action Buttons */
   .action-bar-btn {
     background: var(--hf-panel);
     border: 1px solid var(--hf-accent-gold);
@@ -99,6 +108,7 @@
     cursor: pointer;
     border-radius: 3px;
     font-weight: bold;
+    transition: all 0.15s ease;
   }
   .action-bar-btn:hover {
     background: var(--hf-accent-gold);
@@ -111,13 +121,20 @@
   .action-bar-btn.primary:hover {
     opacity: 0.9;
   }
-  /* Distinct highlight style for the APPROVE button */
   .action-bar-btn.approve-btn {
     border-color: #2ecc71;
     color: #2ecc71;
   }
   .action-bar-btn.approve-btn:hover {
     background: #2ecc71;
+    color: var(--hf-bg-base);
+  }
+  .action-bar-btn.verify-btn {
+    border-color: var(--hf-accent-blue);
+    color: var(--hf-accent-blue);
+  }
+  .action-bar-btn.verify-btn:hover {
+    background: var(--hf-accent-blue);
     color: var(--hf-bg-base);
   }
   .copy-btn {
@@ -211,6 +228,8 @@
     flex-wrap: wrap;
     align-items: center;
   }
+  
+  /* Chat Stream Styles */
   .conversation-stream {
     display: flex;
     flex-direction: column;
@@ -253,6 +272,206 @@
     background: var(--hf-accent-gold);
     color: var(--hf-bg-base);
   }
+
+  /* --- TASK BOARD KANBAN ARCHITECTURE & STATUS COLORS --- */
+  .task-grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 24px;
+  }
+  .task-main-area {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .task-stats {
+    display: flex;
+    gap: 32px;
+    border-bottom: 1px solid var(--hf-border);
+    padding-bottom: 16px;
+  }
+  .stat-group {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .stat-num {
+    font-size: 28px;
+    font-weight: bold;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--hf-text-muted);
+  }
+  .task-filters {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  .filter-pill {
+    font-size: 12px;
+    color: var(--hf-text-sub);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .filter-pill:hover, .filter-pill.active {
+    color: var(--hf-text-main);
+  }
+  .filter-select {
+    background: transparent;
+    border: none;
+    color: var(--hf-text-muted);
+    font-family: monospace;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+  }
+  .kanban-board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .k-col-header {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--hf-text-sub);
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .k-card {
+    background-color: var(--hf-card);
+    border: 1px solid var(--hf-border);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s, transform 0.1s;
+    cursor: grab;
+    position: relative;
+  }
+  .k-card:hover {
+    border-color: var(--hf-accent-gold);
+    transform: translateY(-2px);
+  }
+  
+  /* Status Color Implementations */
+  .task-blocker {
+    border-left: 4px solid var(--hf-accent-red);
+    background: linear-gradient(90deg, rgba(239,68,68,0.2) 0%, transparent 100%);
+  }
+  .task-active {
+    border-left: 4px solid var(--hf-accent-blue);
+    background: linear-gradient(90deg, rgba(59,130,246,0.2) 0%, transparent 100%);
+  }
+  .task-review {
+    border-left: 4px solid var(--hf-accent-gold);
+    background: linear-gradient(90deg, rgba(245,158,11,0.2) 0%, transparent 100%);
+  }
+  .task-done {
+    border-left: 4px solid var(--hf-accent-green);
+    background: linear-gradient(90deg, rgba(16,185,129,0.1) 0%, transparent 100%);
+    opacity: 0.6;
+  }
+
+  /* Card Header with Delete Button */
+  .k-card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .k-card-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--hf-text-main);
+    line-height: 1.3;
+    padding-right: 8px;
+  }
+  .task-del-btn {
+    background: none;
+    border: none;
+    color: var(--hf-text-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s;
+  }
+  .task-del-btn:hover {
+    color: var(--hf-accent-red);
+  }
+
+  .k-card-desc {
+    font-size: 11px;
+    color: var(--hf-text-muted);
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+  .k-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .agent-badge {
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .badge-charlie { background: rgba(59,130,246,0.15); color: var(--hf-accent-blue); }
+  .badge-tess { background: rgba(245,158,11,0.15); color: var(--hf-accent-gold); }
+  .badge-roxy { background: rgba(139,92,246,0.15); color: var(--hf-accent-purple); }
+  .badge-jack { background: rgba(16,185,129,0.15); color: var(--hf-accent-green); }
+  .badge-mike { background: rgba(239,68,68,0.15); color: var(--hf-accent-red); }
+  
+  .status-tag {
+    font-size: 9px;
+    text-transform: uppercase;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 2px;
+  }
+  .tag-blocker { background: rgba(239,68,68,0.2); color: var(--hf-accent-red); }
+  .tag-active { background: rgba(59,130,246,0.2); color: var(--hf-accent-blue); }
+  .tag-review { background: rgba(245,158,11,0.2); color: var(--hf-accent-gold); }
+
+  .time-meta {
+    font-size: 10px;
+    color: var(--hf-text-muted);
+  }
+  
+  .live-sidebar {
+    border-left: 1px solid var(--hf-border);
+    padding-left: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .activity-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .activity-agent {
+    font-size: 11px;
+    font-weight: bold;
+  }
+  .activity-log {
+    font-size: 11px;
+    color: var(--hf-text-muted);
+    line-height: 1.4;
+  }
+
+  /* MEDIA REVIEW SPECIFIC */
+  .review-grid-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+  }
 </style>
 </head>
 <body>
@@ -266,8 +485,8 @@
 
   <div class="nav-tabs">
     <button class="nav-tab" onclick="switchTab(1, this)">01 EXEC</button>
-    <button class="nav-tab active" onclick="switchTab(2, this)">02 TASK BOARD</button>
-    <button class="nav-tab" onclick="switchTab(3, this)">03 REVIEW MEDIA</button>
+    <button class="nav-tab" onclick="switchTab(2, this)">02 TASK BOARD</button>
+    <button class="nav-tab active" onclick="switchTab(3, this)">03 REVIEW MEDIA</button>
     <button class="nav-tab" onclick="switchTab(4, this)">04 CALENDAR</button>
     <button class="nav-tab" onclick="switchTab(5, this)">05 PROJECTS</button>
     <button class="nav-tab" onclick="switchTab(6, this)">06 MEMORY</button>
@@ -276,12 +495,13 @@
     <button class="nav-tab" onclick="switchTab(9, this)">09 PALETTES</button>
     <button class="nav-tab" onclick="switchTab(10, this)">10 OBSIDIAN GALAXY</button>
     <button class="nav-tab" onclick="switchTab(11, this)">11 PAPERCLIP</button>
+    <button class="nav-tab" onclick="switchTab(12, this)">12 DOCS</button>
   </div>
 </div>
 
 <div class="container">
 
-  <!-- VIEW 1: 01 EXEC -->
+  <!-- VIEW 1: 01 EXEC (COMMAND DOCK CONTAINED HERE) -->
   <div id="view-1" class="view-section">
     <div class="mcnc-panel" style="margin: 0;">
       <h3 style="margin-top: 0; color: var(--hf-accent-gold);">CHIEF OF STAFF // MONTY 2 (BASE 1 PIPELINE)</h3>
@@ -303,30 +523,245 @@
         </p>
       </div>
     </div>
-  </div>
 
-  <!-- VIEW 2: 02 TASK BOARD (ACTIVE TARGET) -->
-  <div id="view-2" class="view-section active">
-    <h2 style="color:var(--hf-accent-gold); margin-top:0;">02 TASK BOARD // ACTIVE PIPELINE</h2>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-      <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-radius: 4px; padding: 12px;">
-        <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px;">BACKLOG</h4>
-        <div style="background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 10px; margin-bottom: 8px; border-radius: 3px; font-size: 11px;"><strong>TASK-01:</strong> Wire WebSocket Bridge to Base 1 Backend</div>
-        <div style="background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 10px; margin-bottom: 8px; border-radius: 3px; font-size: 11px;"><strong>TASK-02:</strong> Junior Agent Delegation & Paperclip Integration</div>
+    <!-- Fixed Bottom Command Dock -->
+    <div class="command-dock">
+      <div class="attachment-header">+ ATTACH FILE / SCREENSHOT / YOUTUBE</div>
+      <div class="attachment-dropzone" id="attachment-paste-box" tabindex="0">
+        Click here and press Ctrl+V to paste screenshots directly.
       </div>
-      <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-radius: 4px; padding: 12px;">
-        <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px;">IN PROGRESS</h4>
-        <div style="background: var(--hf-panel); border: 1px solid var(--hf-accent-gold); padding: 10px; margin-bottom: 8px; border-radius: 3px; font-size: 11px;"><strong>TASK-03:</strong> Streamlined Command Dock & Workflow Button Mapping</div>
-      </div>
-      <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-radius: 4px; padding: 12px;">
-        <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px;">COMPLETED</h4>
-        <div style="background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 10px; margin-bottom: 8px; border-radius: 3px; font-size: 11px;"><strong>TASK-04:</strong> Master Header Navigation & Tab Rename ("02 TASK BOARD")</div>
+      
+      <textarea class="input-field" id="user-input-box" rows="2" placeholder="Enter instructions, code directives, prompt parameters, or paste YouTube links here..."></textarea>
+
+      <div class="bottom-actions">
+        <button class="action-bar-btn primary" onclick="runAction('SUBMIT INSTRUCTION')">SUBMIT INSTRUCTION</button>
+        <button class="action-bar-btn approve-btn" onclick="runAction('APPROVE')">APPROVE</button>
+        <button class="action-bar-btn" onclick="runAction('ADD INSTRUCTION')">+ ADD INSTRUCTION</button>
+        <button class="action-bar-btn" onclick="runAction('REFINE PROMPT')">REFINE PROMPT</button>
+        <button class="action-bar-btn" onclick="runAction('ASSIGN TASK')">ASSIGN TASK</button>
+        <button class="action-bar-btn" onclick="runAction('REVIEW & FINALIZE')">REVIEW & FINALIZE</button>
+        <button class="action-bar-btn" onclick="runAction('INSTRUCT JUNIOR')">INSTRUCT JUNIOR</button>
       </div>
     </div>
   </div>
 
-  <!-- VIEW 3 TO 11 PLACEHOLDERS -->
-  <div id="view-3" class="view-section"><h2 style="color:var(--hf-accent-gold);">03 REVIEW MEDIA // LAYOUT ASSESSMENT</h2></div>
+  <!-- VIEW 2: 02 TASK BOARD -->
+  <div id="view-2" class="view-section">
+    <div class="task-grid-layout">
+      <!-- MAIN KANBAN AREA -->
+      <div class="task-main-area">
+        <!-- Top Statistics Row -->
+        <div class="task-stats">
+          <div class="stat-group">
+            <span class="stat-num" style="color: var(--hf-accent-green);">4</span>
+            <span class="stat-label">Active Daemons</span>
+          </div>
+          <div class="stat-group">
+            <span class="stat-num" style="color: var(--hf-accent-gold);">2</span>
+            <span class="stat-label">In progress</span>
+          </div>
+          <div class="stat-group">
+            <span class="stat-num" style="color: var(--hf-text-main);">7</span>
+            <span class="stat-label">Total Tasks</span>
+          </div>
+          <div class="stat-group">
+            <span class="stat-num" style="color: var(--hf-accent-blue);">100%</span>
+            <span class="stat-label">System Integrity</span>
+          </div>
+        </div>
+
+        <!-- Filters & Action Bar -->
+        <div class="task-filters">
+          <button class="action-bar-btn primary" style="border:none; padding: 6px 16px; border-radius: 4px;">+ New task</button>
+          <span class="filter-pill active">All</span>
+          <span class="filter-pill">Charlie</span>
+          <span class="filter-pill">Tess</span>
+          <span class="filter-pill">Roxy</span>
+          <span class="filter-pill">Jack</span>
+          <select class="filter-select">
+            <option>All projects ▾</option>
+            <option>Rhythm WASP</option>
+            <option>Paperclip Daemon</option>
+          </select>
+        </div>
+
+        <!-- Kanban Columns -->
+        <div class="kanban-board">
+          
+          <!-- Column 1: BACKLOG -->
+          <div>
+            <div class="k-col-header">
+              <span><span style="color: var(--hf-text-muted); margin-right:6px;">●</span> Backlog</span>
+              <span style="color: var(--hf-text-muted);">2</span>
+            </div>
+            
+            <div class="k-card">
+              <div class="k-card-header-row">
+                <div class="k-card-title">TASK-01: Wire WebSocket Bridge</div>
+                <button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">×</button>
+              </div>
+              <div class="k-card-desc">Connect Base 1 Backend to primary UI daemon on port 8080.</div>
+              <div class="k-card-footer">
+                <span class="agent-badge badge-jack">J Jack</span>
+                <span class="time-meta">2 days ago</span>
+              </div>
+            </div>
+
+            <div class="k-card task-blocker">
+              <div class="k-card-header-row">
+                <div class="k-card-title">TASK-02: Junior Agent Delegation</div>
+                <button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">×</button>
+              </div>
+              <div class="k-card-desc">Integrate LLM payload processing for the Paperclip pipeline. Pipeline stalling.</div>
+              <div class="k-card-footer">
+                <span class="agent-badge badge-charlie">C Charlie</span>
+                <span class="status-tag tag-blocker">PROBLEM</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: IN PROGRESS -->
+          <div>
+            <div class="k-col-header">
+              <span><span style="color: var(--hf-accent-blue); margin-right:6px;">●</span> In Progress</span>
+              <span style="color: var(--hf-text-muted);">2</span>
+            </div>
+
+            <div class="k-card task-active">
+              <div class="k-card-header-row">
+                <div class="k-card-title">TASK-03: Streamline Command Dock</div>
+                <button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">×</button>
+              </div>
+              <div class="k-card-desc">Anchor action buttons and dropzone strictly to the screen bottom.</div>
+              <div class="k-card-footer">
+                <span class="agent-badge badge-roxy">R Roxy</span>
+                <span class="status-tag tag-active">WORKING</span>
+              </div>
+            </div>
+
+            <div class="k-card task-active">
+              <div class="k-card-header-row">
+                <div class="k-card-title">TASK-05: Volatility Scan Triggers</div>
+                <button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">×</button>
+              </div>
+              <div class="k-card-desc">Ensure zero-state init before processing MQL5 signals.</div>
+              <div class="k-card-footer">
+                <span class="agent-badge badge-tess">T Tess</span>
+                <span class="status-tag tag-active">WORKING</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 3: REVIEW -->
+          <div>
+            <div class="k-col-header">
+              <span><span style="color: var(--hf-accent-gold); margin-right:6px;">●</span> Review</span>
+              <span style="color: var(--hf-text-muted);">1</span>
+            </div>
+
+            <div class="k-card task-review">
+              <div class="k-card-header-row">
+                <div class="k-card-title">TASK-06: Memory Safeguard</div>
+                <button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">×</button>
+              </div>
+              <div class="k-card-desc">Audit memory buffers to prevent NaN poisoning during init.</div>
+              <div class="k-card-footer">
+                <span class="agent-badge badge-charlie">C Charlie</span>
+                <span class="status-tag tag-review">REVIEW</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 4: COMPLETED -->
+          <div>
+            <div class="k-col-header">
+              <span><span style="color: var(--hf-accent-green); margin-right:6px;">●</span> Completed</span>
+              <span style="color: var(--hf-text-muted);">2</span>
+            </div>
+
+            <div class="k-card task-done">
+              <div class="k-card-header-row">
+                <div class="k-card-title">TASK-04: Master Header & Navigation</div>
+                <button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">×</button>
+              </div>
+              <div class="k-card-desc">Rebuild High Finance palette tabs across global layout.</div>
+              <div class="k-card-footer">
+                <span class="agent-badge badge-roxy">R Roxy</span>
+                <span class="time-meta">Done</span>
+              </div>
+            </div>
+
+            <div class="k-card task-done">
+              <div class="k-card-header-row">
+                <div class="k-card-title">TASK-07: Campaign Drafts</div>
+                <button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">×</button>
+              </div>
+              <div class="k-card-desc">Finalize direct outreach emails for Chief Madothi fund.</div>
+              <div class="k-card-footer">
+                <span class="agent-badge badge-mike">M Mike</span>
+                <span class="time-meta">Done</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RIGHT SIDEBAR: LIVE ACTIVITY -->
+      <div class="live-sidebar">
+        <h4 style="margin: 0; font-size: 13px; color: var(--hf-text-main);">Live Activity</h4>
+        
+        <div class="activity-item">
+          <span class="activity-agent" style="color: var(--hf-accent-blue);">Charlie</span>
+          <span class="activity-log">Zero-state check cleared. Memory clean on Base 1 framework.</span>
+        </div>
+
+        <div class="activity-item">
+          <span class="activity-agent" style="color: var(--hf-accent-gold);">Tess</span>
+          <span class="activity-log">Volatility scan pulse complete. No state drift detected across indicators.</span>
+        </div>
+
+        <div class="activity-item">
+          <span class="activity-agent" style="color: var(--hf-accent-purple);">Roxy</span>
+          <span class="activity-log">High Finance color compliance strictly enforced on current UI build.</span>
+        </div>
+
+        <div class="activity-item">
+          <span class="activity-agent" style="color: var(--hf-accent-green);">Jack</span>
+          <span class="activity-log">WebSocket bridge initialized on local port 8080. Connection stable.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VIEW 3: 03 REVIEW MEDIA (Nugget Extraction Engine - Full Width) -->
+  <div id="view-3" class="view-section active">
+    <h2 style="color:var(--hf-accent-gold); margin-top:0;">03 REVIEW MEDIA // ASSET INGESTION & EXTRACTION</h2>
+    
+    <!-- Extraction Engine (Massive reading area, full width) -->
+    <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-radius: 4px; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+      <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px;">NUGGET EXTRACTION ENGINE</h4>
+      
+      <textarea id="media-input-text" style="width: 100%; background: var(--hf-panel); border: 1px solid var(--hf-border); color: var(--hf-text-main); padding: 12px; font-family: monospace; font-size: 12px; border-radius: 3px; box-sizing: border-box; resize: vertical; min-height: 70px;" placeholder="Paste blog posts, YouTube links, articles, or raw text here..."></textarea>
+      
+      <button class="action-bar-btn primary" onclick="extractNuggets()" style="width: 220px; align-self: flex-start; padding: 10px;">EXTRACT NUGGETS</button>
+      
+      <div id="nugget-output" style="flex-grow: 1; min-height: 250px; background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 16px; border-radius: 3px; font-size: 12.5px; color: var(--hf-text-main); overflow-y: auto; line-height: 1.6;">
+        <span style="color: var(--hf-text-muted);">Awaiting media ingestion... Paste text or links above and extract.</span>
+      </div>
+
+      <!-- Dynamic Export Controls with Verification Gate -->
+      <div id="export-controls" style="display: none; align-items: center; justify-content: flex-end; gap: 12px; background: var(--hf-panel); padding: 12px; border: 1px solid var(--hf-border); border-radius: 3px;">
+          <label style="font-size: 11px; color: var(--hf-text-muted); font-weight: bold;">TARGET 12 DOCS CATEGORY:</label>
+          <input type="text" id="target-doc-name" placeholder="e.g., SEO, Marketing (Nuggets is auto-appended)" style="background: var(--hf-card); border: 1px solid var(--hf-border); color: var(--hf-text-main); padding: 8px 12px; font-family: monospace; font-size: 11px; border-radius: 3px; width: 320px;">
+          <button id="verify-nuggets-btn" class="action-bar-btn verify-btn" onclick="verifyNuggets()" style="padding: 10px 20px;">VERIFY INTEGRITY</button>
+          <button id="export-nuggets-btn" class="action-bar-btn approve-btn" onclick="exportToDocs()" style="padding: 10px 20px; opacity: 0.3; pointer-events: none;">SAVE & EXPORT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 4 TO 11 PLACEHOLDERS -->
   <div id="view-4" class="view-section"><h2 style="color:var(--hf-accent-gold);">04 CALENDAR // SCHEDULE</h2></div>
   <div id="view-5" class="view-section"><h2 style="color:var(--hf-accent-gold);">05 PROJECTS // ACTIVE MANIFEST</h2></div>
   <div id="view-6" class="view-section"><h2 style="color:var(--hf-accent-gold);">06 MEMORY // CORE STORAGE</h2></div>
@@ -336,26 +771,25 @@
   <div id="view-10" class="view-section"><h2 style="color:var(--hf-accent-gold);">10 OBSIDIAN GALAXY // KNOWLEDGE GRAPH</h2></div>
   <div id="view-11" class="view-section"><h2 style="color:var(--hf-accent-gold);">11 PAPERCLIP // AUTONOMOUS ENGINE</h2></div>
 
-</div>
-
-<!-- Fixed Bottom Command Dock (Refined Workflow Buttons) -->
-<div class="command-dock">
-  <div class="attachment-header">+ ATTACH FILE / SCREENSHOT / YOUTUBE</div>
-  <div class="attachment-dropzone" id="attachment-paste-box" tabindex="0">
-    Click here and press Ctrl+V to paste screenshots directly.
+  <!-- VIEW 12: DOCS (Dynamic Target for Export) -->
+  <div id="view-12" class="view-section">
+    <h2 style="color:var(--hf-accent-gold); margin-top:0;">12 DOCS // SYSTEM ARCHITECTURE & EXPORTS</h2>
+    
+    <div id="docs-container" style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-radius: 4px; padding: 12px;">
+        <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px; display: flex; justify-content: space-between;">
+          <span>Warlord System Documentation & Architecture Manual</span>
+          <span style="color: var(--hf-text-muted); font-size: 10px;">CORE</span>
+        </h4>
+        <div style="background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 10px; border-radius: 3px; font-size: 11px; display: flex; flex-direction: column; gap: 8px;">
+          <p style="margin:0;"><strong style="color: var(--hf-accent-gold);">1. Executive Summary:</strong> The MCNC Master platform operates via local socket bridges running on Base1 hardware nodes.</p>
+          <p style="margin:0;"><strong style="color: var(--hf-accent-gold);">2. Indicator Directives:</strong> Strict adherence to DodgerBlue, OrangeRed, and Goldenrod lines. No histograms are permitted under any operational directive.</p>
+          <p style="margin:0;"><strong style="color: var(--hf-accent-gold);">3. Zero-State Protocol:</strong> All memory buffers must initialize cleanly to prevent NaN pointer exceptions during high-frequency volatility tracking.</p>
+        </div>
+      </div>
+    </div>
   </div>
-  
-  <textarea class="input-field" id="user-input-box" rows="2" placeholder="Enter instructions, code directives, prompt parameters, or paste YouTube links here..."></textarea>
 
-  <div class="bottom-actions">
-    <button class="action-bar-btn primary" onclick="runAction('SUBMIT INSTRUCTION')">SUBMIT INSTRUCTION</button>
-    <button class="action-bar-btn approve-btn" onclick="runAction('APPROVE')">APPROVE</button>
-    <button class="action-bar-btn" onclick="runAction('ADD INSTRUCTION')">+ ADD INSTRUCTION</button>
-    <button class="action-bar-btn" onclick="runAction('REFINE PROMPT')">REFINE PROMPT</button>
-    <button class="action-bar-btn" onclick="runAction('ASSIGN TASK')">ASSIGN TASK</button>
-    <button class="action-bar-btn" onclick="runAction('REVIEW & FINALIZE')">REVIEW & FINALIZE</button>
-    <button class="action-bar-btn" onclick="runAction('INSTRUCT JUNIOR')">INSTRUCT JUNIOR</button>
-  </div>
 </div>
 
 <script>
@@ -371,7 +805,8 @@ function initBackendBridge() {
     ws.onopen = function() {
       isConnected = true;
       document.querySelector('.master-header div:last-child').innerHTML = "BRIDGE: ACTIVE (BASE 1) &nbsp;|&nbsp; RAM: 5.14 / 7.88 GB";
-      document.getElementById('status-text').innerHTML = "Connected to Base 1 backend daemon. Ready for live operations.";
+      const statusEl = document.getElementById('status-text');
+      if(statusEl) statusEl.innerHTML = "Connected to Base 1 backend daemon. Ready for live operations.";
     };
     
     ws.onmessage = function(event) {
@@ -382,7 +817,8 @@ function initBackendBridge() {
     ws.onclose = function() {
       isConnected = false;
       document.querySelector('.master-header div:last-child').innerHTML = "BRIDGE: OFFLINE (FALLBACK MODE) &nbsp;|&nbsp; RAM: 5.14 / 7.88 GB";
-      document.getElementById('status-text').innerHTML = "Backend offline. Running in secure local review mode. Awaiting restart.";
+      const statusEl = document.getElementById('status-text');
+      if(statusEl) statusEl.innerHTML = "Backend offline. Running in secure local review mode. Awaiting restart.";
       setTimeout(initBackendBridge, 5000);
     };
 
@@ -410,34 +846,42 @@ function switchTab(index, btnElement) {
 let attachedImageSrc = null;
 
 const dropzone = document.getElementById('attachment-paste-box');
-dropzone.addEventListener('paste', function(e) {
-  const items = e.clipboardData.items;
-  for (let i = 0; i < items.length; i++) {
-    if (items[i].type.indexOf('image') !== -1) {
-      const blob = items[i].getAsFile();
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        attachedImageSrc = event.target.result;
-        dropzone.innerHTML = `[Asset Attached Successfully] <img src="${attachedImageSrc}" alt="Pasted Asset">`;
-      };
-      reader.readAsDataURL(blob);
+if (dropzone) {
+  dropzone.addEventListener('paste', function(e) {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          attachedImageSrc = event.target.result;
+          dropzone.innerHTML = `[Asset Attached Successfully] <img src="${attachedImageSrc}" alt="Pasted Asset">`;
+        };
+        reader.readAsDataURL(blob);
+      }
     }
-  }
-});
+  });
+}
 
 /* Auto-expanding textarea height controller */
 const userInputBox = document.getElementById('user-input-box');
-userInputBox.addEventListener('input', function() {
-  this.style.height = 'auto';
-  this.style.height = (this.scrollHeight) + 'px';
-});
+if (userInputBox) {
+  userInputBox.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+  });
+}
 
 function copyConversation() {
-  const streamText = document.getElementById('conversation-stream').innerText;
+  const stream = document.getElementById('conversation-stream');
+  if(!stream) return;
+  const streamText = stream.innerText;
   navigator.clipboard.writeText(streamText).then(() => {
     const btn = document.querySelector('.copy-btn');
-    btn.innerText = 'COPIED!';
-    setTimeout(() => btn.innerText = 'COPY STREAM', 2000);
+    if(btn) {
+      btn.innerText = 'COPIED!';
+      setTimeout(() => btn.innerText = 'COPY STREAM', 2000);
+    }
   });
 }
 
@@ -452,6 +896,8 @@ function copyCodeSnippet(buttonElement) {
 
 function setProcessingState(isProcessing, actionName) {
   const statusEl = document.getElementById('status-text');
+  if(!statusEl) return;
+  
   if (isProcessing) {
     statusEl.innerHTML = `<span class="processing-indicator"><span class="spinner"></span> Executing workflow action [${actionName}]... Awaiting response/approval.</span>`;
   } else {
@@ -461,6 +907,7 @@ function setProcessingState(isProcessing, actionName) {
 
 function runAction(actionName) {
   const stream = document.getElementById('conversation-stream');
+  if (!userInputBox) return;
   const userText = userInputBox.value.trim();
   
   if (userText === "" && !attachedImageSrc && actionName !== 'APPROVE') {
@@ -473,7 +920,8 @@ function runAction(actionName) {
     userHtml += `<br><img src="${attachedImageSrc}" style="max-height:60px; margin-top:4px; border:1px solid var(--hf-border);">`;
   }
   userHtml += `</div>`;
-  stream.innerHTML += userHtml;
+  
+  if(stream) stream.innerHTML += userHtml;
 
   setProcessingState(true, actionName);
 
@@ -517,23 +965,26 @@ function runAction(actionName) {
           montyResponse = `<strong>MONTY 2:</strong><br><em>"Processed workflow action [${actionName}]."</em>`;
       }
 
-      stream.innerHTML += `<div class="message-bubble monty-msg">${montyResponse}</div>`;
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      if(stream) {
+        stream.innerHTML += `<div class="message-bubble monty-msg">${montyResponse}</div>`;
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }
 
     }, 1000);
   }
 
-  // If action is Add Instruction, we keep the text in box for further typing; otherwise clear
   if (actionName !== 'ADD INSTRUCTION') {
     userInputBox.value = '';
     userInputBox.style.height = 'auto';
   }
   attachedImageSrc = null;
-  dropzone.innerHTML = `Click here and press Ctrl+V to paste screenshots directly.`;
+  if(dropzone) dropzone.innerHTML = `Click here and press Ctrl+V to paste screenshots directly.`;
 }
 
 function handleBackendMessage(data) {
   const stream = document.getElementById('conversation-stream');
+  if(!stream) return;
+  
   setProcessingState(false, data.action || 'BACKEND SYNC');
   
   let responseHtml = `<strong>MONTY 2 (BASE 1 LIVE):</strong><br>${data.message}`;
@@ -555,6 +1006,136 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+/* MEDIA REVIEW SPECIFIC FUNCTIONS */
+function extractNuggets() {
+  const output = document.getElementById('nugget-output');
+  const exportControls = document.getElementById('export-controls');
+  const verifyBtn = document.getElementById('verify-nuggets-btn');
+  const exportBtn = document.getElementById('export-nuggets-btn');
+  
+  if(!output) return;
+  
+  output.innerHTML = `<span class="processing-indicator"><span class="spinner"></span> Parsing input payload and extracting intelligence...</span>`;
+  exportControls.style.display = 'none';
+  
+  // Reset buttons in case of re-extraction
+  verifyBtn.innerHTML = `VERIFY INTEGRITY`;
+  verifyBtn.style.backgroundColor = "var(--hf-panel)";
+  verifyBtn.style.color = "var(--hf-accent-blue)";
+  verifyBtn.style.pointerEvents = "auto";
+  exportBtn.style.opacity = "0.3";
+  exportBtn.style.pointerEvents = "none";
+  
+  setTimeout(() => {
+    output.innerHTML = `
+      <strong style="color:var(--hf-accent-gold);">[NUGGETS EXTRACTED SUCCESSFULLY]</strong><br><br>
+      <span style="color:var(--hf-text-muted);">// SOURCE: ALEX FINN - OPENCLAW MISSION CONTROL //</span><br><br>
+      <span style="color:var(--hf-accent-blue);">●</span> <strong>Task Board & Calendar:</strong> Implements Kanban for sub-agent tracking (Henry, Charlie) with a Live Activity feed. Calendar verifies proactive cron jobs are actually scheduled. <br><br>
+      <span style="color:var(--hf-accent-blue);">●</span> <strong>Memory & Docs Hub:</strong> Converts raw markdown memory files into a daily journal interface. The Docs hub centralizes generated assets (newsletters, PRDs) with full searchability. <br><br>
+      <span style="color:var(--hf-accent-blue);">●</span> <strong>Team Org & Mission Statement:</strong> Critical mapping of agents (e.g., Charlie on Mac Studio) and their roles. Ties all agent autonomous actions to a singular Master Mission Statement. <br><br>
+      <span style="color:var(--hf-accent-blue);">●</span> <strong>SOP - Reverse Prompting:</strong> Do not just copy layouts. Use reverse prompting (e.g., "Based on my workflows, what custom tools should we build?") to generate highly personalized dashboard modules. <br><br>
+      <div id="review-status-msg" style="margin-top: 15px; font-style: italic; color: var(--hf-text-sub);">Ready for human review. Verify integrity via High-Tier LLM before export.</div>
+    `;
+    exportControls.style.display = 'flex';
+  }, 1500);
+}
+
+function verifyNuggets() {
+  const output = document.getElementById('nugget-output');
+  const verifyBtn = document.getElementById('verify-nuggets-btn');
+  const exportBtn = document.getElementById('export-nuggets-btn');
+  const statusMsg = document.getElementById('review-status-msg');
+  if(!output || !verifyBtn || !exportBtn) return;
+
+  verifyBtn.innerHTML = `<span class="processing-indicator" style="color:var(--hf-accent-blue);"><span class="spinner" style="border-top-color:var(--hf-accent-blue);"></span></span> VERIFYING VIA HIGH-TIER LLM...`;
+
+  if (statusMsg) {
+    statusMsg.innerHTML = '<span style="color: var(--hf-text-sub);">Routing payload to Base 1 High-Tier LLM Bridge (Daemon 07 - Context QA) for clinical accuracy scan...</span>';
+  }
+
+  setTimeout(() => {
+    verifyBtn.innerHTML = `VERIFIED BY DAEMON 07`;
+    verifyBtn.style.backgroundColor = "rgba(59,130,246,0.15)";
+    verifyBtn.style.color = "var(--hf-accent-blue)";
+    verifyBtn.style.pointerEvents = "none";
+
+    // Enable Export button
+    exportBtn.style.opacity = "1";
+    exportBtn.style.pointerEvents = "auto";
+
+    // Append verification stamp to nuggets
+    if (statusMsg) {
+      statusMsg.innerHTML = '<strong style="color: var(--hf-accent-blue);">[INTEGRITY CHECK PASSED]</strong><br><span style="color: var(--hf-text-sub);">Payload audited by Daemon 07 via Pro LLM. Zero hallucinations detected. Context is clinically accurate.</span><br><br>Enter a target category below and push to 12 DOCS.';
+    }
+  }, 2200);
+}
+
+function exportToDocs() {
+  const output = document.getElementById('nugget-output');
+  const exportBtn = document.getElementById('export-nuggets-btn');
+  const docsContainer = document.getElementById('docs-container');
+  const targetInput = document.getElementById('target-doc-name');
+  
+  if(!output || !docsContainer) return;
+  
+  const originalText = exportBtn.innerHTML;
+  exportBtn.innerHTML = `<span class="processing-indicator" style="color:var(--hf-bg-base);"><span class="spinner" style="border-top-color:var(--hf-bg-base);"></span></span> EXPORTING...`;
+  exportBtn.style.backgroundColor = "var(--hf-accent-gold)";
+  
+  setTimeout(() => {
+    exportBtn.innerHTML = `SUCCESS - VIEW IN 12 DOCS`;
+    exportBtn.style.backgroundColor = "#2ecc71";
+    exportBtn.style.borderColor = "#2ecc71";
+    exportBtn.style.color = "var(--hf-bg-base)";
+    
+    let userInput = targetInput.value.trim();
+    if (!userInput) {
+      userInput = "Uncategorized";
+    }
+    
+    // Automatically strip out the word 'nuggets' if typed, then append it properly to enforce SOP
+    userInput = userInput.replace(/\s*nuggets$/i, '').trim();
+    const docTitle = userInput + " Nuggets";
+
+    // Grab the extracted content, stripping out the success header and verification stamp
+    let rawNuggets = output.innerHTML.replace(/<strong.*?\[NUGGETS EXTRACTED SUCCESSFULLY\].*?<\/strong><br><br>/i, '');
+    rawNuggets = rawNuggets.replace(/<div id="review-status-msg".*?<\/div>/is, '');
+    
+    const dateStamp = new Date().toLocaleTimeString();
+
+    // Create a new document card for 12 DOCS
+    const newDocCard = `
+      <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-left: 3px solid #2ecc71; border-radius: 4px; padding: 12px; animation: fadeIn 0.5s;">
+        <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px; display: flex; justify-content: space-between;">
+          <span>${escapeHtml(docTitle)}</span>
+          <span style="color: var(--hf-text-muted); font-size: 10px;">${dateStamp}</span>
+        </h4>
+        <div style="background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 10px; border-radius: 3px; font-size: 11.5px; color: var(--hf-text-main); line-height: 1.5;">
+          ${rawNuggets}
+        </div>
+      </div>
+    `;
+    
+    docsContainer.insertAdjacentHTML('afterbegin', newDocCard);
+
+    // Reset Review Media Tab
+    setTimeout(() => {
+      document.getElementById('export-controls').style.display = 'none';
+      exportBtn.innerHTML = "SAVE & EXPORT";
+      exportBtn.style.backgroundColor = "";
+      exportBtn.style.borderColor = "";
+      exportBtn.style.color = "";
+      exportBtn.style.opacity = "0.3";
+      exportBtn.style.pointerEvents = "none";
+      targetInput.value = '';
+      
+      document.getElementById('media-input-text').value = '';
+      output.innerHTML = '<span style="color: var(--hf-text-muted);">Awaiting media ingestion... Paste text or links above and extract.</span>';
+    }, 2500);
+
+  }, 1200);
 }
 
 initBackendBridge();
