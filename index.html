@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Warlord Mission Control - Master Interface</title>
+<link rel="stylesheet" href="mcnc_theme.css">
+<style>
+  body {
+    background-color: var(--hf-bg-base);
+    color: var(--hf-text-muted);
+    font-family: monospace;
+    margin: 0;
+    padding: 0;
+  }
+  /* Locked Master Header & Navigation */
+  .sticky-header-wrapper {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: var(--hf-bg-base);
+  }
+  .master-header {
+    background-color: var(--hf-bg-base);
+    border-bottom: 1px solid var(--hf-border);
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .master-title {
+    color: var(--hf-accent-gold);
+    font-weight: bold;
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+  .nav-tabs {
+    display: flex;
+    gap: 12px;
+    padding: 14px 20px;
+    background-color: var(--hf-panel);
+    border-bottom: 1px solid var(--hf-border);
+    overflow-x: auto;
+  }
+  .nav-tab {
+    color: var(--hf-text-muted);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: bold;
+    white-space: nowrap;
+    padding: 8px 14px;
+    cursor: pointer;
+    background: var(--hf-card);
+    border: 1px solid var(--hf-border);
+    border-radius: 3px;
+    font-family: monospace;
+    transition: all 0.2s ease;
+  }
+  .nav-tab:hover {
+    border-color: var(--hf-accent-gold);
+    color: var(--hf-accent-gold);
+  }
+  .nav-tab.active {
+    color: var(--hf-bg-base);
+    background-color: var(--hf-accent-gold);
+    border-color: var(--hf-accent-gold);
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+    padding-bottom: 240px;
+  }
+  .view-section {
+    display: none;
+  }
+  .view-section.active {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .chat-box {
+    position: relative;
+    background-color: var(--hf-card);
+    border: 1px solid var(--hf-border);
+    border-radius: 4px;
+    padding: 16px;
+  }
+  .action-bar-btn {
+    background: var(--hf-panel);
+    border: 1px solid var(--hf-accent-gold);
+    color: var(--hf-accent-gold);
+    padding: 7px 14px;
+    font-family: monospace;
+    font-size: 11.5px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-weight: bold;
+  }
+  .action-bar-btn:hover {
+    background: var(--hf-accent-gold);
+    color: var(--hf-bg-base);
+  }
+  .action-bar-btn.primary {
+    background: var(--hf-accent-gold);
+    color: var(--hf-bg-base);
+  }
+  .action-bar-btn.primary:hover {
+    opacity: 0.9;
+  }
+  /* Distinct highlight style for the APPROVE button */
+  .action-bar-btn.approve-btn {
+    border-color: #2ecc71;
+    color: #2ecc71;
+  }
+  .action-bar-btn.approve-btn:hover {
+    background: #2ecc71;
+    color: var(--hf-bg-base);
+  }
+  .copy-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+  }
+  
+  /* Processing Spinner Animation */
+  .processing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--hf-accent-gold);
+    font-weight: bold;
+  }
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--hf-border);
+    border-top: 2px solid var(--hf-accent-gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Fixed Bottom Command Dock */
+  .command-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--hf-bg-base);
+    border-top: 1px solid var(--hf-border);
+    padding: 12px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 1400px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    z-index: 999;
+  }
+  .attachment-header {
+    color: var(--hf-accent-gold);
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  .attachment-dropzone {
+    background-color: var(--hf-panel);
+    border: 1px dashed var(--hf-accent-gold);
+    color: var(--hf-accent-gold);
+    padding: 8px 12px;
+    font-size: 11px;
+    border-radius: 3px;
+    text-align: center;
+    cursor: pointer;
+    min-height: 20px;
+  }
+  .attachment-dropzone img {
+    max-height: 70px;
+    margin-top: 6px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    border: 1px solid var(--hf-border);
+  }
+  .input-field {
+    width: 100%;
+    background-color: var(--hf-card);
+    border: 1px solid var(--hf-border);
+    color: var(--hf-text-muted);
+    padding: 10px 12px;
+    font-family: monospace;
+    font-size: 12px;
+    border-radius: 3px;
+    resize: vertical;
+    min-height: 50px;
+    max-height: 300px;
+    box-sizing: border-box;
+    line-height: 1.4;
+  }
+  .bottom-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .conversation-stream {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .message-bubble {
+    position: relative;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid var(--hf-border);
+  }
+  .user-msg {
+    background-color: var(--hf-panel);
+    border-color: var(--hf-accent-gold);
+    color: var(--hf-accent-gold);
+    margin-left: 20px;
+  }
+  .monty-msg {
+    background-color: var(--hf-card);
+    margin-right: 20px;
+  }
+  .code-block-wrapper {
+    position: relative;
+    margin-top: 8px;
+  }
+  .code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--hf-panel);
+    border: 1px solid var(--hf-accent-gold);
+    color: var(--hf-accent-gold);
+    padding: 4px 8px;
+    font-family: monospace;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .code-copy-btn:hover {
+    background: var(--hf-accent-gold);
+    color: var(--hf-bg-base);
+  }
+</style>
+</head>
+<body>
+
+<!-- Sticky Master Header & Navigation Wrapper -->
+<div class="sticky-header-wrapper">
+  <div class="master-header">
+    <div class="master-title">WARLORD MISSION CONTROL // MCNC MASTER</div>
+    <div style="font-size: 11px; color: var(--hf-accent-gold);">BRIDGE: CONNECTING (BASE 1) &nbsp;|&nbsp; RAM: 5.14 / 7.88 GB</div>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab" onclick="switchTab(1, this)">01 EXEC</button>
+    <button class="nav-tab active" onclick="switchTab(2, this)">02 TASK BOARD</button>
+    <button class="nav-tab" onclick="switchTab(3, this)">03 REVIEW MEDIA</button>
+    <button class="nav-tab" onclick="switchTab(4, this)">04 CALENDAR</button>
+    <button class="nav-tab" onclick="switchTab(5, this)">05 PROJECTS</button>
+    <button class="nav-tab" onclick="switchTab(6, this)">06 MEMORY</button>
+    <button class="nav-tab" onclick="switchTab(7, this)">07 ORG</button>
+    <button class="nav-tab" onclick="switchTab(8, this)">08 OFFICE</button>
+    <button class="nav-tab" onclick="switchTab(9, this)">09 PALETTES</button>
+    <button class="nav-tab" onclick="switchTab(10, this)">10 OBSIDIAN GALAXY</button>
+    <button class="nav-tab" onclick="switchTab(11, this)">11 PAPERCLIP</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- VIEW 1: 01 EXEC -->
+  <div id="view-1" class="view-section">
+    <div class="mcnc-panel" style="margin: 0;">
+      <h3 style="margin-top: 0; color: var(--hf-accent-gold);">CHIEF OF STAFF // MONTY 2 (BASE 1 PIPELINE)</h3>
+      
+      <div class="chat-box">
+        <button class="action-bar-btn copy-btn" onclick="copyConversation()">COPY STREAM</button>
+        <div id="conversation-stream" class="conversation-stream">
+          <div class="message-bubble monty-msg">
+            <strong>MONTY 2:</strong><br>
+            Pipeline active. Command workflow configured for Monty, Junior, and Agent Delegation. Awaiting live instruction.
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-box" style="margin-top: 16px;">
+        <strong>STATUS & WORKFLOW ADVISORY LOOP</strong>
+        <p style="color: var(--hf-text-muted); font-size: 12px; margin-top: 6px;" id="monty-advisory-text">
+          Status: <span id="status-text">Ready for interaction. Workflow action buttons mapped and armed.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: 02 TASK BOARD (ACTIVE TARGET) -->
+  <div id="view-2" class="view-section active">
+    <h2 style="color:var(--hf-accent-gold); margin-top:0;">02 TASK BOARD // ACTIVE PIPELINE</h2>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+      <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-radius: 4px; padding: 12px;">
+        <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px;">BACKLOG</h4>
+        <div style="background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 10px; margin-bottom: 8px; border-radius: 3px; font-size: 11px;"><strong>TASK-01:</strong> Wire WebSocket Bridge to Base 1 Backend</div>
+        <div style="background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 10px; margin-bottom: 8px; border-radius: 3px; font-size: 11px;"><strong>TASK-02:</strong> Junior Agent Delegation & Paperclip Integration</div>
+      </div>
+      <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-radius: 4px; padding: 12px;">
+        <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px;">IN PROGRESS</h4>
+        <div style="background: var(--hf-panel); border: 1px solid var(--hf-accent-gold); padding: 10px; margin-bottom: 8px; border-radius: 3px; font-size: 11px;"><strong>TASK-03:</strong> Streamlined Command Dock & Workflow Button Mapping</div>
+      </div>
+      <div style="background: var(--hf-card); border: 1px solid var(--hf-border); border-radius: 4px; padding: 12px;">
+        <h4 style="color: var(--hf-accent-gold); margin-top: 0; border-bottom: 1px solid var(--hf-border); padding-bottom: 8px;">COMPLETED</h4>
+        <div style="background: var(--hf-panel); border: 1px solid var(--hf-border); padding: 10px; margin-bottom: 8px; border-radius: 3px; font-size: 11px;"><strong>TASK-04:</strong> Master Header Navigation & Tab Rename ("02 TASK BOARD")</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3 TO 11 PLACEHOLDERS -->
+  <div id="view-3" class="view-section"><h2 style="color:var(--hf-accent-gold);">03 REVIEW MEDIA // LAYOUT ASSESSMENT</h2></div>
+  <div id="view-4" class="view-section"><h2 style="color:var(--hf-accent-gold);">04 CALENDAR // SCHEDULE</h2></div>
+  <div id="view-5" class="view-section"><h2 style="color:var(--hf-accent-gold);">05 PROJECTS // ACTIVE MANIFEST</h2></div>
+  <div id="view-6" class="view-section"><h2 style="color:var(--hf-accent-gold);">06 MEMORY // CORE STORAGE</h2></div>
+  <div id="view-7" class="view-section"><h2 style="color:var(--hf-accent-gold);">07 ORG // STRUCTURE & NODES</h2></div>
+  <div id="view-8" class="view-section"><h2 style="color:var(--hf-accent-gold);">08 OFFICE // WORKSPACE</h2></div>
+  <div id="view-9" class="view-section"><h2 style="color:var(--hf-accent-gold);">09 PALETTES // HIGH FINANCE THEME</h2></div>
+  <div id="view-10" class="view-section"><h2 style="color:var(--hf-accent-gold);">10 OBSIDIAN GALAXY // KNOWLEDGE GRAPH</h2></div>
+  <div id="view-11" class="view-section"><h2 style="color:var(--hf-accent-gold);">11 PAPERCLIP // AUTONOMOUS ENGINE</h2></div>
+
+</div>
+
+<!-- Fixed Bottom Command Dock (Refined Workflow Buttons) -->
+<div class="command-dock">
+  <div class="attachment-header">+ ATTACH FILE / SCREENSHOT / YOUTUBE</div>
+  <div class="attachment-dropzone" id="attachment-paste-box" tabindex="0">
+    Click here and press Ctrl+V to paste screenshots directly.
+  </div>
+  
+  <textarea class="input-field" id="user-input-box" rows="2" placeholder="Enter instructions, code directives, prompt parameters, or paste YouTube links here..."></textarea>
+
+  <div class="bottom-actions">
+    <button class="action-bar-btn primary" onclick="runAction('SUBMIT INSTRUCTION')">SUBMIT INSTRUCTION</button>
+    <button class="action-bar-btn approve-btn" onclick="runAction('APPROVE')">APPROVE</button>
+    <button class="action-bar-btn" onclick="runAction('ADD INSTRUCTION')">+ ADD INSTRUCTION</button>
+    <button class="action-bar-btn" onclick="runAction('REFINE PROMPT')">REFINE PROMPT</button>
+    <button class="action-bar-btn" onclick="runAction('ASSIGN TASK')">ASSIGN TASK</button>
+    <button class="action-bar-btn" onclick="runAction('REVIEW & FINALIZE')">REVIEW & FINALIZE</button>
+    <button class="action-bar-btn" onclick="runAction('INSTRUCT JUNIOR')">INSTRUCT JUNIOR</button>
+  </div>
+</div>
+
+<script>
+// BACKEND BRIDGE CONFIGURATION (Base 1 Node.js / OpenClaw Integration)
+const BACKEND_WS_URL = "ws://localhost:3847/ws";
+let ws = null;
+let isConnected = false;
+
+function initBackendBridge() {
+  try {
+    ws = new WebSocket(BACKEND_WS_URL);
+    
+    ws.onopen = function() {
+      isConnected = true;
+      document.querySelector('.master-header div:last-child').innerHTML = "BRIDGE: ACTIVE (BASE 1) &nbsp;|&nbsp; RAM: 5.14 / 7.88 GB";
+      document.getElementById('status-text').innerHTML = "Connected to Base 1 backend daemon. Ready for live operations.";
+    };
+    
+    ws.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+      handleBackendMessage(data);
+    };
+    
+    ws.onclose = function() {
+      isConnected = false;
+      document.querySelector('.master-header div:last-child').innerHTML = "BRIDGE: OFFLINE (FALLBACK MODE) &nbsp;|&nbsp; RAM: 5.14 / 7.88 GB";
+      document.getElementById('status-text').innerHTML = "Backend offline. Running in secure local review mode. Awaiting restart.";
+      setTimeout(initBackendBridge, 5000);
+    };
+
+    ws.onerror = function(err) {
+      isConnected = false;
+    };
+  } catch (e) {
+    isConnected = false;
+  }
+}
+
+function switchTab(index, btnElement) {
+  const views = document.querySelectorAll('.view-section');
+  views.forEach(v => v.classList.remove('active'));
+
+  document.getElementById('view-' + index).classList.add('active');
+
+  const tabs = document.querySelectorAll('.nav-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  btnElement.classList.add('active');
+  
+  window.scrollTo(0, 0);
+}
+
+let attachedImageSrc = null;
+
+const dropzone = document.getElementById('attachment-paste-box');
+dropzone.addEventListener('paste', function(e) {
+  const items = e.clipboardData.items;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      const blob = items[i].getAsFile();
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        attachedImageSrc = event.target.result;
+        dropzone.innerHTML = `[Asset Attached Successfully] <img src="${attachedImageSrc}" alt="Pasted Asset">`;
+      };
+      reader.readAsDataURL(blob);
+    }
+  }
+});
+
+/* Auto-expanding textarea height controller */
+const userInputBox = document.getElementById('user-input-box');
+userInputBox.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = (this.scrollHeight) + 'px';
+});
+
+function copyConversation() {
+  const streamText = document.getElementById('conversation-stream').innerText;
+  navigator.clipboard.writeText(streamText).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.innerText = 'COPIED!';
+    setTimeout(() => btn.innerText = 'COPY STREAM', 2000);
+  });
+}
+
+function copyCodeSnippet(buttonElement) {
+  const preTag = buttonElement.parentElement.querySelector('pre');
+  const codeText = preTag.innerText;
+  navigator.clipboard.writeText(codeText).then(() => {
+    buttonElement.innerText = 'COPIED!';
+    setTimeout(() => buttonElement.innerText = 'COPY CODE', 2000);
+  });
+}
+
+function setProcessingState(isProcessing, actionName) {
+  const statusEl = document.getElementById('status-text');
+  if (isProcessing) {
+    statusEl.innerHTML = `<span class="processing-indicator"><span class="spinner"></span> Executing workflow action [${actionName}]... Awaiting response/approval.</span>`;
+  } else {
+    statusEl.innerHTML = `Awaiting next instruction or human authorization.`;
+  }
+}
+
+function runAction(actionName) {
+  const stream = document.getElementById('conversation-stream');
+  const userText = userInputBox.value.trim();
+  
+  if (userText === "" && !attachedImageSrc && actionName !== 'APPROVE') {
+    return;
+  }
+
+  let displayActionText = userText !== "" ? userText : `[Triggered Action: ${actionName}]`;
+  let userHtml = `<div class="message-bubble user-msg"><strong>USER ACTION [${actionName}]:</strong><br>${displayActionText}`;
+  if (attachedImageSrc) {
+    userHtml += `<br><img src="${attachedImageSrc}" style="max-height:60px; margin-top:4px; border:1px solid var(--hf-border);">`;
+  }
+  userHtml += `</div>`;
+  stream.innerHTML += userHtml;
+
+  setProcessingState(true, actionName);
+
+  const payload = {
+    action: actionName,
+    instruction: userText,
+    image: attachedImageSrc,
+    timestamp: new Date().toISOString()
+  };
+
+  if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(payload));
+  } else {
+    setTimeout(() => {
+      setProcessingState(false, actionName);
+
+      let montyResponse = "";
+      switch(actionName) {
+        case 'SUBMIT INSTRUCTION':
+          montyResponse = `<strong>MONTY 2:</strong><br><em>"Instruction received. Analyzing parameters and preparing initial assessment for your review."</em>`;
+          break;
+        case 'APPROVE':
+          montyResponse = `<strong>MONTY 2 / JUNIOR:</strong><br><em>"Approval registered. Action authorized and pushed downstream to active director agents and Paperclip daemon."</em>`;
+          break;
+        case 'ADD INSTRUCTION':
+          montyResponse = `<strong>MONTY 2:</strong><br><em>"Instruction appended to the active context queue. Ready for next refinement or submission."</em>`;
+          break;
+        case 'REFINE PROMPT':
+          montyResponse = `<strong>MONTY 2 (PROMPT TOOL):</strong><br><em>"Refining active prompt parameters for optimal clarity, structure, and execution efficiency..."</em>`;
+          break;
+        case 'ASSIGN TASK':
+          montyResponse = `<strong>MONTY 2:</strong><br><em>"Task evaluated. Automatically assigning subtasks to director agents (Charlie, Tess, Roxy, Jack) without overloading Junior's LLM pipeline."</em>`;
+          break;
+        case 'REVIEW & FINALIZE':
+          montyResponse = `<strong>MONTY 2:</strong><br><em>"Performing final review of the package destined for Junior. Prompt structure verified. Ready for [INSTRUCT JUNIOR]."</em>`;
+          break;
+        case 'INSTRUCT JUNIOR':
+          montyResponse = `<strong>JUNIOR & MONTY 2:</strong><br><em>"Package received by Junior. Formulating game plan across director agents. Awaiting final [APPROVE] to dispatch."</em>`;
+          break;
+        default:
+          montyResponse = `<strong>MONTY 2:</strong><br><em>"Processed workflow action [${actionName}]."</em>`;
+      }
+
+      stream.innerHTML += `<div class="message-bubble monty-msg">${montyResponse}</div>`;
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+    }, 1000);
+  }
+
+  // If action is Add Instruction, we keep the text in box for further typing; otherwise clear
+  if (actionName !== 'ADD INSTRUCTION') {
+    userInputBox.value = '';
+    userInputBox.style.height = 'auto';
+  }
+  attachedImageSrc = null;
+  dropzone.innerHTML = `Click here and press Ctrl+V to paste screenshots directly.`;
+}
+
+function handleBackendMessage(data) {
+  const stream = document.getElementById('conversation-stream');
+  setProcessingState(false, data.action || 'BACKEND SYNC');
+  
+  let responseHtml = `<strong>MONTY 2 (BASE 1 LIVE):</strong><br>${data.message}`;
+  if (data.codeSnippet) {
+    responseHtml += `
+      <div class="code-block-wrapper">
+        <button class="code-copy-btn" onclick="copyCodeSnippet(this)">COPY CODE</button>
+        <pre style="background:var(--hf-bg-base); padding:12px; border:1px solid var(--hf-border); overflow-x:auto; font-size:11px; color:var(--hf-accent-gold); margin-top:6px; border-radius:3px;">${escapeHtml(data.codeSnippet)}</pre>
+      </div>`;
+  }
+  stream.innerHTML += `<div class="message-bubble monty-msg">${responseHtml}</div>`;
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+initBackendBridge();
+</script>
+
+</body>
+</html>

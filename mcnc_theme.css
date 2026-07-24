@@ -1,0 +1,36 @@
+:root {
+  --hf-bg-base: #070913;
+  --hf-panel: #0f172a;
+  --hf-card: #131b2e;
+  --hf-border: #1e293b;
+  --hf-text-muted: #94a3b8;
+  --hf-accent-gold: #DAA520;
+  --hf-gold-highlight: #e2B889;
+  --hf-slate-teal: #6B8E9B;
+  --hf-midnight-steel: #5A7694;
+  --hf-status-green: #22c55e;
+  --hf-status-red: #ef4444;
+  --hf-status-blue: #3b82f6;
+}
+
+body {
+  background-color: var(--hf-bg-base);
+  color: var(--hf-text-muted);
+  font-family: monospace;
+  margin: 0;
+  padding: 0;
+}
+
+.mcnc-panel {
+  background-color: var(--hf-panel);
+  border: 1px solid var(--hf-border);
+  border-radius: 4px;
+  padding: 16px;
+  margin: 10px;
+}
+
+.mcnc-card {
+  background-color: var(--hf-card);
+  border: 1px solid var(--hf-border);
+  padding: 12px;
+}
