@@ -1,0 +1,56 @@
+@echo off
+title WASP TEAM ORCHESTRATOR
+echo ========================================================
+echo [!] INITIALIZING WASP AI SUPA PACK INFRASTRUCTURE
+echo ========================================================
+
+echo (1) Launching Local Ollama pipeline...
+start "Ollama Engine" /Min "C:\Users\%USERNAME%\AppData\Local\Programs\Ollama\ollama.exe" serve
+timeout /t 3 /nobreak >nul
+
+echo (2) Executing Tier 1 Zero-State Disk Purge...
+:: [WARLORD PROTOCOL] Annihilating corrupted Hermes migration state
+if exist "C:\Warlord_Inc\Warlord_WASP\.openclaw" (
+    rmdir /s /q "C:\Warlord_Inc\Warlord_WASP\.openclaw"
+)
+if exist "C:\Warlord_Inc\Warlord_WASP\OpenClaw\openclaw.json" (
+    del /f /q "C:\Warlord_Inc\Warlord_WASP\OpenClaw\openclaw.json"
+)
+
+echo (3) Securing OpenClaw Gateway Base...
+cd /d "C:\Warlord_Inc\Warlord_WASP\OpenClaw"
+
+:: [WARLORD PROTOCOL] Generating sterile OpenClaw environment launchers
+(
+echo @echo off
+echo set "PORT=18789"
+echo set "OPENCLAW_PROVIDER=ollama"
+echo set "OPENCLAW_BASE_URL=http://127.0.0.1:11434/v1"
+echo set "OPENCLAW_MODEL=qwen2.5"
+echo set "OPENCLAW_SKIP_CHANNELS=1"
+echo node scripts/run-node.mjs --gateway
+) > "C:\Warlord_Inc\Warlord_WASP\OpenClaw\boot_gateway.bat"
+
+(
+echo @echo off
+echo set "PORT=18789"
+echo set "OPENCLAW_PROVIDER=ollama"
+echo set "OPENCLAW_BASE_URL=http://127.0.0.1:11434/v1"
+echo set "OPENCLAW_MODEL=qwen2.5"
+echo set "OPENCLAW_SKIP_CHANNELS=1"
+echo node scripts/run-node.mjs tui
+) > "C:\Warlord_Inc\Warlord_WASP\OpenClaw\boot_tui.bat"
+
+echo (4) Booting Core Gateway [Clean State]...
+start "OpenClaw Bridge" cmd /k "C:\Warlord_Inc\Warlord_WASP\OpenClaw\boot_gateway.bat"
+timeout /t 5 /nobreak >nul
+
+echo (5) Booting Terminal UI...
+start "OpenClaw TUI" cmd /k "C:\Warlord_Inc\Warlord_WASP\OpenClaw\boot_tui.bat"
+timeout /t 2 /nobreak >nul
+
+echo ========================================================
+echo [SUCCESS] CORE INFRASTRUCTURE LOCKED.
+echo ========================================================
+timeout /t 3 /nobreak
+exit

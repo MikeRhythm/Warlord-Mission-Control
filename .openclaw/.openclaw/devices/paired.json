@@ -1,0 +1,83 @@
+{
+  "3f9d18ccc9334a4fe7a4bd2770094ceb2d8c31bbf104da012a31368a624b1aa4": {
+    "deviceId": "3f9d18ccc9334a4fe7a4bd2770094ceb2d8c31bbf104da012a31368a624b1aa4",
+    "publicKey": "h_HxzlCCr1rztDR_eHebsnn1mU50NdZvwZjim3SO5HE",
+    "platform": "Win32",
+    "clientId": "openclaw-control-ui",
+    "clientMode": "webchat",
+    "role": "operator",
+    "roles": [
+      "operator"
+    ],
+    "scopes": [
+      "operator.admin",
+      "operator.read",
+      "operator.write",
+      "operator.approvals",
+      "operator.pairing"
+    ],
+    "approvedScopes": [
+      "operator.admin",
+      "operator.read",
+      "operator.write",
+      "operator.approvals",
+      "operator.pairing"
+    ],
+    "tokens": {
+      "operator": {
+        "token": "dWWw3YkPsX1U-EgDziqsioWCKSnI_qYlQQ1yanzK18E",
+        "role": "operator",
+        "scopes": [
+          "operator.admin",
+          "operator.approvals",
+          "operator.pairing",
+          "operator.read",
+          "operator.write"
+        ],
+        "issuer": {
+          "kind": "shared-gateway-auth",
+          "generation": "tG4cSk5kAkVcCy_aJQ1GwpPK6uVOdlelWvJcxQtnZwE"
+        },
+        "createdAtMs": 1782238817687,
+        "rotatedAtMs": 1783001400863,
+        "lastUsedAtMs": 1784928521768
+      }
+    },
+    "createdAtMs": 1782238817687,
+    "approvedAtMs": 1782238817687,
+    "lastSeenAtMs": 1784928521768,
+    "lastSeenReason": "device-token-auth"
+  },
+  "74b4700eed88e344a79e6fcd2183b14b60c349bcec7c19c4c916811eace85053": {
+    "deviceId": "74b4700eed88e344a79e6fcd2183b14b60c349bcec7c19c4c916811eace85053",
+    "publicKey": "QUlg6m7z2K8PUGdSYhXL5oRHq-NNhvGHsAHApXPi9Hc",
+    "platform": "win32",
+    "clientId": "cli",
+    "clientMode": "cli",
+    "role": "operator",
+    "roles": [
+      "operator"
+    ],
+    "scopes": [
+      "operator.write"
+    ],
+    "approvedScopes": [
+      "operator.write"
+    ],
+    "tokens": {
+      "operator": {
+        "token": "ir5idy-dKxweL3An9JT93QBhLTQvO1C0bbmMCQwEBBw",
+        "role": "operator",
+        "scopes": [
+          "operator.read",
+          "operator.write"
+        ],
+        "createdAtMs": 1783002082726
+      }
+    },
+    "createdAtMs": 1783002082725,
+    "approvedAtMs": 1783002082725,
+    "lastSeenAtMs": 1784585775316,
+    "lastSeenReason": "connect"
+  }
+}

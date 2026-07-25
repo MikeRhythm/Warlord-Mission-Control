@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-02T11:39:54.571Z",
+  "reason": "gateway.startup_failed",
+  "process": {
+    "pid": 7696,
+    "platform": "win32",
+    "arch": "x64",
+    "node": "24.16.0",
+    "uptimeMs": 10662
+  },
+  "host": {
+    "hostname": "<redacted-hostname>"
+  },
+  "error": {
+    "name": "Error",
+    "message": "Invalid config at C:\\Warlord_Inc\\Warlord_WASP\\.openclaw\\.openclaw\\openclaw.json. agents.defaults.model: Invalid input agents.defaults: Invalid input Run \"openclaw doctor --fix\" to repair, then retry. If startup is still blocked, inspect the adjacent .bak backup before restoring it manually."
+  },
+  "snapshot": {
+    "generatedAt": "2026-07-02T11:39:54.571Z",
+    "capacity": 1000,
+    "count": 0,
+    "dropped": 0,
+    "events": [],
+    "summary": {
+      "byType": {}
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "6ccc3e05-60d3-4ef6-8b7f-180535d61ce3": {
+    "requestId": "6ccc3e05-60d3-4ef6-8b7f-180535d61ce3",
+    "deviceId": "74b4700eed88e344a79e6fcd2183b14b60c349bcec7c19c4c916811eace85053",
+    "publicKey": "QUlg6m7z2K8PUGdSYhXL5oRHq-NNhvGHsAHApXPi9Hc",
+    "displayName": "agent",
+    "platform": "win32",
+    "clientId": "gateway-client",
+    "clientMode": "backend",
+    "role": "operator",
+    "roles": [
+      "operator"
+    ],
+    "scopes": [
+      "operator.approvals"
+    ],
+    "silent": false,
+    "isRepair": true,
+    "ts": 1784123860374
+  }
+}

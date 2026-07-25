@@ -1,0 +1,37 @@
+{
+  "entries": {
+    "C:\\Warlord_Inc\\Warlord_WASP\\.openclaw\\.openclaw-dev\\openclaw.json": {
+      "lastKnownGood": {
+        "hash": "40099ad4890a8fe38efc1a7fc967e17b83322dd2c9e15479e6f589cb5eb4e264",
+        "bytes": 626,
+        "mtimeMs": 1782288774162.0493,
+        "ctimeMs": 1782288774162.0493,
+        "dev": "1044082265",
+        "ino": "4785074604195752",
+        "mode": 33206,
+        "nlink": 1,
+        "uid": 0,
+        "gid": 0,
+        "hasMeta": true,
+        "gatewayMode": "local",
+        "observedAt": "2026-06-24T08:13:06.188Z"
+      },
+      "lastObservedSuspiciousSignature": null,
+      "lastPromotedGood": {
+        "hash": "40099ad4890a8fe38efc1a7fc967e17b83322dd2c9e15479e6f589cb5eb4e264",
+        "bytes": 626,
+        "mtimeMs": 1782288774162.0493,
+        "ctimeMs": 1782288774162.0493,
+        "dev": "1044082265",
+        "ino": "4785074604195752",
+        "mode": 33206,
+        "nlink": 1,
+        "uid": 0,
+        "gid": 0,
+        "hasMeta": true,
+        "gatewayMode": "local",
+        "observedAt": "2026-06-24T08:13:06.188Z"
+      }
+    }
+  }
+}

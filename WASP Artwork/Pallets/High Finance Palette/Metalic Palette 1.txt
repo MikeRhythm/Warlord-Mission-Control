@@ -1,0 +1,27 @@
+Target: Apply Master Palette Configuration and Structural Layout Update
+Files: src/app/page.tsx (or main layout component), tailwind.config.js
+Objective: Re-skin the Mission Control app with the absolute multi-metal High Finance visual standard.
+
+[EXECUTION PROTOCOL: FULL CODE ONLY. DO NOT SHORTCUT WITH PLACEHOLDERS or SNIPPETS.]
+
+1. Execute the configuration setup block:
+Ensure 'tailwind.config.js' contains the exact color dictionary extensions:
+- 'rhythm-obsidian-deep': '#0A0C10'
+- 'rhythm-charcoal-matte': '#12161F'
+- 'rhythm-glass-specular': '#1E2530'
+- 'rhythm-goldenrod-core': '#DAA520'
+- 'rhythm-gold-liquid': '#C5A059'
+- 'rhythm-silver-mist': '#94A3B8'
+- 'rhythm-sage-metallic': '#7A8A80'
+- 'rhythm-slate-reflection': '#334155'
+- 'rhythm-maroon-depth': '#2D1A1E'
+
+2. Apply the Structural Skin in the Main Layout File:
+- Update the main grid container to force a solid, non-scrolling, two-column layouts matching Mike's strict operational dashboard layout rule.
+- Base Canvas background: bg-rhythm-obsidian-deep.
+- Main Headers: Use monospace fonts tracking out letter-spacing slightly, colored in `#E2E8F0` or `#C5A059`.
+- Cards & Modules: Apply: "bg-rhythm-charcoal-matte border border-rhythm-slate-reflection/30 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-sm p-4".
+- Dividers & Accent Rails: Apply crisp gradient wires using: "h-[1px] bg-gradient-to-r from-transparent via-rhythm-gold-liquid/40 to-transparent".
+
+3. Verification Step:
+Rewrite the components completely to incorporate this palette. Do not touch background data streaming architectures; focus purely on the visual layer. Run the compiler check and confirm 0 build warnings.

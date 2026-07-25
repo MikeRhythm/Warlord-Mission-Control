@@ -1,0 +1,28 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback"
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "C:\\Warlord_Inc\\Warlord_WASP\\.openclaw\\.openclaw\\workspace-dev",
+      "skipBootstrap": true
+    },
+    "list": [
+      {
+        "id": "dev",
+        "default": true,
+        "workspace": "C:\\Warlord_Inc\\Warlord_WASP\\.openclaw\\.openclaw\\workspace-dev",
+        "identity": {
+          "name": "C3-PO",
+          "theme": "protocol droid",
+          "emoji": "🤖"
+        }
+      }
+    ]
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.6.2",
+    "lastTouchedAt": "2026-06-24T08:12:54.147Z"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "system_id": "WARLORD_WASP_BASE1",
+  "security_vault_path": "C:\\Warlord_Inc\\Warlord_WASP\\security\\vault\\",
+  "master_auth_file": "00_Nvidia_API.txt",
+  "agents": {
+    "monty": {
+      "role": "Chief of Staff",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "monty.md",
+      "permissions": ["system_orchestration", "triage", "file_routing"]
+    },
+    "charlie": {
+      "role": "Coding Lead",
+      "brain_model": "qwen/qwen2.5-coder-72b-instruct",
+      "identity_file": "charlie.md",
+      "permissions": ["mql5_compile", "python_execute", "clean_init"],
+      "strict_rules": "No unauthorized changes. Full code block returns only. Warlord Lines mandatory."
+    },
+    "tess": {
+      "role": "Quant Analyst",
+      "brain_model": "deepseek/deepseek-r1",
+      "identity_file": "tess.md",
+      "permissions": ["volatility_scan", "math_arrays", "execution_triggers"]
+    },
+    "roxy": {
+      "role": "UI/UX Creative Director",
+      "brain_model": "meta/llama-3.1-405b-instruct",
+      "identity_file": "roxy.md",
+      "permissions": ["ui_layout", "theme_tokens", "dashboard_marketing"],
+      "color_palette": ["DodgerBlue", "OrangeRed", "Goldenrod"]
+    },
+    "jack": {
+      "role": "Backend Engineer",
+      "brain_model": "meta/llama-3.2-3b-instruct",
+      "identity_file": "jack.md",
+      "permissions": ["nodejs_bridge", "websocket_streams", "heartbeat_monitor"]
+    }
+  }
+}

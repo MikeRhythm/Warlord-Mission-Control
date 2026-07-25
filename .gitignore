@@ -1,0 +1,13 @@
+# Node Dependencies
+node_modules/
+
+# Massive AI Model Weights
+.ollama/
+
+# Environment Variables & Logs
+.env
+*.log
+
+# OS Junk Files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,80 @@
+{
+  "agent:dev:main": {
+    "sessionId": "a974b18e-70a4-4701-802c-4a242cdfbbd0",
+    "updatedAt": 1782289684194,
+    "sessionStartedAt": 1782289661894,
+    "systemSent": true,
+    "abortedLastRun": false,
+    "chatType": "direct",
+    "sessionFile": "C:\\Warlord_Inc\\Warlord_WASP\\.openclaw\\.openclaw-dev\\agents\\dev\\sessions\\a974b18e-70a4-4701-802c-4a242cdfbbd0.jsonl",
+    "compactionCount": 0,
+    "skillsSnapshot": {
+      "skills": [
+        {
+          "name": "acp-router"
+        },
+        {
+          "name": "browser-automation"
+        },
+        {
+          "name": "canvas"
+        },
+        {
+          "name": "diagram-maker"
+        },
+        {
+          "name": "healthcheck"
+        },
+        {
+          "name": "meme-maker",
+          "requiredEnv": []
+        },
+        {
+          "name": "node-connect"
+        },
+        {
+          "name": "node-inspect-debugger",
+          "requiredEnv": []
+        },
+        {
+          "name": "notion",
+          "primaryEnv": "NOTION_API_TOKEN",
+          "requiredEnv": []
+        },
+        {
+          "name": "python-debugpy",
+          "requiredEnv": []
+        },
+        {
+          "name": "skill-creator"
+        },
+        {
+          "name": "spike"
+        },
+        {
+          "name": "taskflow"
+        },
+        {
+          "name": "taskflow-inbox-triage"
+        },
+        {
+          "name": "video-frames",
+          "requiredEnv": []
+        },
+        {
+          "name": "weather",
+          "requiredEnv": []
+        }
+      ],
+      "version": 0,
+      "promptRef": {
+        "version": 1,
+        "algorithm": "sha256",
+        "hash": "dadc8ea1d0e2e4886ea8a807c6113cdae668463fdf4ef76007e610c0acfa3668",
+        "bytes": 5100
+      }
+    },
+    "status": "running",
+    "startedAt": 1782289670807
+  }
+}

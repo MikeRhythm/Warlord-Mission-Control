@@ -1,0 +1,23 @@
+{
+  "gateway": {
+    "mode": "local"
+  },
+  "models": {
+    "mode": "replace",
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://127.0.0.1:11434/v1"
+      },
+      "nvidia": {
+        "credentials": {
+          "key": "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"
+        }
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": "ollama/qwen2.5"
+    }
+  }
+}
