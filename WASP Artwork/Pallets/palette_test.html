@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Finance Palette - True Render</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            /* 1. Core Architecture */
+            --bg-obsidian: #0C0C0C;
+            --wire-border: #1E1E1E;
+            
+            /* 2. Typography */
+            --text-smoke: #E2E8F0;
+            --text-glint: #F8FAFC;
+            --text-mist: #94A3B8;
+
+            /* 3. Telemetry & Alerts */
+            --gold-core: #DAA520;
+            --gold-fill: #19140B;
+            
+            --emerald-core: #047857;
+            --emerald-fill: #091712;
+            
+            --ruby-core: #B91C1C;
+            --ruby-fill: #1A0B0B;
+
+            /* 4. Metallic Gradients Set 1 (Warm & Monocline) */
+            --metal-maroon: linear-gradient(180deg, #C46D63 0%, #8C3A32 50%, #4A1C16 100%);
+            --metal-sepia: linear-gradient(180deg, #D1C4C0 0%, #9E8C87 50%, #594944 100%);
+            --metal-bronze: linear-gradient(180deg, #B39E96 0%, #7A635B 50%, #382A26 100%);
+            --metal-silver: linear-gradient(180deg, #CED6DC 0%, #929CA3 50%, #4E5459 100%);
+            --metal-gunmetal: linear-gradient(180deg, #5C666E 0%, #353B40 50%, #121517 100%);
+            
+            /* 5. Metallic Gradients Set 2 (Tactical & Slate) */
+            --metal-champagne: linear-gradient(180deg, #E8E6C8 0%, #9C9973 50%, #4A4932 100%);
+            --metal-sage: linear-gradient(180deg, #C2D6C8 0%, #7A9685 50%, #3D5245 100%);
+            --metal-olive: linear-gradient(180deg, #B5C4A3 0%, #6E8059 50%, #364229 100%);
+            --metal-slate: linear-gradient(180deg, #94A1A6 0%, #546369 50%, #273238 100%);
+
+            /* 6. Metallic Gradients Set 3 (Noir & Stealth) */
+            --metal-onyx: linear-gradient(180deg, #444444 0%, #222222 50%, #050505 100%);
+            --metal-charcoal: linear-gradient(180deg, #6E767C 0%, #40454A 50%, #1C1E20 100%);
+            --metal-graphite: linear-gradient(180deg, #A0AAB2 0%, #687178 50%, #3A3F44 100%);
+            --metal-taupe: linear-gradient(180deg, #877C75 0%, #544C47 50%, #2B2522 100%);
+            --metal-espresso: linear-gradient(180deg, #544740 0%, #2E2521 50%, #120E0C 100%);
+
+            /* 7. Metallic Gradients Set 4 (Precious Metals & Oceanic Steel) */
+            --metal-antique-brass: linear-gradient(180deg, #A8A876 0%, #666645 50%, #2E2E1E 100%);
+            --metal-titanium: linear-gradient(180deg, #E2E8ED 0%, #A1A9AF 50%, #55595C 100%);
+            --metal-brushed-steel: linear-gradient(180deg, #CBD4DB 0%, #8B939A 50%, #454A4E 100%);
+            --metal-deep-teal: linear-gradient(180deg, #5092A8 0%, #265261 50%, #0F252B 100%);
+            --metal-midnight: linear-gradient(180deg, #2D5063 0%, #142933 50%, #071014 100%);
+        }
+
+        body {
+            background-color: var(--bg-obsidian);
+            color: var(--text-glint);
+            font-family: 'JetBrains Mono', monospace;
+            padding: 40px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--text-smoke);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--wire-border);
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+            font-size: 28px;
+        }
+
+        .swatch-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .swatch-card {
+            border: 1px solid var(--wire-border);
+            padding: 24px;
+            border-radius: 4px;
+            background-color: transparent;
+        }
+
+        .swatch-title {
+            font-size: 11px;
+            color: var(--text-mist);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Typography Styles */
+        .primary-header {
+            color: var(--text-smoke);
+            font-weight: bold;
+            font-size: 22px;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+
+        .live-data-main {
+            color: var(--text-glint);
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .live-data-secondary {
+            color: var(--text-mist);
+            font-size: 14px;
+        }
+
+        /* Under-Glass Alert Panels */
+        .alert-panel {
+            padding: 16px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 10px;
+        }
+
+        .alert-goldenrod {
+            color: var(--gold-core);
+            background-color: var(--gold-fill);
+            border-left: 4px solid var(--gold-core);
+        }
+
+        .alert-emerald {
+            color: var(--emerald-core);
+            background-color: var(--emerald-fill);
+            border-left: 4px solid var(--emerald-core);
+        }
+
+        .alert-ruby {
+            color: var(--ruby-core);
+            background-color: var(--ruby-fill);
+            border-left: 4px solid var(--ruby-core);
+        }
+
+        /* Metallic Gradient Layout */
+        .metal-grid {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .grid-5 { grid-template-columns: repeat(5, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+        .metal-bar {
+            height: 80px;
+            border-radius: 4px;
+            border: 1px solid var(--wire-border);
+            display: flex;
+            align-items: flex-end;
+            padding: 10px;
+            font-size: 11px;
+            color: var(--bg-obsidian);
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Set 1 Colors */
+        .metal-maroon { background: var(--metal-maroon); color: var(--text-glint); }
+        .metal-sepia { background: var(--metal-sepia); }
+        .metal-bronze { background: var(--metal-bronze); color: var(--text-glint); }
+        .metal-silver { background: var(--metal-silver); }
+        .metal-gunmetal { background: var(--metal-gunmetal); color: var(--text-glint); }
+
+        /* Set 2 Colors */
+        .metal-champagne { background: var(--metal-champagne); }
+        .metal-sage { background: var(--metal-sage); }
+        .metal-olive { background: var(--metal-olive); color: var(--text-glint); }
+        .metal-slate { background: var(--metal-slate); color: var(--text-glint); }
+
+        /* Set 3 Colors */
+        .metal-onyx { background: var(--metal-onyx); color: var(--text-glint); }
+        .metal-charcoal { background: var(--metal-charcoal); color: var(--text-glint); }
+        .metal-graphite { background: var(--metal-graphite); }
+        .metal-taupe { background: var(--metal-taupe); color: var(--text-glint); }
+        .metal-espresso { background: var(--metal-espresso); color: var(--text-glint); }
+
+        /* Set 4 Colors */
+        .metal-antique-brass { background: var(--metal-antique-brass); color: var(--text-glint); }
+        .metal-titanium { background: var(--metal-titanium); }
+        .metal-brushed-steel { background: var(--metal-brushed-steel); }
+        .metal-deep-teal { background: var(--metal-deep-teal); color: var(--text-glint); }
+        .metal-midnight { background: var(--metal-midnight); color: var(--text-glint); }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>High Finance : Master Palette</h1>
+        
+        <div class="swatch-grid">
+            <!-- Typography Box -->
+            <div class="swatch-card">
+                <div class="swatch-title">Typography & Hierarchy</div>
+                <div class="primary-header">Smoke Reflection Header</div>
+                <div class="live-data-main">1,245,892.00 (White Glint)</div>
+                <div class="live-data-secondary">Volume: 842.11 (Silver Mist)</div>
+            </div>
+
+            <!-- Goldenrod Alert -->
+            <div class="swatch-card">
+                <div class="swatch-title">Critical Alerts (Goldenrod Core)</div>
+                <div class="alert-panel alert-goldenrod">
+                    System Alert: High-Value Total
+                </div>
+            </div>
+
+            <!-- Emerald Telemetry -->
+            <div class="swatch-card">
+                <div class="swatch-title">Market Telemetry (Signal Emerald)</div>
+                <div class="alert-panel alert-emerald">
+                    Execution Positive / System Active
+                </div>
+            </div>
+
+            <!-- Ruby Telemetry -->
+            <div class="swatch-card">
+                <div class="swatch-title">Market Telemetry (Signal Ruby)</div>
+                <div class="alert-panel alert-ruby">
+                    Hard Stop / Liquidity Alert
+                </div>
+            </div>
+        </div>
+
+        <!-- Metallic Structural Elements Set 1 -->
+        <h1 style="margin-top: 40px; font-size: 20px; border-bottom: none; margin-bottom: 15px;">Metallic Gradients (Warm & Monocline)</h1>
+        <div class="metal-grid grid-5">
+            <div class="metal-bar metal-maroon">Deep Maroon</div>
+            <div class="metal-bar metal-sepia">Silver Sepia</div>
+            <div class="metal-bar metal-bronze">Dark Bronze</div>
+            <div class="metal-bar metal-silver">Polished Silver</div>
+            <div class="metal-bar metal-gunmetal">Gunmetal</div>
+        </div>
+
+        <!-- Metallic Structural Elements Set 2 -->
+        <h1 style="margin-top: 40px; font-size: 20px; border-bottom: none; margin-bottom: 15px;">Metallic Gradients (Tactical & Slate)</h1>
+        <div class="metal-grid grid-4">
+            <div class="metal-bar metal-champagne">Champagne Gold</div>
+            <div class="metal-bar metal-sage">Sage Metallic</div>
+            <div class="metal-bar metal-olive">Olive Steel</div>
+            <div class="metal-bar metal-slate">Deep Slate</div>
+        </div>
+
+        <!-- Metallic Structural Elements Set 3 -->
+        <h1 style="margin-top: 40px; font-size: 20px; border-bottom: none; margin-bottom: 15px;">Metallic Gradients (Noir & Stealth)</h1>
+        <div class="metal-grid grid-5">
+            <div class="metal-bar metal-onyx">Onyx</div>
+            <div class="metal-bar metal-charcoal">Charcoal</div>
+            <div class="metal-bar metal-graphite">Graphite</div>
+            <div class="metal-bar metal-taupe">Warm Taupe</div>
+            <div class="metal-bar metal-espresso">Espresso</div>
+        </div>
+
+        <!-- Metallic Structural Elements Set 4 -->
+        <h1 style="margin-top: 40px; font-size: 20px; border-bottom: none; margin-bottom: 15px;">Metallic Gradients (Precious & Oceanic Steel)</h1>
+        <div class="metal-grid grid-5">
+            <div class="metal-bar metal-antique-brass">Antique Brass</div>
+            <div class="metal-bar metal-titanium">Titanium</div>
+            <div class="metal-bar metal-brushed-steel">Brushed Steel</div>
+            <div class="metal-bar metal-deep-teal">Deep Teal</div>
+            <div class="metal-bar metal-midnight">Midnight Abyss</div>
+        </div>
+
+    </div>
+</body>
+</html>
