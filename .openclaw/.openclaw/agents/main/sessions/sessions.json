@@ -1,7 +1,7 @@
 {
   "agent:main:main": {
     "sessionId": "d7df46d8-455d-409b-88a4-deffe88eab6e",
-    "updatedAt": 1785525363047,
+    "updatedAt": 1785615364473,
     "sessionStartedAt": 1784743951987,
     "lastInteractionAt": 1784747899606,
     "systemSent": true,
@@ -33,13 +33,13 @@
     "sessionFile": "C:\\Warlord_Inc\\Warlord_WASP\\.openclaw\\.openclaw\\agents\\main\\sessions\\d7df46d8-455d-409b-88a4-deffe88eab6e.jsonl",
     "compactionCount": 1,
     "status": "done",
-    "startedAt": 1785525354240,
+    "startedAt": 1785615354553,
     "modelProvider": "nvidia",
     "model": "nvidia/nemotron-3-super-120b-a12b",
     "contextTokens": 262144,
     "systemPromptReport": {
       "source": "run",
-      "generatedAt": 1785525353929,
+      "generatedAt": 1785615354316,
       "sessionId": "d7df46d8-455d-409b-88a4-deffe88eab6e",
       "sessionKey": "agent:main:main",
       "provider": "nvidia",
@@ -464,8 +464,8 @@
         "bytes": 5092
       }
     },
-    "endedAt": 1785525362663,
-    "runtimeMs": 8423
+    "endedAt": 1785615364135,
+    "runtimeMs": 9582
   },
   "agent:main:cron:130db656-b618-4043-8685-b88376f73a8f": {
     "label": "Cron: wasp-research-ollama",
