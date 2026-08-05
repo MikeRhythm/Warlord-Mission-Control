@@ -1,7 +1,7 @@
 {
   "agent:main:main": {
     "sessionId": "d7df46d8-455d-409b-88a4-deffe88eab6e",
-    "updatedAt": 1785771964647,
+    "updatedAt": 1785946571606,
     "sessionStartedAt": 1784743951987,
     "lastInteractionAt": 1784747899606,
     "systemSent": true,
@@ -33,13 +33,13 @@
     "sessionFile": "C:\\Warlord_Inc\\Warlord_WASP\\.openclaw\\.openclaw\\agents\\main\\sessions\\d7df46d8-455d-409b-88a4-deffe88eab6e.jsonl",
     "compactionCount": 1,
     "status": "done",
-    "startedAt": 1785771954371,
+    "startedAt": 1785946554063,
     "modelProvider": "nvidia",
     "model": "nvidia/nemotron-3-super-120b-a12b",
     "contextTokens": 262144,
     "systemPromptReport": {
       "source": "run",
-      "generatedAt": 1785771954089,
+      "generatedAt": 1785946553563,
       "sessionId": "d7df46d8-455d-409b-88a4-deffe88eab6e",
       "sessionKey": "agent:main:main",
       "provider": "nvidia",
@@ -59,10 +59,10 @@
         "sandboxed": false
       },
       "systemPrompt": {
-        "chars": 46183,
-        "hash": "fb9ca33166965d404462b7ca3d34b0d53fb358a50340d6edc2de9a6867f42874",
+        "chars": 47373,
+        "hash": "68bea20042686fcba6a5f193f9312b81ac275ea19251d1bfa0d4d5671327fd9a",
         "projectContextChars": 28055,
-        "nonProjectContextChars": 18128
+        "nonProjectContextChars": 19318
       },
       "injectedWorkspaceFiles": [
         {
@@ -123,78 +123,74 @@
         }
       ],
       "skills": {
-        "promptChars": 5090,
-        "hash": "d7355963e75a84cf75d4d77a081ddce084e94e4d709597e81a76fc3bffd4bc34",
+        "promptChars": 5376,
+        "hash": "4f6c4d3f5d452f04ed5ade89dfc5bc333171860927cdc4605b3e9075d941c865",
         "entries": [
           {
-            "name": "acp-router",
-            "blockChars": 664
-          },
-          {
             "name": "browser-automation",
-            "blockChars": 324
+            "blockChars": 407
           },
           {
             "name": "canvas",
-            "blockChars": 260
+            "blockChars": 314
           },
           {
             "name": "diagram-maker",
-            "blockChars": 263
+            "blockChars": 317
           },
           {
             "name": "healthcheck",
-            "blockChars": 275
+            "blockChars": 329
           },
           {
             "name": "meme-maker",
-            "blockChars": 248
+            "blockChars": 302
           },
           {
             "name": "node-connect",
-            "blockChars": 278
+            "blockChars": 332
           },
           {
             "name": "node-inspect-debugger",
-            "blockChars": 274
+            "blockChars": 328
           },
           {
             "name": "notion",
-            "blockChars": 269
+            "blockChars": 323
           },
           {
             "name": "python-debugpy",
-            "blockChars": 262
+            "blockChars": 316
           },
           {
             "name": "skill-creator",
-            "blockChars": 256
+            "blockChars": 310
           },
           {
             "name": "spike",
-            "blockChars": 248
+            "blockChars": 302
           },
           {
             "name": "taskflow",
-            "blockChars": 278
+            "blockChars": 332
           },
           {
             "name": "taskflow-inbox-triage",
-            "blockChars": 288
+            "blockChars": 342
           },
           {
             "name": "video-frames",
-            "blockChars": 226
+            "blockChars": 280
           },
           {
             "name": "weather",
-            "blockChars": 263
+            "blockChars": 340
           }
         ]
       },
       "tools": {
         "listChars": 0,
-        "schemaChars": 19276,
+        "schemaChars": 19449,
         "entries": [
           {
             "name": "read",
@@ -246,11 +242,11 @@
           },
           {
             "name": "cron",
-            "summaryChars": 3610,
-            "summaryHash": "262e6a7b421538d13ca6d79fc14616de3ea0c24fde8b050d6fa1652fe991e5c5",
-            "schemaChars": 8207,
-            "schemaHash": "477e276579b8920f349f9359943528cd94bd7550ff5d7354a6c138411b76b15f",
-            "propertiesCount": 14
+            "summaryChars": 3820,
+            "summaryHash": "d3bc0032e9c0ba71e5983ee4d06bd4b70ea5170dcb5d85fbff1bd71f01b070f4",
+            "schemaChars": 8705,
+            "schemaHash": "830efafdf26c1cd1c32452d2baea3b8fc0c7b7b7269d9ab0a503aded48f88ab1",
+            "propertiesCount": 15
           },
           {
             "name": "get_goal",
@@ -310,19 +306,19 @@
           },
           {
             "name": "sessions_send",
-            "summaryChars": 224,
-            "summaryHash": "56fd935fc97400f8c60b16ae58268660a2d84d8014a60abed515576c45a6f307",
+            "summaryChars": 282,
+            "summaryHash": "061e9ef3487676bb2a4fd4c0336bd973aaab5eea0725e7443c4cb17518cd1e78",
             "schemaChars": 275,
             "schemaHash": "f1fbaa412fe6b6aee102234c87c5aa140f39c9086f9bae6e1e9691309a602ffb",
             "propertiesCount": 5
           },
           {
             "name": "sessions_spawn",
-            "summaryChars": 471,
-            "summaryHash": "ae9c266493d1a11ece59ae07f445910d4a17a1547d8afa2ef5f9cba6c6931877",
-            "schemaChars": 1476,
-            "schemaHash": "01e01ea9da006889bf3728b351ceded24b5fcdba66228d436f2db594d299d1eb",
-            "propertiesCount": 17
+            "summaryChars": 578,
+            "summaryHash": "c75061234ba01a4eb29ca223c1c63a44935e9e555ef2ca280722ba9e844db86d",
+            "schemaChars": 1151,
+            "schemaHash": "9a91c7668463da8a66386260ce2ae97e7efe3bb93b9b6f03ac85102c354457e1",
+            "propertiesCount": 15
           },
           {
             "name": "sessions_yield",
@@ -373,8 +369,8 @@
     },
     "totalTokensFresh": true,
     "pendingFinalDelivery": true,
-    "pendingFinalDeliveryText": "HEARTBEATBEAT_OK",
-    "pendingFinalDeliveryCreatedAt": 1785771964638,
+    "pendingFinalDeliveryText": "LLM request failed.",
+    "pendingFinalDeliveryCreatedAt": 1785910562961,
     "compactionCheckpoints": [
       {
         "checkpointId": "23637877-054f-429f-88c5-564b618b63f9",
@@ -400,9 +396,6 @@
     ],
     "skillsSnapshot": {
       "skills": [
-        {
-          "name": "acp-router"
-        },
         {
           "name": "browser-automation"
         },
@@ -452,20 +445,20 @@
           "requiredEnv": []
         },
         {
-          "name": "weather",
-          "requiredEnv": []
+          "name": "weather"
         }
       ],
-      "version": 1785430420565,
+      "version": 1785934475010,
+      "promptFormatVersion": 1,
       "promptRef": {
         "version": 1,
         "algorithm": "sha256",
-        "hash": "72b490fc89225cd6383ebd3eb490247e747571ca9083b25c4bdd1bd58ba88123",
-        "bytes": 5092
+        "hash": "65ba3e9c8c5100640270a52b523fba000f7a60dbf167d7a527482b2446f0cd07",
+        "bytes": 5378
       }
     },
-    "endedAt": 1785771964114,
-    "runtimeMs": 9743
+    "endedAt": 1785946571575,
+    "runtimeMs": 17512
   },
   "agent:main:cron:130db656-b618-4043-8685-b88376f73a8f": {
     "label": "Cron: wasp-research-ollama",

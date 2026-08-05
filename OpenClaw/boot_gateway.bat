@@ -1,7 +1,18 @@
 @echo off
-set "PORT=18789"
-set "OPENCLAW_PROVIDER=ollama"
-set "OPENCLAW_BASE_URL=http://127.0.0.1:11434/v1"
-set "OPENCLAW_MODEL=qwen2.5"
-set "OPENCLAW_SKIP_CHANNELS=1"
-node scripts/run-node.mjs --gateway
+title OPENCLAW GATEWAY DAEMON [PORT 18789]
+color 0A
+
+echo ===================================================
+echo [CHARLIE] BYPASSING CRESTODIAN. INITIATING GATEWAY.
+echo ===================================================
+echo.
+
+:: Force the OpenClaw CLI to launch the Gateway Daemon, not the diagnostic agent
+openclaw gateway --port 18789
+
+:: If it drops below this line, the Gateway crashed. We pause to catch the red text.
+echo.
+echo ===================================================
+echo [FATAL ERROR] THE GATEWAY DAEMON CRASHED.
+echo ===================================================
+pause
