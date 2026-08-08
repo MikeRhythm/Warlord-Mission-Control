@@ -7,6 +7,15 @@ echo [WARLORD SYSTEM SEQUENCE INITIATED]
 echo ===================================================
 echo.
 
+:: STEP 0: ZERO-STATE PORT PURGE (GHOST ERADICATION)
+echo [0/6] Sweeping network ghosts and clearing ports...
+taskkill /f /im node.exe >nul 2>&1
+FOR /F "tokens=5" %%a in ('netstat -a -n -o ^| findstr :3000') do taskkill /f /pid %%a >nul 2>&1
+FOR /F "tokens=5" %%a in ('netstat -a -n -o ^| findstr :8081') do taskkill /f /pid %%a >nul 2>&1
+FOR /F "tokens=5" %%a in ('netstat -a -n -o ^| findstr :18789') do taskkill /f /pid %%a >nul 2>&1
+FOR /F "tokens=5" %%a in ('netstat -a -n -o ^| findstr :17493') do taskkill /f /pid %%a >nul 2>&1
+timeout /t 2 /nobreak >nul
+
 :: STEP 1: OLLAMA LOCAL INFERENCE ENGINE
 echo [1/6] Starting Ollama Local Engine (Port 11434)...
 start "Ollama Engine" /MIN ollama serve
@@ -29,7 +38,7 @@ timeout /t 3 /nobreak >nul
 
 :: STEP 5: CHARLIE - OFFLINE VOICEBOX ENGINE
 echo [5/6] Launching Charlie Voicebox (Port 17493)...
-start "Charlie Voicebox" /MIN /d "C:\Warlord_Inc\Warlord_WASP\.openclaw\.openclaw\workspace" cmd /k "python voicebox.py"
+start "Charlie Voicebox" /MIN C:\Users\MikeT\AppData\Local\Voicebox\voicebox.exe
 timeout /t 5 /nobreak >nul
 
 :: STEP 6: MCNC MASTER DASHBOARD & HUD
