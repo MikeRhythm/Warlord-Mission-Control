@@ -41,6 +41,13 @@
         "sms.send",
         "sms.search"
       ]
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
     }
   },
   "session": {
@@ -230,8 +237,8 @@
     "lastRunMode": "local"
   },
   "meta": {
-    "lastTouchedVersion": "2026.6.2",
-    "lastTouchedAt": "2026-07-16T15:28:11.250Z"
+    "lastTouchedVersion": "2026.6.10",
+    "lastTouchedAt": "2026-08-09T10:21:07.560Z"
   },
   "skills": {
     "entries": {

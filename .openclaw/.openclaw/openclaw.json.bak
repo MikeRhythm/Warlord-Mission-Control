@@ -224,14 +224,14 @@
     }
   },
   "wizard": {
-    "lastRunAt": "2026-07-01T14:09:49.407Z",
-    "lastRunVersion": "2026.6.10",
-    "lastRunCommand": "configure",
+    "lastRunAt": "2026-07-16T15:28:09.461Z",
+    "lastRunVersion": "2026.6.2",
+    "lastRunCommand": "doctor",
     "lastRunMode": "local"
   },
   "meta": {
-    "lastTouchedVersion": "2026.6.10",
-    "lastTouchedAt": "2026-07-02T13:04:20.399Z"
+    "lastTouchedVersion": "2026.6.2",
+    "lastTouchedAt": "2026-07-16T15:28:11.250Z"
   },
   "skills": {
     "entries": {
@@ -338,6 +338,39 @@
         "enabled": false
       },
       "xurl": {
+        "enabled": false
+      },
+      "apple-notes": {
+        "enabled": false
+      },
+      "apple-reminders": {
+        "enabled": false
+      },
+      "bear-notes": {
+        "enabled": false
+      },
+      "imsg": {
+        "enabled": false
+      },
+      "model-usage": {
+        "enabled": false
+      },
+      "peekaboo": {
+        "enabled": false
+      },
+      "qqbot-channel": {
+        "enabled": false
+      },
+      "qqbot-media": {
+        "enabled": false
+      },
+      "qqbot-remind": {
+        "enabled": false
+      },
+      "things-mac": {
+        "enabled": false
+      },
+      "tmux": {
         "enabled": false
       }
     }

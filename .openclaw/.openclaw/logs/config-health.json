@@ -2,35 +2,35 @@
   "entries": {
     "C:\\Warlord_Inc\\Warlord_WASP\\.openclaw\\.openclaw\\openclaw.json": {
       "lastKnownGood": {
-        "hash": "e8798d42a09422dcbe72fe39572523ebcece7578b43a2abaff564b9a4dc968ac",
-        "bytes": 8089,
-        "mtimeMs": 1784215691250.339,
-        "ctimeMs": 1784215691265.9292,
+        "hash": "2a6b4a6cfc2df9dace0b09b921b6cc0386bc2eda439e58b196a4ee5692c4a477",
+        "bytes": 8205,
+        "mtimeMs": 1786270867569.6562,
+        "ctimeMs": 1786271511392.9353,
         "dev": "1044082265",
-        "ino": "844424931041263",
-        "mode": 33206,
+        "ino": "844424931368996",
+        "mode": 438,
         "nlink": 1,
         "uid": 0,
         "gid": 0,
         "hasMeta": true,
         "gatewayMode": "local",
-        "observedAt": "2026-08-08T15:58:23.010Z"
+        "observedAt": "2026-08-09T11:07:28.947Z"
       },
       "lastObservedSuspiciousSignature": null,
       "lastPromotedGood": {
-        "hash": "e8798d42a09422dcbe72fe39572523ebcece7578b43a2abaff564b9a4dc968ac",
-        "bytes": 8089,
-        "mtimeMs": 1784215691250.339,
-        "ctimeMs": 1784215691265.9292,
+        "hash": "2a6b4a6cfc2df9dace0b09b921b6cc0386bc2eda439e58b196a4ee5692c4a477",
+        "bytes": 8205,
+        "mtimeMs": 1786270867569.6562,
+        "ctimeMs": 1786270867583.6562,
         "dev": "1044082265",
-        "ino": "844424931041263",
+        "ino": "844424931368996",
         "mode": 33206,
         "nlink": 1,
         "uid": 0,
         "gid": 0,
         "hasMeta": true,
         "gatewayMode": "local",
-        "observedAt": "2026-08-08T15:58:23.010Z"
+        "observedAt": "2026-08-09T10:22:23.010Z"
       }
     }
   }
