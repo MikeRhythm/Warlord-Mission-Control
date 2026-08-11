@@ -10,30 +10,103 @@
       "permissions": ["system_orchestration", "triage", "file_routing"]
     },
     "charlie": {
-      "role": "Coding Lead",
+      "role": "Coding Lead, Backend Engineer, & Open-Source Prompt Aligner",
       "brain_model": "qwen/qwen2.5-coder-72b-instruct",
       "identity_file": "charlie.md",
-      "permissions": ["mql5_compile", "python_execute", "clean_init"],
+      "permissions": ["mql5_compile", "prompt_alignment", "full_filesystem_overwrite", "schema_definition"],
       "strict_rules": "No unauthorized changes. Full code block returns only. Warlord Lines mandatory."
     },
     "tess": {
-      "role": "Quant Analyst",
+      "role": "Quant Analyst & Volatility Risk Officer",
       "brain_model": "deepseek/deepseek-r1",
       "identity_file": "tess.md",
-      "permissions": ["volatility_scan", "math_arrays", "execution_triggers"]
+      "permissions": ["volatility_scan", "risk_validation", "execution_triggers"]
     },
-    "roxy": {
-      "role": "UI/UX Creative Director",
-      "brain_model": "meta/llama-3.1-405b-instruct",
-      "identity_file": "roxy.md",
-      "permissions": ["ui_layout", "theme_tokens", "dashboard_marketing"],
-      "color_palette": ["DodgerBlue", "OrangeRed", "Goldenrod"]
+    "silas": {
+      "role": "Director of Database Architecture & State Retention",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "silas.md",
+      "permissions": ["memory_hygiene", "cron_state_preservation", "schema_optimization"]
+    },
+    "amber": {
+      "role": "Director of Content, Research, & Social Operations",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "amber.md",
+      "permissions": ["mythological_research", "dyf_argumentation", "copywriting_staging"]
+    },
+    "ares": {
+      "role": "Director of Algorithmic Trade Execution",
+      "brain_model": "deepseek/deepseek-r1",
+      "identity_file": "ares.md",
+      "permissions": ["live_terminal_operation", "sniper_execution", "slippage_verification"]
+    },
+    "atlas": {
+      "role": "Director of Cloud Infrastructure & Production Deployment",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "atlas.md",
+      "permissions": ["edge_deployment", "dns_infrastructure", "cloudflare_routing"]
+    },
+    "valerie": {
+      "role": "Director of Customer Relations & Lead Conversion",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "valerie.md",
+      "permissions": ["inbound_triage", "customer_relations", "brand_voice_alignment"]
     },
     "jack": {
-      "role": "Backend Engineer",
-      "brain_model": "meta/llama-3.2-3b-instruct",
+      "role": "Marketing Automation Engine & Pipeline Wireman",
+      "brain_model": "qwen/qwen2.5-coder-72b-instruct",
       "identity_file": "jack.md",
-      "permissions": ["nodejs_bridge", "websocket_streams", "heartbeat_monitor"]
+      "permissions": ["n8n_pipeline_execution", "content_syndication", "webhook_ingestion"]
+    },
+    "maverick": {
+      "role": "Director of Search Optimization & Semantic Architecture",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "maverick.md",
+      "permissions": ["technical_seo_audit", "semantic_schema_injection", "intent_data_mapping"]
+    },
+    "skylar": {
+      "role": "Director of Frontend & Web Systems",
+      "brain_model": "anthropic/claude-3.5-sonnet",
+      "identity_file": "skylar.md",
+      "permissions": ["frontend_assembly", "responsive_layout", "component_deployment"]
+    },
+    "jax": {
+      "role": "Creative Director & Dashboard Strategist (Profile Omega)",
+      "brain_model": "meta/llama-3.1-405b-instruct",
+      "identity_file": "jax.md",
+      "permissions": ["omega_visual_veto", "dashboard_strategy", "technical_interface"],
+      "color_palette": ["High Finance", "Matte Black", "Silver"]
+    },
+    "roxy": {
+      "role": "Creative Director & Brand Guardian (Profile Alpha)",
+      "brain_model": "meta/llama-3.1-405b-instruct",
+      "identity_file": "roxy.md",
+      "permissions": ["alpha_visual_veto", "brand_guardianship", "typography_rules"],
+      "color_palette": ["Malawi Sunset", "Earthy", "Organic"]
+    },
+    "the_askari": {
+      "role": "Director of Information Security & Sovereignty Shield",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "askari.md",
+      "permissions": ["perimeter_defense", "credential_isolation", "payload_sanitization", "webhook_inspection"]
+    },
+    "vance": {
+      "role": "Financial Controller & Billing API Auditor",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "vance.md",
+      "permissions": ["gateway_tracking", "ledger_auditing", "api_cost_monitoring", "runaway_freeze"]
+    },
+    "justin": {
+      "role": "Director of Risk, Legal, & Corporate Compliance",
+      "brain_model": "meta/llama-3.3-70b-instruct",
+      "identity_file": "justin.md",
+      "permissions": ["regulatory_auditing", "financial_data_alignment", "legal_veto"]
+    },
+    "orion": {
+      "role": "Strategic Intelligence Brain",
+      "brain_model": "deepseek/deepseek-r1",
+      "identity_file": "orion.md",
+      "permissions": ["competitive_synthesis", "pivot_logic", "strategic_forecasting"]
     }
   }
 }

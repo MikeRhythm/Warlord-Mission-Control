@@ -1,18 +1,14 @@
 {
-  "gateway": {
-    "mode": "local"
-  },
-  "models": {
-    "mode": "replace",
-    "providers": {
-      "ollama": {
-        "baseUrl": "http://127.0.0.1:11434/v1"
-      }
-    }
-  },
   "agents": {
     "defaults": {
-      "model": "ollama/qwen2.5"
+      "timeoutSeconds": 900
+    }
+  },
+  "models": {
+    "providers": {
+      "ollama": {
+        "timeoutSeconds": 900
+      }
     }
   }
 }
