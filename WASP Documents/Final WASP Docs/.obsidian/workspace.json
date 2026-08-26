@@ -1,0 +1,205 @@
+{
+  "main": {
+    "id": "9a72db99af99f227",
+    "type": "split",
+    "children": [
+      {
+        "id": "ed2fd38e5414c8fe",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "47b6351d8ca91616",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "00_Master_Doctrine/Master_SOPs.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Master_SOPs"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "417f6712c7831a53",
+    "type": "split",
+    "children": [
+      {
+        "id": "9693392a395c49d4",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "562a98b0dcac329d",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "a46f4a958f2df8d2",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "46a6cc2832ecccaa",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 458.5
+  },
+  "right": {
+    "id": "b1baefc422c951f5",
+    "type": "split",
+    "children": [
+      {
+        "id": "19d44da90684bbe8",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "2ff5abaab9a46c3a",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "00_Master_Doctrine/ROE's.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "9bfeeb93c1fbb628",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "00_Master_Doctrine/ROE's.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "6f2cee4bd6e5ea9b",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "133c3cd12c5ded93",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "89e49a556875ee06",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "00_Master_Doctrine/ROE's.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "47b6351d8ca91616",
+  "lastOpenFiles": [
+    "USER.md",
+    "The Rhythm Inc - Mission Statement.txt",
+    "ROE.md",
+    "IDENTITY.md",
+    "02_Director_Board/11_AGENT_PROTOCOL_Roxy_Artwork_Alpha.md",
+    "02_Director_Board/05_AGENT_PROTOCOL_Justin_Risk_Legal.md",
+    "02_Director_Board/04_AGENT_PROTOCOL_Jack_Marketing.md",
+    "00_Master_Doctrine/Rhythm Inc - Mission Statement.md",
+    "01_Command_Tier/Monty/01_MONTY_PA_CHIEF_OF_STAFF.md",
+    "00_Master_Doctrine/Master_SOPs.md",
+    "00_Master_Doctrine/ROE's.md"
+  ]
+}

@@ -1,0 +1,161 @@
+<!-- WARLORD MISSION CONTROL // 01 EXEC DREADNOUGHT GRID -->
+<style>
+    .exec-grid {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 20px;
+        padding: 20px;
+        height: calc(100vh - 80px);
+    }
+    .glass-panel {
+        background: var(--glass-panel);
+        border: 1px solid var(--border-dim);
+        border-radius: 4px;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+    }
+    .panel-header {
+        color: var(--gold-core);
+        font-size: 0.85rem;
+        letter-spacing: 1.5px;
+        margin-top: 0;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .dim-divider { border: 0; border-top: 1px solid var(--border-dim); margin: 10px 0 15px 0; }
+    
+    /* LEFT SIDEBAR (MONTY'S BRAIN) */
+    .tier-group { margin-bottom: 25px; }
+    .tier-label { color: var(--text-mist); font-size: 0.7rem; margin-bottom: 8px; letter-spacing: 1px; }
+    .model-btn {
+        background: rgba(0,0,0,0.4);
+        border: 1px solid var(--border-dim);
+        color: var(--text-glint);
+        width: 100%;
+        text-align: left;
+        padding: 8px 12px;
+        margin-bottom: 5px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: border 0.2s;
+    }
+    .model-btn:hover { border-color: var(--text-mist); }
+    .model-btn.active { border-left: 3px solid var(--emerald-core); background: rgba(16, 185, 129, 0.05); }
+    .badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 2px; }
+    .badge.local { background: #333; color: #aaa; }
+    .badge.nim { background: rgba(16,185,129,0.2); color: var(--emerald-core); border: 1px solid var(--emerald-core); }
+    
+    /* RIGHT MAIN PANEL */
+    .main-panel { display: flex; flex-direction: column; gap: 15px; }
+    .pipeline-header {
+        color: var(--text-mist);
+        font-size: 0.8rem;
+        letter-spacing: 2px;
+        text-align: center;
+        border-bottom: 1px solid var(--border-dim);
+        padding-bottom: 10px;
+    }
+    .stream-container {
+        flex-grow: 1;
+        overflow-y: auto;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        padding: 20px;
+    }
+    
+    /* INPUT CONSOLE */
+    .input-console { background: #080A0E; border-top: 1px solid var(--border-dim); padding: 15px; }
+    .input-header { color: var(--emerald-core); font-size: 0.75rem; margin-bottom: 10px; }
+    #prompt-input {
+        width: 100%;
+        background: transparent;
+        border: 1px solid var(--border-dim);
+        color: var(--text-glint);
+        font-family: 'JetBrains Mono', monospace;
+        padding: 10px;
+        height: 60px;
+        resize: none;
+        margin-bottom: 15px;
+    }
+    #prompt-input:focus { outline: none; border-color: var(--gold-core); }
+    
+    /* BUTTON ROW */
+    .button-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .button-row button, .button-row select {
+        background: transparent;
+        border: 1px solid var(--border-dim);
+        color: var(--text-mist);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: all 0.2s;
+    }
+    .button-row button:hover { border-color: var(--text-glint); color: var(--text-glint); }
+    .btn-submit { border-color: var(--gold-core) !important; color: var(--gold-core) !important; }
+    .btn-submit:hover { background: rgba(218,165,32,0.1) !important; }
+    .btn-approve { border-color: var(--emerald-core) !important; color: var(--emerald-core) !important; }
+    .btn-danger { border-color: var(--ruby-core) !important; color: var(--ruby-core) !important; }
+    .project-dropdown { background: rgba(0,0,0,0.5) !important; }
+</style>
+
+<div class="exec-grid">
+    <!-- TIER CLASSIFICATION COLUMN -->
+    <div class="glass-panel">
+        <h3 class="panel-header">MONTY'S BRAIN // TIERS</h3>
+        <hr class="dim-divider">
+        
+        <div class="tier-group">
+            <div class="tier-label">TIER 1: OLLAMA (LOCAL)</div>
+            <button class="model-btn active" onclick="switchBrain('ollama', 'llama-3.3-70b-instruct')">Llama 3 / CodeLlama <span class="badge local">Local</span></button>
+            <button class="model-btn" onclick="switchBrain('ollama', 'deepseek-r1')">DeepSeek-R1 (Quant) <span class="badge local">Local</span></button>
+        </div>
+
+        <div class="tier-group">
+            <div class="tier-label">TIER 2: NVIDIA NIM</div>
+            <button class="model-btn" onclick="switchBrain('nvidia', 'llama-3.3-70b-instruct')">Llama 3.3 70B Instruct <span class="badge nim">NIM</span></button>
+            <button class="model-btn" onclick="switchBrain('nvidia', 'nemotron-70b')">Nemotron 70B <span class="badge nim">NIM</span></button>
+        </div>
+        
+        <div class="tier-group">
+            <div class="tier-label">TIER 3: OPENROUTER</div>
+            <button class="model-btn" onclick="switchBrain('openrouter', 'claude-3-5-sonnet')">Claude 3.5 Sonnet <span class="badge local">Elite</span></button>
+        </div>
+    </div>
+
+    <!-- MAIN EXECUTION PIPELINE -->
+    <div class="main-panel">
+        <div class="pipeline-header">ACTIVE PIPELINE // [ AWAITING SELECTION ]</div>
+        
+        <!-- JAVASCRIPT TARGET ID -->
+        <div id="mcnc-stream" class="stream-container glass-panel">
+            <div style="color: var(--text-mist); font-size: 0.8rem;">
+                <span style="color: var(--gold-core);">CHIEF OF STAFF // MONTY 2 (BASE 1 PIPELINE)</span><br><br>
+                Pipeline active. Exec staging room secured. Awaiting raw instructions.
+            </div>
+        </div>
+
+        <!-- COMMAND CONSOLE -->
+        <div class="input-console glass-panel">
+            <div class="input-header">+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</div>
+            <textarea id="prompt-input" placeholder="Enter instructions, code directives, or prompt parameters here..."></textarea>
+            
+            <div class="button-row">
+                <button class="btn-submit" onclick="submitInstruction()">SUBMIT</button>
+                <button class="btn-action">+ ADD</button>
+                <button class="btn-action">REFINE</button>
+                <button class="btn-approve">APPROVE</button>
+                <button class="btn-danger">CLS</button>
+                <select class="project-dropdown"><option>[ PROJECT ]</option></select>
+                <button class="btn-action">ASSIGN</button>
+                <button class="btn-submit">PUSH TO WARROOM</button>
+            </div>
+        </div>
+    </div>
+</div>

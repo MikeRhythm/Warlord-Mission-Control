@@ -1,0 +1,172 @@
+<!-- WARLORD MISSION CONTROL // 02 WAR ROOM -->
+<style>
+    .warroom-grid {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 20px;
+        padding: 20px;
+        height: calc(100vh - 140px);
+    }
+    .glass-panel {
+        background: var(--glass-panel);
+        border: 1px solid var(--border-dim);
+        border-radius: 4px;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+    }
+    .panel-header {
+        color: var(--gold-core);
+        font-size: 0.85rem;
+        letter-spacing: 1.5px;
+        margin-top: 0;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .dim-divider { border: 0; border-top: 1px solid var(--border-dim); margin: 10px 0 15px 0; }
+    
+    /* LEFT SIDEBAR (DIRECTOR BOARD) */
+    .agent-status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(0,0,0,0.4);
+        border: 1px solid var(--border-dim);
+        padding: 10px;
+        margin-bottom: 8px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+    }
+    .agent-name { color: var(--text-glint); }
+    .status-indicator {
+        font-size: 0.6rem;
+        padding: 2px 6px;
+        border-radius: 2px;
+        background: rgba(16,185,129,0.1);
+        color: var(--emerald-core);
+        border: 1px solid var(--emerald-core);
+    }
+    
+    /* RIGHT MAIN PANEL (COMMS STREAM) */
+    .main-panel { display: flex; flex-direction: column; gap: 15px; }
+    .pipeline-header {
+        color: var(--text-mist);
+        font-size: 0.8rem;
+        letter-spacing: 2px;
+        text-align: center;
+        border-bottom: 1px solid var(--border-dim);
+        padding-bottom: 10px;
+    }
+    .stream-container {
+        flex-grow: 1;
+        overflow-y: auto;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        padding: 20px;
+    }
+    .log-entry { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .log-speaker { color: var(--gold-core); font-weight: bold; margin-bottom: 4px; display: block; }
+    
+    /* INPUT CONSOLE */
+    .input-console { background: #080A0E; border-top: 1px solid var(--border-dim); padding: 15px; }
+    #warroom-input {
+        width: 100%;
+        background: transparent;
+        border: 1px solid var(--border-dim);
+        color: var(--text-glint);
+        font-family: 'JetBrains Mono', monospace;
+        padding: 10px;
+        height: 60px;
+        resize: none;
+        margin-bottom: 15px;
+    }
+    #warroom-input:focus { outline: none; border-color: var(--emerald-core); }
+    
+    .button-row { display: flex; gap: 10px; }
+    .button-row button {
+        background: transparent;
+        border: 1px solid var(--border-dim);
+        color: var(--text-mist);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        padding: 8px 16px;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: all 0.2s;
+    }
+    .button-row button:hover { border-color: var(--text-glint); color: var(--text-glint); }
+    .btn-broadcast { border-color: var(--gold-core) !important; color: var(--gold-core) !important; }
+    .btn-authorize { border-color: var(--emerald-core) !important; color: var(--emerald-core) !important; }
+</style>
+
+<div class="warroom-grid">
+    <!-- LEFT: DIRECTOR BOARD -->
+    <div class="glass-panel">
+        <h3 class="panel-header">DIRECTOR BOARD // ONLINE</h3>
+        <hr class="dim-divider">
+        
+        <div class="agent-status">
+            <span class="agent-name">MONTY // CHIEF OF STAFF</span>
+            <span class="status-indicator">ACTIVE</span>
+        </div>
+        <div class="agent-status">
+            <span class="agent-name">CHARLIE // CODING LEAD</span>
+            <span class="status-indicator">ACTIVE</span>
+        </div>
+        <div class="agent-status">
+            <span class="agent-name">JACK // BACKEND</span>
+            <span class="status-indicator">ACTIVE</span>
+        </div>
+        <div class="agent-status">
+            <span class="agent-name">TESS // QUANT</span>
+            <span class="status-indicator" style="color: var(--text-mist); border-color: var(--border-dim); background: transparent;">STANDBY</span>
+        </div>
+    </div>
+
+    <!-- RIGHT: WAR ROOM STREAM -->
+    <div class="main-panel">
+        <div class="pipeline-header">THE WAR ROOM // LIVE COMMS</div>
+        
+        <div id="warroom-stream" class="stream-container glass-panel">
+            <div class="log-entry">
+                <span class="log-speaker">SYSTEM // GATE KEEPER</span>
+                War Room initialized. Secure WebSockets connected. Awaiting Warlord directives.
+            </div>
+        </div>
+
+        <div class="input-console glass-panel">
+            <textarea id="warroom-input" placeholder="Broadcast command to all directors..."></textarea>
+            
+            <div class="button-row">
+                <button class="btn-broadcast" onclick="dispatchWarRoom()">BROADCAST</button>
+                <button class="btn-authorize" onclick="approveWarRoom()">AUTHORIZE ACTION</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Local routing for the specific War Room buttons
+    function dispatchWarRoom() {
+        const input = document.getElementById('warroom-input');
+        if(!input.value.trim()) return;
+        
+        // This hooks into your existing server.js websocket logic
+        if(window.mcncSocket && window.mcncSocket.readyState === WebSocket.OPEN) {
+            window.mcncSocket.send(JSON.stringify({
+                type: 'WAR_ROOM_DISPATCH',
+                mode: 'GLOBAL',
+                promptText: input.value
+            }));
+            input.value = '';
+        } else {
+            console.error("WebSocket not connected.");
+        }
+    }
+
+    function approveWarRoom() {
+        if(window.mcncSocket && window.mcncSocket.readyState === WebSocket.OPEN) {
+            window.mcncSocket.send(JSON.stringify({ type: 'WAR_ROOM_APPROVE', mode: 'GLOBAL' }));
+        }
+    }
+</script>

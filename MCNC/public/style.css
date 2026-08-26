@@ -1,0 +1,13 @@
+// C:\Warlord_Inc\Warlord_WASP\MCNC\public\js\mcnc_logic.js
+window.MCNC_STATE = {
+    llm: 'lfm-2.5-grunt',
+    tool: 'scrapling',
+    agent: 'monty-pa'
+};
+
+window.syncDashboardState = function() {
+    const statusHeader = document.querySelector('.active-pipeline-status');
+    if (statusHeader) {
+        statusHeader.innerText = `ACTIVE PIPELINE // [ ${window.MCNC_STATE.agent.toUpperCase()} ] -> [ ${window.MCNC_STATE.llm.toUpperCase()} ]`;
+    }
+};
