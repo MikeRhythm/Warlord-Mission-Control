@@ -6,32 +6,66 @@
         gap: 20px;
         padding: 20px;
         height: calc(100vh - 80px);
+        box-sizing: border-box;
     }
     .glass-panel {
-        background: var(--glass-panel);
-        border: 1px solid var(--border-dim);
+        background: var(--glass-panel, #0b0f19);
+        border: 1px solid var(--border-dim, #1e293b);
         border-radius: 4px;
         padding: 15px;
         display: flex;
         flex-direction: column;
     }
     .panel-header {
-        color: var(--gold-core);
+        color: var(--gold-core, #daa520);
         font-size: 0.85rem;
         letter-spacing: 1.5px;
         margin-top: 0;
         margin-bottom: 10px;
         text-transform: uppercase;
+        font-family: 'JetBrains Mono', monospace;
     }
-    .dim-divider { border: 0; border-top: 1px solid var(--border-dim); margin: 10px 0 15px 0; }
+    .dim-divider { border: 0; border-top: 1px solid var(--border-dim, #1e293b); margin: 10px 0 15px 0; }
     
-    /* LEFT SIDEBAR (MONTY'S BRAIN) */
+    /* LEFT-HAND MENU STRUCTURE */
+    .main-menu-btn {
+        background: rgba(0,0,0,0.6);
+        border: 1px solid var(--border-dim, #1e293b);
+        border-left: 3px solid var(--gold-core, #daa520);
+        color: var(--gold-core, #daa520);
+        width: 100%;
+        text-align: left;
+        padding: 10px 12px;
+        margin-bottom: 15px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .main-menu-btn:hover {
+        background: rgba(218,165,32,0.1);
+        border-color: var(--gold-core, #daa520);
+    }
+    
+    /* DROPDOWN CONTAINER */
+    .llm-selection-container {
+        display: none; 
+        padding-left: 10px;
+        border-left: 1px dashed var(--border-dim, #1e293b);
+        margin-left: 5px;
+        margin-bottom: 20px;
+    }
     .tier-group { margin-bottom: 25px; }
-    .tier-label { color: var(--text-mist); font-size: 0.7rem; margin-bottom: 8px; letter-spacing: 1px; }
+    .tier-label { color: var(--text-mist, #94a3b8); font-size: 0.7rem; margin-bottom: 8px; letter-spacing: 1px; font-family: 'JetBrains Mono', monospace; }
     .model-btn {
         background: rgba(0,0,0,0.4);
-        border: 1px solid var(--border-dim);
-        color: var(--text-glint);
+        border: 1px solid var(--border-dim, #1e293b);
+        color: var(--text-glint, #e2e8f0);
         width: 100%;
         text-align: left;
         padding: 8px 12px;
@@ -44,21 +78,23 @@
         align-items: center;
         transition: border 0.2s;
     }
-    .model-btn:hover { border-color: var(--text-mist); }
-    .model-btn.active { border-left: 3px solid var(--emerald-core); background: rgba(16, 185, 129, 0.05); }
+    .model-btn:hover { border-color: var(--text-mist, #94a3b8); }
+    .model-btn.active { border-left: 3px solid var(--emerald-core, #10b981); background: rgba(16, 185, 129, 0.05); }
     .badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 2px; }
     .badge.local { background: #333; color: #aaa; }
-    .badge.nim { background: rgba(16,185,129,0.2); color: var(--emerald-core); border: 1px solid var(--emerald-core); }
+    .badge.nim { background: rgba(16,185,129,0.2); color: var(--emerald-core, #10b981); border: 1px solid var(--emerald-core, #10b981); }
+    .badge.elite { background: rgba(218,165,32,0.2); color: var(--gold-core, #daa520); border: 1px solid var(--gold-core, #daa520); }
     
     /* RIGHT MAIN PANEL */
     .main-panel { display: flex; flex-direction: column; gap: 15px; }
     .pipeline-header {
-        color: var(--text-mist);
+        color: var(--text-mist, #94a3b8);
         font-size: 0.8rem;
         letter-spacing: 2px;
         text-align: center;
-        border-bottom: 1px solid var(--border-dim);
+        border-bottom: 1px solid var(--border-dim, #1e293b);
         padding-bottom: 10px;
+        font-family: 'JetBrains Mono', monospace;
     }
     .stream-container {
         flex-grow: 1;
@@ -66,30 +102,68 @@
         font-size: 0.85rem;
         line-height: 1.5;
         padding: 20px;
+        font-family: 'JetBrains Mono', monospace;
     }
     
     /* INPUT CONSOLE */
-    .input-console { background: #080A0E; border-top: 1px solid var(--border-dim); padding: 15px; }
-    .input-header { color: var(--emerald-core); font-size: 0.75rem; margin-bottom: 10px; }
+    .input-console { background: #080A0E; border-top: 1px solid var(--border-dim, #1e293b); padding: 15px; }
+    .input-header { color: var(--emerald-core, #10b981); font-size: 0.75rem; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+    
+    /* TEXTAREA & DICTATION WRAPPER */
+    .prompt-wrapper {
+        position: relative;
+        width: 100%;
+        margin-bottom: 15px;
+    }
     #prompt-input {
         width: 100%;
         background: transparent;
-        border: 1px solid var(--border-dim);
-        color: var(--text-glint);
+        border: 1px solid var(--border-dim, #1e293b);
+        color: var(--text-glint, #e2e8f0);
         font-family: 'JetBrains Mono', monospace;
-        padding: 10px;
+        padding: 10px 40px 10px 10px;
         height: 60px;
         resize: none;
-        margin-bottom: 15px;
+        box-sizing: border-box;
     }
-    #prompt-input:focus { outline: none; border-color: var(--gold-core); }
+    #prompt-input:focus { outline: none; border-color: var(--gold-core, #daa520); }
     
-    /* BUTTON ROW */
-    .button-row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .button-row button, .button-row select {
+    .mic-btn {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
         background: transparent;
-        border: 1px solid var(--border-dim);
-        color: var(--text-mist);
+        border: none;
+        color: var(--emerald-core, #10b981);
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+    }
+    .mic-btn:hover { color: var(--gold-core, #daa520); transform: scale(1.1); }
+    .mic-btn.recording { color: var(--ruby-core, #ef4444); animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+
+    /* BUTTON ROW & TELEMETRY */
+    .button-row { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        width: 100%; 
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .left-buttons { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .left-buttons button, .left-buttons select {
+        background: transparent;
+        border: 1px solid var(--border-dim, #1e293b);
+        color: var(--text-mist, #94a3b8);
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.75rem;
         padding: 6px 12px;
@@ -97,65 +171,248 @@
         text-transform: uppercase;
         transition: all 0.2s;
     }
-    .button-row button:hover { border-color: var(--text-glint); color: var(--text-glint); }
-    .btn-submit { border-color: var(--gold-core) !important; color: var(--gold-core) !important; }
+    .left-buttons button:hover { border-color: var(--text-glint, #e2e8f0); color: var(--text-glint, #e2e8f0); }
+    .btn-submit { border-color: var(--gold-core, #daa520) !important; color: var(--gold-core, #daa520) !important; }
     .btn-submit:hover { background: rgba(218,165,32,0.1) !important; }
-    .btn-approve { border-color: var(--emerald-core) !important; color: var(--emerald-core) !important; }
-    .btn-danger { border-color: var(--ruby-core) !important; color: var(--ruby-core) !important; }
-    .project-dropdown { background: rgba(0,0,0,0.5) !important; }
+    .btn-approve { border-color: var(--emerald-core, #10b981) !important; color: var(--emerald-core, #10b981) !important; }
+    .btn-danger { border-color: var(--ruby-core, #ef4444) !important; color: var(--ruby-core, #ef4444) !important; }
+    .project-dropdown { background: rgba(0,0,0,0.5) !important; color: var(--text-glint, #e2e8f0) !important; }
+
+    /* DYNAMIC LLM STATUS BADGE */
+    .active-llm-status {
+        color: var(--emerald-core, #10b981);
+        font-size: 0.75rem;
+        font-family: 'JetBrains Mono', monospace;
+        border: 1px solid var(--emerald-core, #10b981);
+        padding: 6px 12px;
+        background: rgba(16, 185, 129, 0.05);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
 </style>
 
 <div class="exec-grid">
-    <!-- TIER CLASSIFICATION COLUMN -->
+    <!-- LEFT-HAND MENU -->
     <div class="glass-panel">
-        <h3 class="panel-header">MONTY'S BRAIN // TIERS</h3>
+        <h3 class="panel-header">LEFT-HAND MENU</h3>
         <hr class="dim-divider">
         
-        <div class="tier-group">
-            <div class="tier-label">TIER 1: OLLAMA (LOCAL)</div>
-            <button class="model-btn active" onclick="switchBrain('ollama', 'llama-3.3-70b-instruct')">Llama 3 / CodeLlama <span class="badge local">Local</span></button>
-            <button class="model-btn" onclick="switchBrain('ollama', 'deepseek-r1')">DeepSeek-R1 (Quant) <span class="badge local">Local</span></button>
-        </div>
-
-        <div class="tier-group">
-            <div class="tier-label">TIER 2: NVIDIA NIM</div>
-            <button class="model-btn" onclick="switchBrain('nvidia', 'llama-3.3-70b-instruct')">Llama 3.3 70B Instruct <span class="badge nim">NIM</span></button>
-            <button class="model-btn" onclick="switchBrain('nvidia', 'nemotron-70b')">Nemotron 70B <span class="badge nim">NIM</span></button>
-        </div>
+        <button class="main-menu-btn" onclick="toggleLLMMenu()">
+            MONTY'S BRAIN <span id="llm-toggle-icon">▼</span>
+        </button>
         
-        <div class="tier-group">
-            <div class="tier-label">TIER 3: OPENROUTER</div>
-            <button class="model-btn" onclick="switchBrain('openrouter', 'claude-3-5-sonnet')">Claude 3.5 Sonnet <span class="badge local">Elite</span></button>
+        <div class="llm-selection-container" id="llm-dropdown" style="display: block;">
+            <div class="tier-group">
+                <div class="tier-label">TIER 1: OLLAMA (LOCAL)</div>
+                <button class="model-btn active" onclick="switchBrain('ollama', 'lfm-2.5')">LFM 2.5 (Grunt Worker) <span class="badge local">Local</span></button>
+                <button class="model-btn" onclick="switchBrain('ollama', 'llama-3.1-8b-instruct')">Llama 3.1 8B Instruct <span class="badge local">Local</span></button>
+                <button class="model-btn" onclick="switchBrain('ollama', 'deepseek-r1')">DeepSeek-R1 (Quant) <span class="badge local">Local</span></button>
+            </div>
+
+            <div class="tier-group">
+                <div class="tier-label">TIER 2: NVIDIA NIM</div>
+                <button class="model-btn" onclick="switchBrain('nvidia', 'meta/llama-3.1-70b-instruct')">Llama 3.1 70B Instruct <span class="badge nim">NIM</span></button>
+                <button class="model-btn" onclick="switchBrain('nvidia', 'nvidia/nemotron-4-340b-instruct')">Nemotron 340B <span class="badge nim">NIM</span></button>
+            </div>
+            
+            <div class="tier-group">
+                <div class="tier-label">TIER 3: OPENROUTER</div>
+                <button class="model-btn" onclick="switchBrain('openrouter', 'anthropic/claude-3.5-sonnet')">Claude 3.5 Sonnet <span class="badge elite">Elite</span></button>
+            </div>
         </div>
     </div>
 
     <!-- MAIN EXECUTION PIPELINE -->
     <div class="main-panel">
-        <div class="pipeline-header">ACTIVE PIPELINE // [ AWAITING SELECTION ]</div>
+        <div class="pipeline-header">ACTIVE PIPELINE // [ OLLAMA: LFM-2.5 ACTIVE ]</div>
         
-        <!-- JAVASCRIPT TARGET ID -->
         <div id="mcnc-stream" class="stream-container glass-panel">
-            <div style="color: var(--text-mist); font-size: 0.8rem;">
-                <span style="color: var(--gold-core);">CHIEF OF STAFF // MONTY 2 (BASE 1 PIPELINE)</span><br><br>
-                Pipeline active. Exec staging room secured. Awaiting raw instructions.
+            <div style="color: var(--text-mist, #94a3b8); font-size: 0.8rem;">
+                <span style="color: var(--gold-core, #daa520);">CHIEF OF STAFF // MONTY 2 (BASE 1 PIPELINE)</span><br><br>
+                Pipeline active. Exec staging room secured. LFM 2.5 Grunt Worker initialized. Awaiting raw instructions.
             </div>
         </div>
 
         <!-- COMMAND CONSOLE -->
         <div class="input-console glass-panel">
             <div class="input-header">+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</div>
-            <textarea id="prompt-input" placeholder="Enter instructions, code directives, or prompt parameters here..."></textarea>
+            
+            <div class="prompt-wrapper">
+                <textarea id="prompt-input" placeholder="Enter instructions, code directives, or prompt parameters here..."></textarea>
+                <button class="mic-btn" id="mic-btn" onclick="toggleDictation()" title="Voice Dictation">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="22"></line>
+                    </svg>
+                </button>
+            </div>
             
             <div class="button-row">
-                <button class="btn-submit" onclick="submitInstruction()">SUBMIT</button>
-                <button class="btn-action">+ ADD</button>
-                <button class="btn-action">REFINE</button>
-                <button class="btn-approve">APPROVE</button>
-                <button class="btn-danger">CLS</button>
-                <select class="project-dropdown"><option>[ PROJECT ]</option></select>
-                <button class="btn-action">ASSIGN</button>
-                <button class="btn-submit">PUSH TO WARROOM</button>
+                <div class="left-buttons">
+                    <button class="btn-submit" onclick="submitInstruction()">SUBMIT</button>
+                    <button class="btn-action">+ ADD</button>
+                    <button class="btn-action">REFINE</button>
+                    <button class="btn-approve">APPROVE</button>
+                    <button class="btn-danger" onclick="document.getElementById('mcnc-stream').innerHTML=''">CLS</button>
+                    <select class="project-dropdown"><option>[ PROJECT ]</option></select>
+                    <button class="btn-action">ASSIGN</button>
+                    <button class="btn-action">PUSH TO WARROOM</button>
+                </div>
+                <!-- MONTY'S ACTIVE BRAIN TELEMETRY -->
+                <div class="active-llm-status" id="active-llm-display">
+                    MONTY 2 // [ OLLAMA: LFM-2.5 ]
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- EXECUTION SCRIPTS -->
+<script>
+    let currentBrain = {
+        provider: 'ollama',
+        model: 'lfm-2.5',
+        label: 'OLLAMA: LFM-2.5 ACTIVE'
+    };
+
+    function toggleLLMMenu() {
+        const menu = document.getElementById('llm-dropdown');
+        const icon = document.getElementById('llm-toggle-icon');
+        if (menu.style.display === 'none' || menu.style.display === '') {
+            menu.style.display = 'block';
+            icon.textContent = '▲';
+        } else {
+            menu.style.display = 'none';
+            icon.textContent = '▼';
+        }
+    }
+
+    function switchBrain(provider, model) {
+        currentBrain.provider = provider;
+        currentBrain.model = model;
+        currentBrain.label = `${provider.toUpperCase()}: ${model.toUpperCase()} ACTIVE`;
+
+        document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+        if (event && event.currentTarget) {
+            event.currentTarget.classList.add('active');
+        }
+
+        const header = document.querySelector('.pipeline-header');
+        if (header) {
+            header.textContent = `ACTIVE PIPELINE // [ ${currentBrain.label} ]`;
+        }
+
+        const activeDisplay = document.getElementById('active-llm-display');
+        if (activeDisplay) {
+            activeDisplay.textContent = `MONTY 2 // [ ${provider.toUpperCase()}: ${model.toUpperCase()} ]`;
+        }
+
+        const stream = document.getElementById('mcnc-stream');
+        const sysNotice = document.createElement('div');
+        sysNotice.style.color = 'var(--gold-core)';
+        sysNotice.style.marginTop = '10px';
+        sysNotice.style.fontSize = '0.75rem';
+        sysNotice.innerHTML = `[SYS] Switched active execution brain to: <strong>${provider.toUpperCase()} // ${model}</strong>`;
+        stream.appendChild(sysNotice);
+        stream.scrollTop = stream.scrollHeight;
+    }
+
+    // Voice Dictation Protocol
+    let recognition;
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        
+        recognition.onresult = function(event) {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
+            }
+            if (finalTranscript) {
+                const inputArea = document.getElementById('prompt-input');
+                inputArea.value += (inputArea.value ? ' ' : '') + finalTranscript;
+            }
+        };
+        
+        recognition.onend = function() {
+            document.getElementById('mic-btn').classList.remove('recording');
+        };
+        
+        recognition.onerror = function(event) {
+            console.error('[SYS] Dictation error:', event.error);
+            document.getElementById('mic-btn').classList.remove('recording');
+        };
+    }
+
+    function toggleDictation() {
+        const micBtn = document.getElementById('mic-btn');
+        if (!recognition) {
+            alert('[SYS] Voice dictation API not supported in this browser environment.');
+            return;
+        }
+        
+        if (micBtn.classList.contains('recording')) {
+            recognition.stop();
+            micBtn.classList.remove('recording');
+        } else {
+            recognition.start();
+            micBtn.classList.add('recording');
+        }
+    }
+
+    // Live Execution Submission to Backend Gateway
+    async function submitInstruction() {
+        const inputArea = document.getElementById('prompt-input');
+        const prompt = inputArea.value.trim();
+        if (!prompt) return;
+
+        const stream = document.getElementById('mcnc-stream');
+
+        // Render user prompt block
+        const userMsg = document.createElement('div');
+        userMsg.style.marginTop = '15px';
+        userMsg.style.color = 'var(--emerald-core)';
+        userMsg.innerHTML = `<strong>MIKE // WARLORD:</strong><br>${prompt.replace(/\n/g, '<br>')}`;
+        stream.appendChild(userMsg);
+
+        // Clear input box
+        inputArea.value = '';
+
+        // Render pending response container
+        const responseMsg = document.createElement('div');
+        responseMsg.style.marginTop = '15px';
+        responseMsg.style.color = 'var(--text-glint)';
+        responseMsg.innerHTML = `<strong style="color: var(--gold-core);">MONTY 2 [${currentBrain.model}]:</strong><br><span style="color: var(--text-mist);">Processing pipeline request via ${currentBrain.provider.toUpperCase()}...</span>`;
+        stream.appendChild(responseMsg);
+        stream.scrollTop = stream.scrollHeight;
+
+        try {
+            const response = await fetch('/api/exec/prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider: currentBrain.provider,
+                    model: currentBrain.model,
+                    prompt: prompt
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                responseMsg.innerHTML = `<strong style="color: var(--gold-core);">MONTY 2 [${currentBrain.model}]:</strong><br>${data.output.replace(/\n/g, '<br>')}`;
+            } else {
+                responseMsg.innerHTML = `<strong style="color: var(--ruby-core);">[EXECUTION ERROR]:</strong><br>${data.error}`;
+            }
+        } catch (err) {
+            responseMsg.innerHTML = `<strong style="color: var(--ruby-core);">[SYSTEM BRIDGE FAILED]:</strong><br>${err.message}`;
+        }
+        
+        stream.scrollTop = stream.scrollHeight;
+    }
+</script>
