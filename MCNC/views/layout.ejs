@@ -34,7 +34,10 @@
             font-family: 'JetBrains Mono', monospace;
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
+            height: 100vh;        /* THE MASTER LOCK */
+            overflow: hidden;     /* KILLS GLOBAL SCROLLING */
+            display: flex;
+            flex-direction: column;
         }
 
         /* MASTER NAVIGATION DECK */
@@ -47,6 +50,7 @@
             align-items: center;
             flex-wrap: nowrap;
             overflow-x: auto;
+            flex-shrink: 0;       /* PREVENTS CRUSHING */
         }
         
         .nav-header {
@@ -88,8 +92,8 @@
         /* DREADNOUGHT VIEWPORT MATRIX */
         .mcnc-viewport {
             display: flex;
-            flex-direction: column;
-            min-height: calc(100vh - 60px);
+            flex: 1;              /* FILLS REMAINING SPACE EXACTLY */
+            overflow: hidden;     /* PASSES SCROLL TO 01 EXEC TERMINAL */
             background: radial-gradient(circle at top right, rgba(218,165,32,0.03), transparent 50%);
         }
 
@@ -98,6 +102,44 @@
         ::-webkit-scrollbar-track { background: var(--bg-obsidian); }
         ::-webkit-scrollbar-thumb { background: var(--border-dim); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-mist); }
+    </style>
+
+    <!-- GLOBAL DICTATION STYLES -->
+    <style>
+        .mcnc-prompt-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .warlord-mic-btn {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            padding: 5px;
+            z-index: 10;
+        }
+        .warlord-mic-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #888; /* Idle Grey */
+            transition: fill 0.2s ease, transform 0.2s ease;
+        }
+        .warlord-mic-btn.listening svg {
+            fill: #FF0000; /* Active Red */
+            transform: scale(1.1);
+        }
+        @keyframes pulseRed {
+            0% { filter: drop-shadow(0 0 2px #FF0000); }
+            50% { filter: drop-shadow(0 0 8px #FF0000); }
+            100% { filter: drop-shadow(0 0 2px #FF0000); }
+        }
+        .warlord-mic-btn.listening {
+            animation: pulseRed 1.5s infinite;
+        }
     </style>
 </head>
 <body>
@@ -118,7 +160,6 @@
         <a href="/review" class="nav-tab <%= activeView === 'partials/tab_12_reviewmedia' ? 'active' : '' %>">12 REVIEW</a>
         <a href="/docs" class="nav-tab <%= activeView === 'partials/tab_13_docs' ? 'active' : '' %>">13 DOCS</a>
     </div>
-    </div>
 
     <div class="mcnc-viewport">
         <!-- INJECTS ACTIVE MODULAR VIEW -->
@@ -127,5 +168,8 @@
 
     <!-- SURVIVING ENGINE LOGIC -->
     <script src="/mcnc_logic.js"></script>
+
+    <!-- GLOBAL DICTATION SCRIPT -->
+    <script src="/warlord-dictation.js"></script>
 </body>
 </html>
