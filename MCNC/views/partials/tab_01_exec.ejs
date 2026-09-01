@@ -73,6 +73,220 @@
         color: var(--gold-core); font-size: 16px; font-family: 'JetBrains Mono', monospace; font-weight: bold;
         letter-spacing: 2px; text-transform: uppercase; animation: pulseGlow 1.5s infinite; text-align: center;
     }
+
+    /* ==========================================================================
+       JUDGE AGENT PROCESSING INDICATOR
+       ========================================================================== */
+    .telemetry-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background-color: rgba(15, 23, 42, 0.7);
+        border: 1px solid var(--gold-core);
+        color: var(--gold-core);
+        padding: 8px 14px;
+        font-size: 11px;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-radius: 2px;
+        margin-bottom: 16px;
+        box-shadow: 0 0 10px rgba(218, 165, 32, 0.2);
+    }
+    .telemetry-chip.pulsing {
+        animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 0.4; }
+        50% { opacity: 1; }
+        100% { opacity: 0.4; }
+    }
+
+    /* ==========================================================================
+       TAB UI ALIGNMENT (HIGH FINANCE AESTHETIC)
+       ========================================================================== */
+    .top-navigation-tabs {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 4px;
+        padding: 0 16px;
+        background-color: var(--bg-obsidian);
+        border-bottom: 1px solid var(--border-dim);
+        height: 48px;
+    }
+    .top-navigation-tabs .tab-button {
+        background-color: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-mist);
+        padding: 12px 16px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .top-navigation-tabs .tab-button:hover {
+        color: var(--text-glint);
+        border-bottom-color: var(--border-dim);
+    }
+    .top-navigation-tabs .tab-button.active {
+        color: var(--gold-core);
+        border-bottom-color: var(--gold-core);
+        background-color: rgba(218, 165, 32, 0.05);
+    }
+
+    /* ==========================================================================
+       COPY TO CLIPBOARD BUTTON STYLES
+       ========================================================================== */
+    .copy-btn {
+        background-color: rgba(15, 23, 42, 0.6);
+        border: 1px solid var(--border-dim);
+        color: var(--text-mist);
+        padding: 4px 8px;
+        font-size: 10px;
+        font-family: 'JetBrains Mono', monospace;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border-radius: 2px;
+        margin-left: 8px;
+        white-space: nowrap;
+    }
+    .copy-btn:hover {
+        border-color: var(--emerald-core);
+        color: var(--emerald-core);
+        background-color: var(--glass-emerald);
+    }
+    .copy-btn.copied {
+        border-color: var(--emerald-core);
+        color: var(--emerald-core);
+        background-color: var(--glass-emerald);
+    }
+
+    /* ==========================================================================
+       DEDICATED SCROLL BAR STYLING (ALL VIEWPORTS & CODE PANELS)
+       ========================================================================== */
+    /* Webkit (Chrome, Edge, Safari) */
+    .terminal-viewport::-webkit-scrollbar,
+    .message-content::-webkit-scrollbar,
+    pre::-webkit-scrollbar,
+    code::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    .terminal-viewport::-webkit-scrollbar-track,
+    .message-content::-webkit-scrollbar-track,
+    pre::-webkit-scrollbar-track,
+    code::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.3);
+        border-radius: 4px;
+    }
+    .terminal-viewport::-webkit-scrollbar-thumb,
+    .message-content::-webkit-scrollbar-thumb,
+    pre::-webkit-scrollbar-thumb,
+    code::-webkit-scrollbar-thumb {
+        background: var(--border-dim);
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .terminal-viewport::-webkit-scrollbar-thumb:hover,
+    .message-content::-webkit-scrollbar-thumb:hover,
+    pre::-webkit-scrollbar-thumb:hover,
+    code::-webkit-scrollbar-thumb:hover {
+        background: var(--gold-core);
+    }
+
+    /* Firefox */
+    .terminal-viewport,
+    .message-content,
+    pre,
+    code {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-dim) rgba(15, 23, 42, 0.3);
+    }
+
+    /* Ensure response blocks and code panels have explicit overflow and max-height */
+    .message-content {
+        overflow-y: auto;
+        max-height: 400px; /* Adjust as needed */
+        padding-right: 4px;
+    }
+    pre, code {
+        overflow-y: auto;
+        max-height: 400px;
+        background-color: rgba(15, 23, 42, 0.5);
+        padding: 8px;
+        border: 1px solid var(--border-dim);
+        border-radius: 2px;
+    }
+
+    /* ==========================================================================
+       CUSTOM HIGH FINANCE SCROLLBARS (EXPLICIT INJECTION)
+       ========================================================================== */
+    /* Global Webkit scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: var(--bg-obsidian);
+        border: 1px solid var(--border-dim);
+    }
+    ::-webkit-scrollbar-thumb {
+        background: var(--gold-core);
+        border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #f3e5ab;
+    }
+
+    /* Firefox global scrollbar styling */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--gold-core) var(--bg-obsidian);
+    }
+
+    /* ==========================================================================
+       ATTACHMENT THUMBNAIL STYLES
+       ========================================================================== */
+    .attachment-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background-color: rgba(15, 23, 42, 0.6);
+        border: 1px solid var(--border-dim);
+        color: var(--text-glint);
+        padding: 4px 8px;
+        font-size: 11px;
+        font-family: 'JetBrains Mono', monospace;
+        margin-right: 6px;
+        margin-bottom: 6px;
+        border-radius: 2px;
+    }
+    .attachment-thumbnail {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 2px;
+        border: 1px solid var(--border-dim);
+        background-color: rgba(0,0,0,0.3);
+    }
+    .attachment-file-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(0,0,0,0.3);
+        border: 1px solid var(--border-dim);
+        border-radius: 2px;
+        color: var(--text-mist);
+        font-size: 18px;
+    }
 </style>
 
 <!-- MAIN CONTAINER -->
@@ -207,8 +421,111 @@
         const terminalViewport = document.getElementById('terminalViewport');
         const promptInput = document.getElementById('execPromptInput');
         const micBtn = document.getElementById('micBtn');
+        const attachmentTrigger = document.getElementById('attachmentTrigger');
+        const fileInput = document.getElementById('fileInput');
+        const attachmentPreview = document.getElementById('attachmentPreview');
         
         let isAutoFeeding = false; 
+
+        // ==========================================================================
+        // JUDGE AGENT PROCESSING INDICATOR MANAGEMENT
+        // ==========================================================================
+        function showJudgeProcessingIndicator() {
+            // Remove existing indicator if present
+            removeJudgeProcessingIndicator();
+            
+            const indicator = document.createElement('div');
+            indicator.id = 'judge-processing-indicator';
+            indicator.className = 'telemetry-chip pulsing';
+            indicator.textContent = '[SYSTEM AUDIT]: JUDGE AGENT VALIDATING PAYLOAD... PLEASE STAND BY';
+            
+            terminalViewport.appendChild(indicator);
+            terminalViewport.scrollTop = terminalViewport.scrollHeight;
+        }
+
+        function removeJudgeProcessingIndicator() {
+            const existing = document.getElementById('judge-processing-indicator');
+            if (existing) existing.remove();
+        }
+
+        // ==========================================================================
+        // ATTACHMENT HANDLING (CLICK & PASTE) WITH THUMBNAILS
+        // ==========================================================================
+        function renderAttachmentPreviews() {
+            attachmentPreview.innerHTML = '';
+            state.attachments.forEach((file, index) => {
+                const chip = document.createElement('div');
+                chip.className = 'attachment-chip';
+                
+                // Determine if file is an image
+                const isImage = file.type.startsWith('image/');
+                let thumbnailHtml = '';
+                if (isImage) {
+                    // Create object URL for thumbnail
+                    const objectUrl = URL.createObjectURL(file);
+                    thumbnailHtml = `<img src="${objectUrl}" class="attachment-thumbnail" alt="${file.name}">`;
+                } else {
+                    thumbnailHtml = `<div class="attachment-file-icon">📄</div>`;
+                }
+                
+                chip.innerHTML = `
+                    ${thumbnailHtml}
+                    <span>${file.name}</span>
+                    <button class="remove-attachment" data-index="${index}" style="background:none;border:none;color:var(--ruby-core);cursor:pointer;font-size:14px;">×</button>
+                `;
+                attachmentPreview.appendChild(chip);
+            });
+
+            // Add remove handlers
+            document.querySelectorAll('.remove-attachment').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    state.attachments.splice(idx, 1);
+                    renderAttachmentPreviews();
+                });
+            });
+        }
+
+        // Click to open file dialog
+        attachmentTrigger.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                state.attachments.push(file);
+            });
+            renderAttachmentPreviews();
+            fileInput.value = ''; // Reset input
+        });
+
+        // Global paste event for clipboard files
+        document.addEventListener('paste', (e) => {
+            const clipboardData = e.clipboardData || window.clipboardData;
+            if (!clipboardData) return;
+            
+            const items = clipboardData.items;
+            if (!items) return;
+
+            let hasFiles = false;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].kind === 'file') {
+                    const file = items[i].getAsFile();
+                    if (file) {
+                        state.attachments.push(file);
+                        hasFiles = true;
+                    }
+                }
+            }
+
+            if (hasFiles) {
+                e.preventDefault();
+                renderAttachmentPreviews();
+                appendMessage('SYSTEM', `Attached ${state.attachments.length} file(s) via clipboard.`, 'system');
+            }
+        });
 
         // ==========================================================================
         // REAL-TIME NATIVE WEB SPEECH DICTATION (ZERO LATENCY)
@@ -316,6 +633,27 @@
             content.style.whiteSpace = 'pre-wrap';
             content.textContent = text;
 
+            // Copy button for this message
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-btn';
+            copyBtn.textContent = 'COPY';
+            copyBtn.title = 'Copy to clipboard';
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(text).then(() => {
+                    copyBtn.textContent = 'COPIED';
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => {
+                        copyBtn.textContent = 'COPY';
+                        copyBtn.classList.remove('copied');
+                    }, 1500);
+                }).catch(err => {
+                    console.error('Copy failed:', err);
+                });
+            });
+
+            // Append copy button to header for visibility
+            header.appendChild(copyBtn);
+
             msgBlock.appendChild(header);
             msgBlock.appendChild(content);
             msgBlock.style.marginBottom = '16px';
@@ -420,6 +758,9 @@
                             else if (payload.action === "FILE_PATCH") {
                                 appendMessage('ROXY', 'File patch payload intercepted. Routing to Judge Agent for validation...', 'security');
                                 
+                                // Show Judge Agent processing indicator
+                                showJudgeProcessingIndicator();
+                                
                                 const patchRes = await fetch('/api/exec/patch', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -427,6 +768,10 @@
                                 });
                                 
                                 const patchData = await patchRes.json();
+                                
+                                // Remove Judge Agent processing indicator once verdict arrives
+                                removeJudgeProcessingIndicator();
+                                
                                 appendMessage('JUDGE', patchData.output, 'judge');
                                 
                                 outputText = outputText.replace(jsonBlockRegex, "\n*[CODE PAYLOAD EXTRACTED AND ROUTED TO JUDGE]*\n");
@@ -435,6 +780,7 @@
                             
                         } catch (err) {
                             console.error("[ROXY] Failed to parse intercepted JSON payload.", err);
+                            removeJudgeProcessingIndicator();
                             appendMessage('SYSTEM ERROR', 'Failed to parse JSON action payload.', 'system-error');
                         }
                     } else {
@@ -449,6 +795,7 @@
                 clearInterval(timerInterval);
                 const loaderEl = document.getElementById(loaderId);
                 if (loaderEl) loaderEl.remove();
+                removeJudgeProcessingIndicator();
 
                 appendMessage('SYSTEM ERROR', err.message, 'system-error');
             }

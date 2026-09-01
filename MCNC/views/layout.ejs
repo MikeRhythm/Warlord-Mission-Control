@@ -40,53 +40,112 @@
             flex-direction: column;
         }
 
-        /* MASTER NAVIGATION DECK */
+        /* High Finance Master Header & Pill Navigation */
+        .mcnc-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background: #0d0f12;
+            border-bottom: 1px solid #1f242d;
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+        .nav-branding {
+            color: #ffb800;
+            font-weight: 800;
+            font-size: 13px;
+            letter-spacing: 1px;
+        }
+        .nav-telemetry {
+            color: #5c6b7f;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
         .mcnc-top-nav {
             display: flex;
-            background: #080A0E;
-            border-bottom: 1px solid var(--border-dim);
-            padding: 12px 20px;
-            gap: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 10px 16px;
+            background: #080a0c;
+            border-bottom: 2px solid #14181f;
             align-items: center;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            flex-shrink: 0;       /* PREVENTS CRUSHING */
         }
-        
-        .nav-header {
-            color: var(--text-glint);
-            font-weight: 700;
-            font-size: 0.85rem;
-            margin-right: 15px;
-            letter-spacing: 1.5px;
-            white-space: nowrap;
-        }
-
         .nav-tab {
-            background: var(--glass-panel);
-            border: 1px solid var(--border-dim);
-            color: var(--text-mist);
-            padding: 8px 14px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            text-decoration: none;
+            display: inline-block;
+            padding: 6px 14px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 11px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.2s;
-            white-space: nowrap;
-            border-radius: 2px;
+            text-decoration: none;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease-in-out;
+            border: 1px solid transparent;
         }
 
-        .nav-tab:hover {
-            border-color: var(--text-glint);
-            color: var(--text-glint);
+        /* Default / Dark Obsidian Tabs */
+        .nav-tab.tab-obsidian {
+            background: #14171c;
+            color: #a0aec0;
+            border: 1px solid #232832;
+        }
+        .nav-tab.tab-obsidian:hover {
+            background: #1c2129;
+            color: #ffffff;
+            border-color: #3b4252;
         }
 
+        /* Steel Teal / Slate Blue Tabs */
+        .nav-tab.tab-teal {
+            background: #2b4c59;
+            color: #e2e8f0;
+            border: 1px solid #3d6a7d;
+        }
+        .nav-tab.tab-teal:hover {
+            background: #365e6f;
+            color: #ffffff;
+        }
+
+        /* Bronze / Rose Tint Tabs */
+        .nav-tab.tab-bronze {
+            background: #4a3838;
+            color: #e2e8f0;
+            border: 1px solid #664d4d;
+        }
+        .nav-tab.tab-bronze:hover {
+            background: #5c4545;
+            color: #ffffff;
+        }
+
+        /* Crimson / Ruby Tab */
+        .nav-tab.tab-ruby {
+            background: #592525;
+            color: #fca5a5;
+            border: 1px solid #7f3535;
+        }
+        .nav-tab.tab-ruby:hover {
+            background: #6e2e2e;
+            color: #ffffff;
+        }
+
+        /* Brass / Olive Gold Tab */
+        .nav-tab.tab-brass {
+            background: #4d4930;
+            color: #fef08a;
+            border: 1px solid #6b6643;
+        }
+        .nav-tab.tab-brass:hover {
+            background: #5c583a;
+            color: #ffffff;
+        }
+
+        /* Active Highlight (Gold Core) */
         .nav-tab.active {
-            border-color: var(--gold-core);
-            color: var(--gold-core);
-            background: rgba(218, 165, 32, 0.05);
-            box-shadow: inset 0 -2px 0 var(--gold-core);
+            background: #0d0f12 !important;
+            color: #ffb800 !important;
+            border: 2px solid #ffb800 !important;
+            box-shadow: 0 0 8px rgba(255, 184, 0, 0.4);
         }
 
         /* DREADNOUGHT VIEWPORT MATRIX */
@@ -143,22 +202,27 @@
     </style>
 </head>
 <body>
-    <!-- 13-PAGE MASTER NAVIGATION DECK -->
+    <!-- High Finance Master Header & Pill Navigation -->
+    <div class="mcnc-top-bar">
+        <div class="nav-branding">WARLORD MISSION CONTROL // MCNC MASTER</div>
+        <div class="nav-telemetry">BRIDGE: ACTIVE (BASE 1) | SYSTEM READY</div>
+    </div>
+
     <div class="mcnc-top-nav">
-        <div class="nav-header">WARLORD MISSION CONTROL //</div>
-        <a href="/exec" class="nav-tab <%= activeView === 'partials/tab_01_exec' ? 'active' : '' %>">01 EXEC</a>
-        <a href="/warroom" class="nav-tab <%= activeView === 'partials/tab_02_warroom' ? 'active' : '' %>">02 WAR ROOM</a>
-        <a href="/projects" class="nav-tab <%= activeView === 'partials/tab_03_projects' ? 'active' : '' %>">03 PROJECTS</a>
-        <a href="/taskboard" class="nav-tab <%= activeView === 'partials/tab_04_taskboard' ? 'active' : '' %>">04 TASK BOARD</a>
-        <a href="/calendar" class="nav-tab <%= activeView === 'partials/tab_05_calendar' ? 'active' : '' %>">05 CALENDAR</a>
-        <a href="/memory" class="nav-tab <%= activeView === 'partials/tab_06_memory' ? 'active' : '' %>">06 MEMORY</a>
-        <a href="/paperclip" class="nav-tab <%= activeView === 'partials/tab_07_paperclip' ? 'active' : '' %>">07 PAPERCLIP</a>
-        <a href="/palettes" class="nav-tab <%= activeView === 'partials/tab_08_palettes' ? 'active' : '' %>">08 PALETTES</a>
-        <a href="/org" class="nav-tab <%= activeView === 'partials/tab_09_org' ? 'active' : '' %>">09 ORG</a>
-        <a href="/office" class="nav-tab <%= activeView === 'partials/tab_10_office' ? 'active' : '' %>">10 OFFICE</a>
-        <a href="/galaxy" class="nav-tab <%= activeView === 'partials/tab_11_galaxy' ? 'active' : '' %>">11 GALAXY</a>
-        <a href="/review" class="nav-tab <%= activeView === 'partials/tab_12_reviewmedia' ? 'active' : '' %>">12 REVIEW</a>
-        <a href="/docs" class="nav-tab <%= activeView === 'partials/tab_13_docs' ? 'active' : '' %>">13 DOCS</a>
+        <a href="/exec" class="nav-tab tab-obsidian <%= activeView === 'partials/tab_01_exec' ? 'active' : '' %>">01 EXEC</a>
+        <a href="/warroom" class="nav-tab tab-obsidian <%= activeView === 'partials/tab_02_war_room' ? 'active' : '' %>">02 WAR ROOM</a>
+        <a href="/projects" class="nav-tab tab-teal <%= activeView === 'partials/tab_03_projects' ? 'active' : '' %>">03 PROJECTS</a>
+        <a href="/taskboard" class="nav-tab tab-teal <%= activeView === 'partials/tab_04_taskboard' ? 'active' : '' %>">04 TASK BOARD</a>
+        <a href="/calendar" class="nav-tab tab-teal <%= activeView === 'partials/tab_05_calendar' ? 'active' : '' %>">05 CALENDAR</a>
+        <a href="/memory" class="nav-tab tab-obsidian <%= activeView === 'partials/tab_06_memory' ? 'active' : '' %>">06 MEMORY</a>
+        <a href="/paperclip" class="nav-tab tab-teal <%= activeView === 'partials/tab_07_paperclip' ? 'active' : '' %>">07 PAPERCLIP</a>
+        <a href="/palettes" class="nav-tab tab-ruby <%= activeView === 'partials/tab_08_palettes' ? 'active' : '' %>">08 PALETTES</a>
+        <a href="/org" class="nav-tab tab-obsidian <%= activeView === 'partials/tab_09_org' ? 'active' : '' %>">09 ORG</a>
+        <a href="/tokens" class="nav-tab tab-bronze <%= activeView === 'partials/tab_10_tokens' ? 'active' : '' %>">10 TOKENS</a>
+        <a href="/galaxy" class="nav-tab tab-brass <%= activeView === 'partials/tab_11_galaxy' ? 'active' : '' %>">11 GALAXY</a>
+        <a href="/review" class="nav-tab tab-bronze <%= activeView === 'partials/tab_12_reviewmedia' ? 'active' : '' %>">12 REVIEW</a>
+        <a href="/docs" class="nav-tab tab-bronze <%= activeView === 'partials/tab_13_docs' ? 'active' : '' %>">13 DOCS</a>
+        <a href="/other" class="nav-tab tab-obsidian <%= activeView === 'partials/tab_14_other' ? 'active' : '' %>">14 OTHER</a>
     </div>
 
     <div class="mcnc-viewport">
