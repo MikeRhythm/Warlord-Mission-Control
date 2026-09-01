@@ -35,7 +35,7 @@ timeout /t 3 /nobreak >nul
 
 :: STEP 3: PAPERCLIP ORCHESTRATION ENGINE (PORT 3100)
 echo [3/7] Initializing Paperclip Orchestrator (Port 3100)...
-start "PAPERCLIP ORCHESTRATOR" /min cmd.exe /k "cd /d C:\Warlord_Inc\Warlord_WASP && npx paperclipai run"
+start "PAPERCLIP ORCHESTRATOR" /min cmd.exe /k "cd /d C:\Warlord_Inc\Warlord_WASP && paperclipai run"
 timeout /t 4 /nobreak >nul
 
 :: STEP 4: HERMES EXECUTIVE CORE (GHOST MODE)

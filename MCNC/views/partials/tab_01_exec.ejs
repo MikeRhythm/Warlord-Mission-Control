@@ -111,6 +111,11 @@
                 <button class="model-btn" data-provider="openrouter" data-model="meta-llama/llama-3.1-70b-instruct" data-label="Llama 3.1 70B">
                     Llama 3.1 70B Instruct <span class="badge-tag">OR</span>
                 </button>
+                
+                <button class="model-btn" data-provider="openrouter" data-model="deepseek/deepseek-v4-pro-0813" data-label="DeepSeek V4 Pro">
+                    DeepSeek V4 Pro <span class="badge-tag">OR</span>
+                </button>
+
                 <button class="model-btn" data-provider="openrouter" data-model="anthropic/claude-3.5-sonnet" data-label="Claude 3.5 Sonnet">
                     Claude 3.5 Sonnet <span class="badge-tag">Elite</span>
                 </button>
@@ -128,7 +133,7 @@
         <!-- TERMINAL VIEWPORT -->
         <div class="terminal-viewport" id="terminalViewport">
             <div class="system-status-msg">
-                <strong style="color: var(--gold-core);">CHIEF OF STAFF // MONTY 2 (BASE 1 PIPELINE)</strong>
+                <strong style="color: var(--gold-core);">CHIEF OF STAFF // MONTY (BASE 1 PIPELINE)</strong>
                 <div class="system-status-sub">
                     Pipeline active. Exec staging room secured. LFM 2.5 Grunt Worker initialized. Awaiting raw instructions.
                 </div>
@@ -178,7 +183,7 @@
                 </div>
 
                 <div id="statusPill" class="status-pill">
-                    MONTY 2 // [ OLLAMA: LFM-2.5 ]
+                    MONTY // [ OLLAMA: LFM-2.5 ]
                 </div>
             </div>
         </footer>
@@ -203,6 +208,8 @@
         const promptInput = document.getElementById('execPromptInput');
         const micBtn = document.getElementById('micBtn');
         
+        let isAutoFeeding = false; 
+
         // ==========================================================================
         // REAL-TIME NATIVE WEB SPEECH DICTATION (ZERO LATENCY)
         // ==========================================================================
@@ -270,7 +277,7 @@
                 state.modelLabel = btn.dataset.label;
 
                 pipelineBanner.textContent = `ACTIVE PIPELINE // [ ${state.provider.toUpperCase()}: ${state.modelLabel} ACTIVE ]`;
-                statusPill.textContent = `MONTY 2 // [ ${state.provider.toUpperCase()}: ${state.modelLabel} ]`;
+                statusPill.textContent = `MONTY // [ ${state.provider.toUpperCase()}: ${state.modelLabel} ]`;
 
                 appendMessage('SYSTEM', `Provider switched to ${state.provider.toUpperCase()} (${state.modelLabel})`, 'system');
             });
@@ -287,11 +294,17 @@
                 header.innerHTML = `MIKE // WARLORD: <span class="message-timestamp">${timestamp}</span>`;
                 header.style.color = "var(--emerald-core)";
             } else if (type === 'monty') {
-                header.innerHTML = `CHIEF OF STAFF // MONTY 2: <span class="message-timestamp">${timestamp}</span>`;
+                header.innerHTML = `CHIEF OF STAFF // MONTY: <span class="message-timestamp">${timestamp}</span>`;
                 header.style.color = "var(--gold-core)";
             } else if (type === 'system-error') {
                 header.innerHTML = `[SYSTEM BRIDGE FAILED]: <span class="message-timestamp">${timestamp}</span>`;
                 header.style.color = "var(--ruby-core)";
+            } else if (type === 'judge') {
+                header.innerHTML = `JUDGE AGENT // VERDICT: <span class="message-timestamp">${timestamp}</span>`;
+                header.style.color = text.includes("APPROVED") ? "var(--emerald-core)" : "var(--ruby-core)";
+            } else if (type === 'security') {
+                header.innerHTML = `ROXY // SECURITY PIPELINE: <span class="message-timestamp">${timestamp}</span>`;
+                header.style.color = "var(--gold-core)";
             } else {
                 header.innerHTML = `[SYSTEM TELEMETRY]: <span class="message-timestamp">${timestamp}</span>`;
                 header.style.color = "var(--text-mist)";
@@ -311,19 +324,21 @@
             terminalViewport.scrollTop = terminalViewport.scrollHeight;
         }
 
-        async function submitPrompt() {
-            const text = promptInput.value.trim();
+        async function triggerSubmit(overrideText = null) {
+            const text = overrideText || promptInput.value.trim();
             if (!text && state.attachments.length === 0) return;
 
-            appendMessage('MIKE // WARLORD', text, 'warlord');
-            promptInput.value = '';
+            if (!isAutoFeeding) {
+                appendMessage('MIKE // WARLORD', text, 'warlord');
+                promptInput.value = '';
+            }
+            
+            isAutoFeeding = false;
 
-            // Stop recording on submit if it was active
             if (isRecording && recognition) {
                 recognition.stop();
             }
 
-            // --- THE MASSIVE TACTICAL LOADER ---
             const loaderId = 'loader-' + Date.now();
             const loaderBlock = document.createElement('div');
             loaderBlock.id = loaderId;
@@ -361,13 +376,72 @@
                 });
 
                 const data = await response.json();
-
                 clearInterval(timerInterval);
                 const loaderEl = document.getElementById(loaderId);
                 if (loaderEl) loaderEl.remove();
 
                 if (data.success) {
-                    appendMessage('CHIEF OF STAFF // MONTY 2', data.output, 'monty');
+                    let outputText = data.output;
+
+                    // Warlord Dual-Action JSON Interceptor
+                    const mdMarker = "```";
+                    const jsonBlockRegex = new RegExp(mdMarker + "json\\s*(\\{[\\s\\S]*?\\})\\s*" + mdMarker);
+                    const match = outputText.match(jsonBlockRegex);
+
+                    if (match) {
+                        try {
+                            const payload = JSON.parse(match[1]);
+                            
+                            // ACTION: FILE_READ
+                            if (payload.action === "FILE_READ") {
+                                appendMessage('ROXY', `Read request intercepted for: ${payload.targetPath}. Fetching data...`, 'security');
+                                
+                                const readRes = await fetch('/api/exec/read', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ targetPath: payload.targetPath })
+                                });
+                                
+                                const readData = await readRes.json();
+                                
+                                if (readData.success) {
+                                    outputText = outputText.replace(jsonBlockRegex, "\n*[FILE READ SUCCESSFUL. AUTO-FEEDING SOURCE CODE BACK TO PIPELINE]*\n");
+                                    appendMessage('CHIEF OF STAFF // MONTY', outputText, 'monty');
+                                    
+                                    // Auto-feed the code back into the brain without Mike typing
+                                    isAutoFeeding = true;
+                                    const autoPrompt = `[SYSTEM AUTO-REPLY] Code retrieved successfully from ${payload.targetPath}:\n\n${readData.content}\n\nExecute the requested changes and output the FILE_PATCH block.`;
+                                    return triggerSubmit(autoPrompt);
+                                } else {
+                                    appendMessage('SYSTEM ERROR', readData.output, 'system-error');
+                                }
+                            }
+                            // ACTION: FILE_PATCH
+                            else if (payload.action === "FILE_PATCH") {
+                                appendMessage('ROXY', 'File patch payload intercepted. Routing to Judge Agent for validation...', 'security');
+                                
+                                const patchRes = await fetch('/api/exec/patch', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                                
+                                const patchData = await patchRes.json();
+                                appendMessage('JUDGE', patchData.output, 'judge');
+                                
+                                outputText = outputText.replace(jsonBlockRegex, "\n*[CODE PAYLOAD EXTRACTED AND ROUTED TO JUDGE]*\n");
+                                appendMessage('CHIEF OF STAFF // MONTY', outputText, 'monty');
+                            }
+                            
+                        } catch (err) {
+                            console.error("[ROXY] Failed to parse intercepted JSON payload.", err);
+                            appendMessage('SYSTEM ERROR', 'Failed to parse JSON action payload.', 'system-error');
+                        }
+                    } else {
+                        // Standard chat output
+                        appendMessage('CHIEF OF STAFF // MONTY', outputText, 'monty');
+                    }
+
                 } else {
                     appendMessage('SYSTEM ERROR', data.error || 'Failed to reach node backend.', 'system-error');
                 }
@@ -380,12 +454,12 @@
             }
         }
 
-        document.getElementById('btnSubmit').addEventListener('click', submitPrompt);
+        document.getElementById('btnSubmit').addEventListener('click', () => triggerSubmit());
         
         promptInput.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'Enter') {
                 e.preventDefault();
-                submitPrompt();
+                triggerSubmit();
             }
         });
 
@@ -393,12 +467,19 @@
             promptInput.value = '';
             terminalViewport.innerHTML = `
                 <div class="system-status-msg">
-                    <strong style="color: var(--gold-core);">CHIEF OF STAFF // MONTY 2 (BASE 1 PIPELINE)</strong>
+                    <strong style="color: var(--gold-core);">CHIEF OF STAFF // MONTY (BASE 1 PIPELINE)</strong>
                     <div class="system-status-sub">
                         Terminal buffer cleared. Active pipeline: ${state.modelLabel}. Awaiting raw instructions.
                     </div>
                 </div>
             `;
         });
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const defaultNvidiaBtn = document.querySelector('[data-model="meta/llama-3.2-90b-vision-instruct"]');
+        if (defaultNvidiaBtn) {
+            defaultNvidiaBtn.click();
+        }
     });
 </script>

@@ -1,0 +1,108 @@
+RHYTHM INC. // MASTER TOOL STACK & STRATEGIC INTEGRATION BLUEPRINT
+An evaluation and strategic recommendation of the optimal tool stack for multi-agent orchestration, high-frequency execution, and infrastructure control within Rhythm Inc. Each tool is categorized, scored on a 0 to 10 utility scale, evaluated for currency and active ecosystem status, and mapped directly to operational requirements.
+
+1. AI AGENT ORCHESTRATION & WORKFLOW ENGINES
+n8n (Self-Hosted Community Edition)
+Category: Low-Code Workflow Automation & Event Routing
+
+Utility Score: 9.5 / 10
+
+Currency & Status: Fully current, rapidly evolving standard for self-hosted workflow automation, featuring extensive native node libraries and robust community support.
+
+Integration Fit: Deployed as the primary integration bridge for handling asynchronous alerts, automated email triggers, webhook relays, and cross-platform data synchronization.
+
+OpenClaw / WASP Framework
+Category: Multi-Agent Orchestration & Middleware Bridge
+
+Utility Score: 9.0 / 10
+
+Currency & Status: Highly active custom architecture tuned for local server execution and multi-model routing.
+
+Integration Fit: Powers the core multi-agent infrastructure, cleanly separating execution domains across specialized agent roles (coding logic, quantitative analysis, backend control, and UI rendering).
+
+2. LLM INFERENCE & GATEWAY INFRASTRUCTURE
+Ollama (Local Daemon)
+Category: Local Model Runner & Fast Inference Engine
+
+Utility Score: 9.0 / 10
+
+Currency & Status: Active industry benchmark for running open-weights models locally with zero external API latency or data leakage risks.
+
+Integration Fit: Executes local grunt-worker models (such as lightweight fast-inference models) directly on server hardware for real-time task handling and telemetry processing.
+
+NVIDIA NIM Cloud API
+Category: Enterprise-Grade Cloud LLM Inference
+
+Utility Score: 8.5 / 10
+
+Currency & Status: Fully current enterprise tier offering optimized inference speeds for ultra-large frontier models.
+
+Integration Fit: Used as Tier 2 cloud acceleration for complex reasoning, advanced code refactoring, and deep analytical prompts requiring high parameter counts.
+
+OpenRouter
+Category: Unified LLM API Gateway & Model Router
+
+Utility Score: 8.5 / 10
+
+Currency & Status: Stable, highly reliable multi-provider aggregation gateway providing instant access to elite frontier models under a single API key.
+
+Integration Fit: Serves as Tier 3 failover and elite fallback routing for high-complexity architectural decisions and specialized creative generation.
+
+3. ALGORITHMIC TRADING & EXECUTION LAYER
+MetaTrader 5 (MT5 / MQL5)
+Category: Algorithmic Execution Platform & Charting Environment
+
+Utility Score: 9.5 / 10
+
+Currency & Status: Industry-standard institutional trading platform with native multi-threaded MQL5 support and advanced volumetric scanner integration.
+
+Integration Fit: Acts as the primary execution engine for algorithmic indicators, volatility scanners, and automated trade execution logic.
+
+VALR Corporate Exchange API
+Category: Cryptocurrency Asset Transfer & Exchange Gateway
+
+Utility Score: 8.0 / 10
+
+Currency & Status: Stable regional institutional gateway operating securely within the South African financial infrastructure.
+
+Integration Fit: Manages corporate asset transfers, liquidity routing, and multi-currency balance tracking.
+
+4. TELEMETRY, DASHBOARD & KNOWLEDGE MANAGEMENT
+Obsidian
+Category: Knowledge Vault & System Telemetry Logging
+
+Utility Score: 9.0 / 10
+
+Currency & Status: Markdown-first standard for local-first knowledge management, script logging, and permanent documentation vaults.
+
+Integration Fit: Integrated into startup routines and telemetry logging scripts to maintain structured, permanent historical records of system operations.
+
+Warlord Mission Control Nerve Center (MCNC)
+Category: Custom Unified Control Dashboard (Node.js, Express, WebSockets, EJS)
+
+Utility Score: 9.5 / 10
+
+Currency & Status: Proprietary operational interface adhering strictly to "High Finance" visual aesthetics (Metal Onyx, Obsidian, Gold Core, Emerald, Ruby).
+
+Integration Fit: Serves as the central command console for orchestrating agent pipelines, monitoring server health, and reviewing live execution metrics.
+
+5. INFRASTRUCTURE & HARDWARE OPERATIONS
+Dell PowerEdge R520 Server Fleet
+Category: Dedicated On-Premise Compute Hardware
+
+Utility Score: 9.0 / 10
+
+Currency & Status: Proven, high-reliability enterprise server hardware configured with dual Intel Xeon processors and high-capacity RAM allocations.
+
+Integration Fit: Operates local node daemons, local databases, and containerized agent environments across distributed regional facilities (Hartbeespoort / Kleinmond).
+
+Contabo VPS (France Instances)
+Category: Remote Cloud Virtual Private Server Hosting
+
+Utility Score: 8.0 / 10
+
+Currency & Status: High-value cloud hosting standard providing robust compute footprints for remote web services and bridge relays.
+
+Integration Fit: Hosts auxiliary web services, public-facing gateway components, and backup redundancy nodes.
+
+Reference Video Resource: n8n will change your life as a developer...

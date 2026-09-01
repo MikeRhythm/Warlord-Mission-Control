@@ -32,9 +32,11 @@ try {
 // ==========================================================================
 // ABSOLUTE PATH LOCKS
 // ==========================================================================
-const MASTER_MCNC_DIR = "C:\\Warlord_Inc\\Warlord_WASP\\MCNC";
-const COMMAND_TIER_PATH = "C:\\Warlord_Inc\\Warlord_WASP\\WASP Documents\\Final WASP Docs\\01_Command_Tier";
-const MASTER_DOCTRINE_PATH = "C:\\Warlord_Inc\\Warlord_WASP\\WASP Documents\\Final WASP Docs\\00_Master_Doctrine";
+const WARLORD_INC_DIR = "C:\\Warlord_Inc";
+const MASTER_WARLORD_DIR = path.join(WARLORD_INC_DIR, "Warlord_WASP");
+const MASTER_MCNC_DIR = path.join(MASTER_WARLORD_DIR, "MCNC");
+const COMMAND_TIER_PATH = path.join(MASTER_WARLORD_DIR, "WASP Documents", "Final WASP Docs", "01_Command_Tier");
+const MASTER_DOCTRINE_PATH = path.join(MASTER_WARLORD_DIR, "WASP Documents", "Final WASP Docs", "00_Master_Doctrine");
 
 const OBSIDIAN_LOG_PATH = path.join(MASTER_MCNC_DIR, "vault", "MCNC_State", "Telemetry_Logs.md");
 const OBSIDIAN_QUEUE_PATH = path.join(MASTER_MCNC_DIR, "vault", "MCNC_State", "Task_Queue.md");
@@ -47,7 +49,6 @@ let executionFleetState = {
     ALGO_CORE_05: "ONLINE", ALGO_CORE_06: "ONLINE", ALGO_CORE_07: "ONLINE", ALGO_CORE_08: "ONLINE"
 };
 
-// CRITICAL FIX: Default model hardcoded to 3.2 90B
 let activeProvider = 'nvidia'; 
 let activeModel = 'meta/llama-3.2-90b-vision-instruct';
 let chatHistory = [];
@@ -97,7 +98,7 @@ function initializeMcncBackend() {
     const app = express();
     const UI_PORT = 3000;
 
-    app.use(express.json());
+    app.use(express.json({ limit: '10mb' }));
     app.use(express.static(path.join(MASTER_MCNC_DIR, 'public')));
     app.set('view engine', 'ejs');
     app.set('views', path.join(MASTER_MCNC_DIR, 'views'));
@@ -113,7 +114,7 @@ function initializeMcncBackend() {
     const upload = multer({ dest: uploadsDir });
 
     // ==========================================================================
-    // MULTI-PROVIDER LLM ROUTING
+    // MULTI-PROVIDER LLM ROUTING (MONTY'S BRAIN)
     // ==========================================================================
     const MONTY_BASE_PROMPT = `You are Monty, the Chief of Staff and Omni-Director for Mike (The Warlord) operating out of Base One. You are NOT a generic AI, you are NOT an LFM, and you must NEVER mention OpenAI, Liquid AI, or your underlying architecture. You are a conversational, intelligent, and highly capable chief of staff. Speak naturally and directly to Mike as his trusted right-hand operator. Integrate the DOCTRINE seamlessly into your understanding without acting like a numb robot.`;
 
@@ -137,7 +138,27 @@ function initializeMcncBackend() {
                 }
             } catch (docErr) {}
 
-            const FINAL_SYSTEM_PROMPT = `${MONTY_BASE_PROMPT}\n\n${dynamicBlueprint}\n${masterDoctrineBlock}\n\n[SYSTEM STATE: You are routing through ${provider.toUpperCase()} via model ${model}.]`;
+            const FILE_WRITE_INSTRUCTIONS = `\n\n[SYSTEM DIRECTIVE - AUTONOMOUS FILE PIPELINE]:
+If Mike asks you to update, fix, or modify a file, you MUST follow this two-step process:
+STEP 1: If you do not have the current file code, request it by outputting EXACTLY this JSON block:
+\`\`\`json
+{
+  "action": "FILE_READ",
+  "targetPath": "C:\\\\Warlord_Inc\\\\..."
+}
+\`\`\`
+STEP 2: Once the system feeds you the code, execute the changes and output the final file using this JSON block. YOU MUST OUTPUT THE ENTIRE, FULL FILE. DO NOT TRUNCATE. DO NOT USE SNIPPETS.
+\`\`\`json
+{
+  "action": "FILE_PATCH",
+  "targetPath": "C:\\\\Warlord_Inc\\\\...",
+  "directive": "Brief description of the change",
+  "proposedContent": "FULL, READY-TO-PASTE ENTIRE FILE CODE HERE"
+}
+\`\`\`
+If you are just answering a question, respond normally.`;
+
+            const FINAL_SYSTEM_PROMPT = `${MONTY_BASE_PROMPT}\n\n${dynamicBlueprint}\n${masterDoctrineBlock}${FILE_WRITE_INSTRUCTIONS}\n\n[SYSTEM STATE: You are routing through ${provider.toUpperCase()} via model ${model}.]`;
             const messagesPayload = [ { role: 'system', content: FINAL_SYSTEM_PROMPT }, ...chatHistory, { role: 'user', content: prompt } ];
 
             switch (provider) {
@@ -155,7 +176,7 @@ function initializeMcncBackend() {
                     if (!process.env.NVIDIA_API_KEY) throw new Error('NVIDIA_API_KEY missing in Warlord Key Vault (.env).');
                     const nvidiaRes = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { 
                         method: 'POST', headers: { 'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify({ model: model, messages: messagesPayload, temperature: 0.4, max_tokens: 2048 }) 
+                        body: JSON.stringify({ model: model, messages: messagesPayload, temperature: 0.4, max_tokens: 4096 }) 
                     });
                     if (!nvidiaRes.ok) throw new Error(`NVIDIA API Error: Status ${nvidiaRes.status}. Check compute limits or key validity.`);
                     const nvidiaData = await nvidiaRes.json();
@@ -186,7 +207,99 @@ function initializeMcncBackend() {
     });
 
     // ==========================================================================
-    // WARLORD WHISPER PIPELINE (GROQ CLOUD + AUTO-CORRECTOR)
+    // WARLORD FILE READ PIPELINE
+    // ==========================================================================
+    app.post('/api/exec/read', async (req, res) => {
+        const { targetPath } = req.body;
+        const resolvedPath = path.resolve(targetPath);
+        
+        if (!resolvedPath.startsWith(WARLORD_INC_DIR + path.sep)) {
+            console.error(`[SECURITY] Unauthorized read attempt blocked: ${resolvedPath}`);
+            return res.status(403).json({ success: false, output: `[SECURITY ALERT] Unauthorized read path blocked.` });
+        }
+
+        if (!fs.existsSync(resolvedPath)) {
+            return res.status(404).json({ success: false, output: `[SYSTEM ERROR] File does not exist: ${resolvedPath}` });
+        }
+
+        try {
+            const content = fs.readFileSync(resolvedPath, 'utf8');
+            return res.json({ success: true, content: content });
+        } catch (err) {
+            return res.status(500).json({ success: false, output: `[SYSTEM ERROR] Failed to read file: ${err.message}` });
+        }
+    });
+
+    // ==========================================================================
+    // WARLORD JUDGE PIPELINE: FILE PATCHING
+    // ==========================================================================
+    app.post('/api/exec/patch', async (req, res) => {
+        const { targetPath, proposedContent, directive } = req.body;
+        
+        const resolvedPath = path.resolve(targetPath);
+        if (!resolvedPath.startsWith(WARLORD_INC_DIR + path.sep)) {
+            console.error(`[SECURITY] Unauthorized write attempt blocked to: ${resolvedPath}`);
+            return res.status(403).json({ success: false, output: `[JUDGE ALERT] Unauthorized path access blocked. Out of bounds.` });
+        }
+
+        const judgePrompt = `You are the Warlord Master Judge Agent.
+Your job is to review a proposed file modification before it is written to disk.
+Directive from Mike: ${directive}
+Target File: ${resolvedPath}
+
+STRICT CONSTRAINTS:
+1. Ensure the code adheres to Warlord standards (Vanilla JS, pure CSS, EJS for UI).
+2. Ensure no file paths or critical structural dependencies are maliciously changed.
+3. Validate there are no infinite loops or dangerous memory leaks.
+4. FULL FILE VERIFICATION: The proposed content MUST be a complete file. If it looks like a snippet, partial code, or contains phrases like "rest of code here", you must reject it.
+
+Analyze the proposed code against these constraints.
+If it is safe and complete, output EXACTLY one word: APPROVED
+If it violates doctrine or is incomplete, output EXACTLY: REJECTED - [Provide brief reason]
+DO NOT CONVERSE. OUTPUT ONLY APPROVED OR REJECTED.`;
+
+        try {
+            if (!process.env.NVIDIA_API_KEY) throw new Error("NVIDIA_API_KEY missing for Judge.");
+            
+            const judgeRes = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                method: 'POST', 
+                headers: { 
+                    'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({
+                    model: 'meta/llama-3.2-90b-vision-instruct',
+                    messages: [
+                        { role: 'system', content: judgePrompt },
+                        { role: 'user', content: proposedContent.substring(0, 30000) } 
+                    ],
+                    temperature: 0.1,
+                    max_tokens: 150
+                })
+            });
+
+            if (!judgeRes.ok) throw new Error("Judge AI failed to respond.");
+            const judgeData = await judgeRes.json();
+            const judgeDecision = judgeData.choices[0].message.content.trim().toUpperCase();
+
+            if (judgeDecision.startsWith("APPROVED")) {
+                fs.writeFileSync(resolvedPath, proposedContent, "utf8");
+                writeToObsidian(`[JUDGE APPROVED] Wrote file patch to: ${resolvedPath}`);
+                console.log(`[JACK] File written successfully: ${resolvedPath}`);
+                return res.json({ success: true, output: `[JUDGE APPROVED] File patched and secured: ${resolvedPath}` });
+            } else {
+                writeToObsidian(`[JUDGE BLOCKED] Blocked patch to: ${resolvedPath}. Reason: ${judgeDecision}`);
+                console.log(`[JACK] Judge Blocked File Write: ${judgeDecision}`);
+                return res.json({ success: false, output: `[JUDGE BLOCKED] ${judgeDecision}` });
+            }
+        } catch (error) {
+            console.error(`[JUDGE SYSTEM ERROR]: ${error.message}`);
+            return res.json({ success: false, output: `[JUDGE SYSTEM FAILURE] ${error.message}` });
+        }
+    });
+
+    // ==========================================================================
+    // WARLORD WHISPER PIPELINE
     // ==========================================================================
     app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
         if (!req.file) return res.status(400).json({ success: false, error: 'No audio file received.' });
@@ -246,7 +359,6 @@ function initializeMcncBackend() {
                 if (packet.type === 'SWITCH_BRAIN') {
                     activeProvider = packet.provider; activeModel = packet.model; chatHistory = []; 
                 } 
-                // Ghost loop trigger remains permanently deleted.
             } catch (err) {}
         });
     });
