@@ -6,7 +6,7 @@ import {
   Mic, MicOff, RefreshCw, Cpu,
   Copy, Check, FileText, ChevronDown, ChevronUp,
   Wrench, Sparkles, Layers, Sliders, Users, UserCheck,
-  OctagonX
+  AlertOctagon, Loader2
 } from 'lucide-react';
 
 const BRAIN_TIERS = [
@@ -14,8 +14,8 @@ const BRAIN_TIERS = [
     id: 'tier1',
     tier: 'TIER 1: OLLAMA (LOCAL)',
     models: [
-      { id: 'ollama/llama3', name: 'Llama 3 / CodeLlama', tag: 'Local' },
-      { id: 'ollama/deepseek-r1', name: 'DeepSeek-R1 (Quant)', tag: 'Local' },
+      { id: 'ollama/llama3', name: 'Llama 3 (Local)', tag: 'Local' },
+      { id: 'ollama/deepseek-r1', name: 'DeepSeek-R1 (Local)', tag: 'Local' },
       { id: 'ollama/qwen2.5-coder', name: 'Qwen 2.5 Coder', tag: 'Local' }
     ]
   },
@@ -23,8 +23,9 @@ const BRAIN_TIERS = [
     id: 'tier2',
     tier: 'TIER 2: NVIDIA NIM',
     models: [
-      { id: 'nvidia/meta/llama-3.2-90b-vision-instruct', name: 'Llama 3.2 90B Vision', tag: 'NIM' },
-      { id: 'nvidia/nvidia/nemotron-4-340b-instruct', name: 'Nemotron 340B', tag: 'NIM' }
+      { id: 'nvidia/deepseek-ai/deepseek-r1', name: 'DeepSeek-R1 (Cloud)', tag: 'NIM' },
+      { id: 'nvidia/meta/llama-3.1-70b-instruct', name: 'Llama 3.1 70B Instruct', tag: 'NIM' },
+      { id: 'nvidia/nvidia/llama-3.1-nemotron-70b-instruct', name: 'Nemotron 70B Ultra', tag: 'NIM' }
     ]
   },
   {
@@ -57,7 +58,7 @@ const DIRECTORS = [
 ];
 
 export default function Tab01Exec() {
-  const [selectedModel, setSelectedModel] = useState('nvidia/meta/llama-3.2-90b-vision-instruct');
+  const [selectedModel, setSelectedModel] = useState('openrouter/anthropic/claude-3.5-sonnet');
   const [selectedDirector, setSelectedDirector] = useState('11_charlie');
   const [selectedProject, setSelectedProject] = useState('MCNC');
   const [inputPrompt, setInputPrompt] = useState('');
@@ -81,17 +82,38 @@ export default function Tab01Exec() {
       text: 'Pipeline active. Exec staging room secured. Multimodal vision and execution bridge initialized. Awaiting direct instructions.'
     }
   ]);
+  
+  // Stopwatch & Streaming State
   const [isStreaming, setIsStreaming] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState('0.0');
 
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const recognitionRef = useRef(null);
   const basePromptRef = useRef('');
   const abortControllerRef = useRef(null);
+  const timerIntervalRef = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isStreaming]);
+
+  // Live Timer Stopwatch Effect
+  useEffect(() => {
+    if (isStreaming) {
+      setElapsedSeconds('0.0');
+      const startTime = Date.now();
+      timerIntervalRef.current = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        setElapsedSeconds(elapsed.toFixed(1));
+      }, 100);
+    } else {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    }
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
+  }, [isStreaming]);
 
   // Global Clipboard Paste (Ctrl+V)
   useEffect(() => {
@@ -237,9 +259,12 @@ export default function Tab01Exec() {
       abortControllerRef.current = null;
     }
 
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
+    if (recognitionRef.current && isListening) {
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {
+        console.error('STT Halt Error:', err);
+      }
     }
 
     setIsStreaming(false);
@@ -252,7 +277,7 @@ export default function Tab01Exec() {
       sender: 'DEFCON 1 // ALL STOP PROTOCOL',
       role: 'system',
       time: new Date().toLocaleTimeString(),
-      text: '**ALL STOP ENGAGED.** All in-flight requests terminated. Audio pipelines cut. Agent execution zeroed. Standing by.'
+      text: `**ALL STOP ENGAGED.** In-flight telemetry aborted at ${elapsedSeconds}s. Pipelines flushed to clean state.`
     };
 
     setMessages((prev) => [...prev, haltMessage]);
@@ -291,11 +316,10 @@ export default function Tab01Exec() {
     setAttachedFiles([]);
     setIsStreaming(true);
 
-    // Initialize fresh AbortController for cancellation
     abortControllerRef.current = new AbortController();
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('http://localhost:8081/api/chat', {
         method: 'POST',
         signal: abortControllerRef.current.signal,
         headers: { 'Content-Type': 'application/json' },
@@ -333,7 +357,7 @@ export default function Tab01Exec() {
             sender: 'CHIEF OF STAFF // MONTY 2',
             role: 'agent',
             time: new Date().toLocaleTimeString(),
-            text: `[COMMUNICATION ERROR]: Could not reach backend daemon at /api/chat. ${err.message}`
+            text: `[COMMUNICATION ERROR]: Could not reach backend daemon at http://localhost:8081/api/chat. ${err.message}`
           }
         ]);
       }
@@ -348,7 +372,6 @@ export default function Tab01Exec() {
     executePayload();
   };
 
-  // ASSIGN Button Handler: Validates and delegates
   const handleAssign = () => {
     if (!inputPrompt.trim() && attachedFiles.length === 0) {
       alert('Please enter instructions or attach an asset before delegating to a Director.');
@@ -363,7 +386,6 @@ export default function Tab01Exec() {
     executePayload(formattedDelegationPrompt, directorName);
   };
 
-  // CLS Button Handler: Wipes viewport clean
   const clearChat = () => {
     setMessages([
       {
@@ -378,7 +400,7 @@ export default function Tab01Exec() {
 
   return (
     <div className="flex h-full w-full bg-[#080a0c] text-xs gap-2">
-      {/* Pinned Left Menu: Vertical Accordion Categories */}
+      {/* Pinned Left Menu */}
       <div className="w-80 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-2.5 select-none overflow-hidden">
         <div className="px-2 py-1 text-[#ffb800] font-bold tracking-wider text-xs flex items-center justify-between border-b border-[#1f242d] pb-2 mb-2">
           <div className="flex items-center gap-1.5">
@@ -516,7 +538,7 @@ export default function Tab01Exec() {
 
       {/* Main Conversational Stream Viewport & Input Dock */}
       <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
-        {/* Stream Header, Full Copy Bar & ALL STOP Command */}
+        {/* Stream Header */}
         <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono">
           <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2">
             <span>STATUS: <span className="text-[#10b981] font-bold">CONNECTED</span></span>
@@ -543,13 +565,12 @@ export default function Tab01Exec() {
               )}
             </button>
 
-            {/* TOP RIGHT ALL STOP EMERGENCY BUTTON */}
             <button
               onClick={handleAllStop}
               className="flex items-center gap-1.5 bg-[#ef4444]/20 hover:bg-[#ef4444]/30 text-[#fca5a5] hover:text-white border border-[#ef4444]/60 px-3 py-1 rounded text-[11px] font-extrabold transition-all shadow-[0_0_8px_rgba(239,68,68,0.3)] cursor-pointer"
               title="Emergency Abort All Operations"
             >
-              <OctagonX className="w-3.5 h-3.5 text-[#ef4444]" />
+              <AlertOctagon className="w-3.5 h-3.5 text-[#ef4444]" />
               <span>ALL STOP</span>
             </button>
           </div>
@@ -634,9 +655,29 @@ export default function Tab01Exec() {
             </div>
           ))}
 
+          {/* CLASSIC MCNC RADAR DIAL WITH LIVE SECONDS STOPWATCH */}
           {isStreaming && (
-            <div className="text-[#ffb800] text-xs animate-pulse flex items-center gap-2 select-none">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> MONTY IS PROCESSING PAYLOAD...
+            <div className="border border-[#ffb800]/50 bg-[#0a0c0e] rounded-md p-3 my-2 space-y-2 select-none shadow-[0_0_15px_rgba(255,184,0,0.12)]">
+              <div className="flex items-center justify-between font-mono">
+                <div className="flex items-center gap-2.5">
+                  <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
+                  <span className="text-[#ffb800] font-bold text-xs tracking-wider">
+                    MONTY 2 // TELEMETRY PIPELINE ENGAGED
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[#5c6b7f]">ELAPSED:</span>
+                  <span className="text-[#10b981] font-bold font-mono text-xs bg-[#10b981]/15 px-2 py-0.5 rounded border border-[#10b981]/30">
+                    {elapsedSeconds}s
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-[#8fa0b5] font-mono pt-1 border-t border-[#1f242d]">
+                <span>STREAM: <span className="text-[#ffb800]">TRANSMITTING INFERENCE TO BASE 1</span></span>
+                <span className="text-[#fca5a5] animate-pulse">PRESS "ALL STOP" TO ABORT</span>
+              </div>
             </div>
           )}
 
@@ -757,12 +798,11 @@ export default function Tab01Exec() {
               >
                 CLS
               </button>
-              {/* BOTTOM STRIP ALL STOP BUTTON */}
               <button 
                 onClick={handleAllStop}
                 className="px-3 py-1.5 bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/60 font-extrabold rounded text-[11px] hover:bg-[#ef4444]/40 cursor-pointer flex items-center gap-1"
               >
-                <OctagonX className="w-3 h-3 text-[#ef4444]" />
+                <AlertOctagon className="w-3 h-3 text-[#ef4444]" />
                 <span>ALL STOP</span>
               </button>
             </div>

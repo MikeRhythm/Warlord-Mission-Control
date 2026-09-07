@@ -204,7 +204,10 @@ function handleBackendMessage(data) {
   
   setProcessingState(false, data.action || 'BACKEND SYNC');
   
-  let responseHtml = `<strong>MONTY 2 (BASE 1 LIVE):</strong><br>${data.message}`;
+  // Dynamically map the speaker tag returned by the backend daemon or websocket payload
+  const speakerLabel = data.speaker ? `${data.speaker.toUpperCase()} // DIRECTOR` : 'MONTY 2 (BASE 1 LIVE)';
+  
+  let responseHtml = `<strong>${speakerLabel}:</strong><br>${data.message || data.reply}`;
   if (data.codeSnippet) {
     responseHtml += `
       <div class="code-block-wrapper">
@@ -443,5 +446,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 initBackendBridge();
-
-

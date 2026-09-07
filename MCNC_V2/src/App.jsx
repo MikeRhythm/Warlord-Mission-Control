@@ -1,92 +1,151 @@
-import React, { useState } from 'react';
-import { 
-  Terminal, Shield, FolderKanban, CheckSquare, Calendar, 
-  BookOpen, Paperclip, Palette, Network, Coins, 
-  Orbit, Eye, FileText, LayoutGrid 
-} from 'lucide-react';
-import Tab01Exec from './components/Tab01Exec';
+import React, { useState, useEffect } from 'react';
+import './index.css'; 
+
+import Tab01Exec from './components/Tab01Exec'; 
+import Tab02WarRoom from './components/Tab02WarRoom';
+import Tab03Projects from './components/Tab03Projects';
+import Tab04TaskBoard from './components/Tab04TaskBoard'; // Task Board mounted
 
 const TABS = [
-  { id: '01_exec', label: '01 EXEC', type: 'gold', icon: Terminal },
-  { id: '02_warroom', label: '02 WAR ROOM', type: 'obsidian', icon: Shield },
-  { id: '03_projects', label: '03 PROJECTS', type: 'teal', icon: FolderKanban },
-  { id: '04_taskboard', label: '04 TASK BOARD', type: 'teal', icon: CheckSquare },
-  { id: '05_calendar', label: '05 CALENDAR', type: 'teal', icon: Calendar },
-  { id: '06_memory', label: '06 MEMORY', type: 'obsidian', icon: BookOpen },
-  { id: '07_paperclip', label: '07 PAPERCLIP', type: 'teal', icon: Paperclip },
-  { id: '08_palettes', label: '08 PALETTES', type: 'ruby', icon: Palette },
-  { id: '09_org', label: '09 ORG', type: 'obsidian', icon: Network },
-  { id: '10_tokens', label: '10 TOKENS', type: 'bronze', icon: Coins },
-  { id: '11_galaxy', label: '11 GALAXY', type: 'brass', icon: Orbit },
-  { id: '12_review', label: '12 REVIEW', type: 'bronze', icon: Eye },
-  { id: '13_docs', label: '13 DOCS', type: 'bronze', icon: FileText },
-  { id: '14_other', label: '14 OTHER', type: 'obsidian', icon: LayoutGrid },
+    '01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD',
+    '05 CALENDAR', '06 MEMORY', '07 PAPERCLIP', '08 PALETTES',
+    '09 ORG', '10 TOKENS', '11 GALAXY', '12 REVIEW', // Reverted to 11 GALAXY
+    '13 DOCS', '14 OTHER'
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('01_exec');
+    const [activeTab, setActiveTab] = useState('02 WAR ROOM');
+    const [mcncSocket, setMcncSocket] = useState(null);
+    const [wsStatus, setWsStatus] = useState('DISCONNECTED');
 
-  const getTabStyle = (tab) => {
-    const isActive = activeTab === tab.id;
-    if (isActive) {
-      return 'bg-[#0d0f12] text-[#ffb800] border-2 border-[#ffb800] shadow-[0_0_10px_rgba(255,184,0,0.4)]';
-    }
+    // Initialize Base 1 WebSocket Telemetry Bridge
+    useEffect(() => {
+        let ws;
+        const connectWS = () => {
+            ws = new WebSocket('ws://localhost:8081');
+            
+            ws.onopen = () => {
+                setWsStatus('ACTIVE');
+                setMcncSocket(ws);
+                window.mcncSocket = ws;
+            };
+            
+            ws.onclose = () => {
+                setWsStatus('DISCONNECTED');
+                setMcncSocket(null);
+                window.mcncSocket = null;
+                setTimeout(connectWS, 3000); 
+            };
 
-    switch (tab.type) {
-      case 'teal':
-        return 'bg-[#2b4c59] text-[#e2e8f0] border border-[#3d6a7d] hover:bg-[#365e6f]';
-      case 'ruby':
-        return 'bg-[#592525] text-[#fca5a5] border border-[#7f3535] hover:bg-[#6e2e2e]';
-      case 'brass':
-        return 'bg-[#4d4930] text-[#fef08a] border border-[#6b6643] hover:bg-[#5c583a]';
-      case 'bronze':
-        return 'bg-[#4a3838] text-[#e2e8f0] border border-[#664d4d] hover:bg-[#5c4545]';
-      case 'obsidian':
-      default:
-        return 'bg-[#14171c] text-[#a0aec0] border border-[#232832] hover:bg-[#1c2129] hover:text-white';
-    }
-  };
+            ws.onerror = (err) => {
+                console.error('[WS ERROR] Base 1 Daemon offline or port 8081 blocked.');
+                ws.close();
+            };
+        };
 
-  return (
-    <div className="flex flex-col h-screen w-screen bg-[#080a0c] select-none">
-      {/* Top Telemetry Bar */}
-      <div className="flex justify-between items-center px-4 py-2 bg-[#0d0f12] border-b border-[#1f242d] text-xs">
-        <div className="font-extrabold text-[#ffb800] tracking-wider">
-          WARLORD MISSION CONTROL // MCNC MASTER
+        connectWS();
+
+        return () => {
+            if (ws) ws.close();
+        };
+    }, []);
+
+    return (
+        <div className="mcnc-master-layout" style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--glass-panel, #050608)' }}>
+            
+            {/* TOP NAVIGATION / BRANDING HEADER */}
+            <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 20px', borderBottom: '1px solid var(--border-dim, #2A2D35)', backgroundColor: '#080A0E' }}>
+                <div className="brand-title" style={{ color: 'var(--gold-core, #D4AF37)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px' }}>
+                    WARLORD MISSION CONTROL // MCNC MASTER
+                </div>
+                <div className="system-status" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', color: 'var(--text-mist, #94A3B8)' }}>
+                    BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core, #10B981)' : 'var(--orange-red, #FF4500)', fontWeight: 'bold' }}>{wsStatus} (BASE 1)</span> | FRAMEWORK: REACT VITE
+                </div>
+            </header>
+
+            {/* 14-TAB NAVIGATION BAR */}
+            <nav className="tab-navigation" style={{ display: 'flex', gap: '2px', padding: '10px 20px', background: 'rgba(0,0,0,0.8)', overflowX: 'auto', borderBottom: '1px solid var(--border-dim, #2A2D35)' }}>
+                {TABS.map(tab => (
+                    <button 
+                        key={tab} 
+                        className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+                        onClick={() => setActiveTab(tab)}
+                        style={{
+                            background: activeTab === tab ? 'rgba(212, 175, 55, 0.1)' : 'transparent',
+                            border: '1px solid',
+                            borderColor: activeTab === tab ? 'var(--gold-core, #D4AF37)' : 'transparent',
+                            color: activeTab === tab ? 'var(--gold-core, #D4AF37)' : 'var(--text-mist, #94A3B8)',
+                            padding: '10px 18px',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.2s ease',
+                            textTransform: 'uppercase'
+                        }}
+                    >
+                        {tab}
+                    </button>
+                ))}
+            </nav>
+
+            {/* DYNAMIC TAB MOUNTING AREA (PERSISTENT STATE) */}
+            <main className="tab-content-area" style={{ flexGrow: 1, overflow: 'hidden', position: 'relative' }}>
+                
+                {/* ACTIVE MODULES (Mounted permanently, hidden via CSS when inactive) */}
+                <div style={{ display: activeTab === '01 EXEC' ? 'block' : 'none', height: '100%' }}>
+                    <Tab01Exec ws={mcncSocket} />
+                </div>
+                
+                <div style={{ display: activeTab === '02 WAR ROOM' ? 'block' : 'none', height: '100%' }}>
+                    <Tab02WarRoom ws={mcncSocket} />
+                </div>
+                
+                <div style={{ display: activeTab === '03 PROJECTS' ? 'block' : 'none', height: '100%' }}>
+                    <Tab03Projects />
+                </div>
+                
+                <div style={{ display: activeTab === '04 TASK BOARD' ? 'block' : 'none', height: '100%' }}>
+                    <Tab04TaskBoard ws={mcncSocket} />
+                </div>
+
+                {/* DEFAULT PLACEHOLDER FOR UNMOUNTED TABS */}
+                {![
+                    '01 EXEC', 
+                    '02 WAR ROOM', 
+                    '03 PROJECTS',
+                    '04 TASK BOARD'
+                ].includes(activeTab) && (
+                    <div className="placeholder-module" style={{ 
+                        padding: '40px', 
+                        fontFamily: "'JetBrains Mono', monospace",
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            border: '1px solid var(--border-dim, #2A2D35)',
+                            background: 'rgba(0,0,0,0.4)',
+                            padding: '30px',
+                            borderRadius: '4px',
+                            maxWidth: '500px'
+                        }}>
+                            <h3 style={{ color: 'var(--gold-core, #D4AF37)', letterSpacing: '2px', margin: '0 0 15px 0' }}>
+                                ACTIVE MODULE: {activeTab}
+                            </h3>
+                            <p style={{ color: 'var(--text-mist, #94A3B8)', lineHeight: '1.6', margin: '0 0 20px 0' }}>
+                                This module is currently offline. Awaiting React JSX conversion from Charlie via Base 1 pipeline.
+                            </p>
+                            <div style={{ display: 'inline-block', padding: '5px 10px', border: '1px solid var(--orange-red, #FF4500)', color: 'var(--orange-red, #FF4500)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '10px' }}>
+                                STATUS: STANDBY
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
         </div>
-        <div className="text-[#5c6b7f] font-medium">
-          BRIDGE: <span className="text-[#10b981]">ACTIVE (BASE 1)</span> | FRAMEWORK: REACT VITE
-        </div>
-      </div>
-
-      {/* 14-Pill Master Navigation Deck */}
-      <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 bg-[#080a0c] border-b-2 border-[#14181f]">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3.5 py-1.5 rounded text-[11px] font-bold tracking-wider transition-all duration-150 cursor-pointer ${getTabStyle(tab)}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Main Dynamic Viewport */}
-      <div className="flex-1 overflow-hidden p-3 bg-[#0a0c0e]">
-        {activeTab === '01_exec' ? (
-          <Tab01Exec />
-        ) : (
-          <div className="h-full border border-[#1f242d] rounded bg-[#0d0f12] p-6 text-sm">
-            <div className="text-[#ffb800] font-bold text-base mb-2">
-              ACTIVE MODULE: {TABS.find(t => t.id === activeTab)?.label}
-            </div>
-            <div className="text-[#5c6b7f]">
-              Module container initialized. Ready for component mounting.
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    );
 }
