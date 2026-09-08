@@ -5,7 +5,7 @@ import {
   Paperclip, Send, X, 
   Mic, MicOff, RefreshCw, Cpu,
   Copy, Check, FileText, ChevronDown, ChevronUp,
-  Wrench, Sparkles, Layers, Sliders, Users, UserCheck,
+  Wrench, Sparkles, Sliders,
   AlertOctagon, Loader2
 } from 'lucide-react';
 
@@ -38,28 +38,8 @@ const BRAIN_TIERS = [
   }
 ];
 
-const DIRECTORS = [
-  { id: '00_tess', name: '00 Tess (Quant)' },
-  { id: '01_silas', name: '01 Silas (Database)' },
-  { id: '02_amber', name: '02 Amber (Copywriter)' },
-  { id: '03_ares', name: '03 Ares (Execution)' },
-  { id: '04_atlas', name: '04 Atlas (Infrastructure)' },
-  { id: '05_valerie', name: '05 Valerie (Relations)' },
-  { id: '06_jack', name: '06 Jack (Marketing)' },
-  { id: '07_maverick', name: '07 Maverick (SEO)' },
-  { id: '08_skyla', name: '08 Skyla (Frontend)' },
-  { id: '09_jax', name: '09 Jax (Artwork Omega)' },
-  { id: '10_roxy', name: '10 Roxy (Artwork Alpha)' },
-  { id: '11_charlie', name: '11 Charlie (Code)' },
-  { id: '12_askari', name: '12 The Askari (Security)' },
-  { id: '13_vance', name: '13 Vance (Finance)' },
-  { id: '14_justin', name: '14 Justin (Risk / Legal)' },
-  { id: '15_orion', name: '15 Orion (Strategic Intelligence)' }
-];
-
 export default function Tab01Exec() {
   const [selectedModel, setSelectedModel] = useState('openrouter/anthropic/claude-3.5-sonnet');
-  const [selectedDirector, setSelectedDirector] = useState('11_charlie');
   const [selectedProject, setSelectedProject] = useState('MCNC');
   const [inputPrompt, setInputPrompt] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
@@ -284,7 +264,7 @@ export default function Tab01Exec() {
   };
 
   // Direct Execution Request to Monty Backend
-  const executePayload = async (customPrompt, assignedDirectorName = null) => {
+  const executePayload = async (customPrompt) => {
     const promptToSend = customPrompt !== undefined ? customPrompt : inputPrompt;
     if (!promptToSend.trim() && attachedFiles.length === 0) return;
 
@@ -293,14 +273,9 @@ export default function Tab01Exec() {
       setIsListening(false);
     }
 
-    const directorObj = DIRECTORS.find((d) => d.id === selectedDirector);
-    const directorLabel = assignedDirectorName || directorObj?.name || 'MONTY';
-
     const userMessage = {
       id: Date.now(),
-      sender: assignedDirectorName 
-        ? `MIKE // DELEGATION ➔ [${directorLabel.toUpperCase()}]` 
-        : 'MIKE // WARLORD',
+      sender: 'MIKE // WARLORD',
       role: 'user',
       time: new Date().toLocaleTimeString(),
       text: promptToSend,
@@ -327,7 +302,6 @@ export default function Tab01Exec() {
           prompt: outgoingPrompt,
           attachments: outgoingAttachments,
           model: selectedModel,
-          director: selectedDirector,
           project: selectedProject
         })
       });
@@ -338,9 +312,7 @@ export default function Tab01Exec() {
         ...prev,
         {
           id: Date.now() + 1,
-          sender: assignedDirectorName 
-            ? `CHIEF OF STAFF // MONTY ➔ [${directorLabel.toUpperCase()}]` 
-            : 'CHIEF OF STAFF // MONTY 2',
+          sender: 'CHIEF OF STAFF // MONTY 2',
           role: 'agent',
           time: new Date().toLocaleTimeString(),
           text: data.reply || data.error || 'Execution completed with empty response.'
@@ -370,20 +342,6 @@ export default function Tab01Exec() {
   const handleSubmit = (e) => {
     e?.preventDefault();
     executePayload();
-  };
-
-  const handleAssign = () => {
-    if (!inputPrompt.trim() && attachedFiles.length === 0) {
-      alert('Please enter instructions or attach an asset before delegating to a Director.');
-      return;
-    }
-
-    const directorObj = DIRECTORS.find((d) => d.id === selectedDirector);
-    const directorName = directorObj ? directorObj.name : 'Director Agent';
-    
-    const formattedDelegationPrompt = `[DELEGATION DIRECTIVE // TARGET: ${directorName.toUpperCase()} | PROJECT: ${selectedProject}]\n${inputPrompt.trim()}`;
-
-    executePayload(formattedDelegationPrompt, directorName);
   };
 
   const clearChat = () => {
@@ -599,12 +557,12 @@ export default function Tab01Exec() {
                 >
                   {copiedId === msg.id ? (
                     <>
-                      <Check className="w-3 h-3 text-[#10b981]" />
+                      <Check className="w-3.5 h-3.5 text-[#10b981]" />
                       <span className="text-[#10b981] font-bold">COPIED!</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3 h-3" />
+                      <Copy className="w-3.5 h-3.5" />
                       <span>COPY</span>
                     </>
                   )}
@@ -619,7 +577,7 @@ export default function Tab01Exec() {
                         <img src={att.data} alt="attachment" className="max-h-36 rounded object-cover" />
                       ) : (
                         <div className="text-[10px] text-[#8fa0b5] px-2 py-1 flex items-center gap-1">
-                          <Paperclip className="w-3 h-3 text-[#ffb800]" /> {att.name}
+                          <Paperclip className="w-3.5 h-3.5 text-[#ffb800]" /> {att.name}
                         </div>
                       )}
                     </div>
@@ -807,8 +765,8 @@ export default function Tab01Exec() {
               </button>
             </div>
 
-            {/* Project & 16-Director Routing Strip */}
-            <div className="flex items-center gap-1.5">
+            {/* Project & Push to War Room Strip */}
+            <div className="flex items-center gap-2">
               <select 
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}
@@ -819,28 +777,21 @@ export default function Tab01Exec() {
                 <option value="WARLORD">[ PROJECT: WARLORD ]</option>
               </select>
 
-              <select 
-                value={selectedDirector}
-                onChange={(e) => setSelectedDirector(e.target.value)}
-                className="bg-[#14171c] text-[#ffb800] font-bold border border-[#232832] text-[11px] px-2 py-1.5 rounded focus:outline-none focus:border-[#ffb800]"
-              >
-                {DIRECTORS.map((dir) => (
-                  <option key={dir.id} value={dir.id} className="bg-[#0d0f12] text-[#e2e8f0]">
-                    [ ASSIGN: {dir.name} ]
-                  </option>
-                ))}
-              </select>
-
               <button 
-                onClick={handleAssign}
-                className="px-3.5 py-1.5 bg-[#10b981]/20 hover:bg-[#10b981]/30 text-[#10b981] border border-[#10b981]/50 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
-                title="Delegate task directly to selected director"
+                type="button"
+                onClick={() => {
+                  if (!inputPrompt.trim() && attachedFiles.length === 0) return;
+                  window.dispatchEvent(new CustomEvent('push-to-warroom', { 
+                    detail: { 
+                      payload: inputPrompt,
+                      project: selectedProject
+                    } 
+                  }));
+                  setInputPrompt(''); 
+                  basePromptRef.current = '';
+                }}
+                className="px-4 py-1.5 bg-[#d97706]/30 text-[#fef08a] border border-[#d97706] font-bold rounded text-[11px] hover:bg-[#d97706]/50 cursor-pointer transition-colors"
               >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>ASSIGN</span>
-              </button>
-
-              <button className="px-4 py-1.5 bg-[#d97706]/30 text-[#fef08a] border border-[#d97706] font-bold rounded text-[11px] hover:bg-[#d97706]/50 cursor-pointer">
                 PUSH TO WARROOM
               </button>
             </div>
