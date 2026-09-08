@@ -51,9 +51,7 @@ export default function Tab02WarRoom({ ws }) {
   
   // Comms Buffer
   const [inputBuffer, setInputBuffer] = useState('');
-  const [streamLog, setStreamLog] = useState([
-    { id: 1, sender: 'SYSTEM // GATE KEEPER', text: 'War Room initialized. Select project container, tier, and execution mode.', type: 'system' }
-  ]);
+  const [streamLog, setStreamLog] = useState([]);
 
   // BRIDGE: Listen for PUSH TO WARROOM from Tab 01 Exec
   useEffect(() => {

@@ -6,16 +6,18 @@ import Tab01Exec from './components/Tab01Exec';
 import Tab02WarRoom from './components/Tab02WarRoom';
 import Tab03Projects from './components/Tab03Projects';
 import Tab04TaskBoard from './components/Tab04TaskBoard'; 
+import Tab05Calendar from './components/Tab05Calendar';
 
 const TABS = [
     '01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD',
     '05 CALENDAR', '06 MEMORY', '07 PAPERCLIP', '08 PALETTES',
-    '09 ORG', '10 TOKENS', '11 GALAXY', '12 REVIEW', 
+    '09 PREVIEWS', '10 TOKENS', '11 GALAXY', '12 REVIEW', 
     '13 DOCS', '14 OTHER'
 ];
 
 export default function App() {
-    const [activeTab, setActiveTab] = useState('02 WAR ROOM');
+    // Default boot selection locked to 01 EXEC
+    const [activeTab, setActiveTab] = useState('01 EXEC');
     const [mcncSocket, setMcncSocket] = useState(null);
     const [wsStatus, setWsStatus] = useState('DISCONNECTED');
 
@@ -52,10 +54,10 @@ export default function App() {
     }, []);
 
     return (
-        <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
             
             {/* TOP NAVIGATION / BRANDING HEADER */}
-            <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 20px', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.8)' }}>
+            <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.8)', flexShrink: 0 }}>
                 <div className="brand-title" style={{ color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px' }}>
                     WARLORD MISSION CONTROL // MCNC MASTER
                 </div>
@@ -65,21 +67,32 @@ export default function App() {
             </header>
 
             {/* 14-TAB NAVIGATION BAR */}
-            <nav className="tab-navigation" style={{ display: 'flex', gap: '4px', padding: '10px 20px', background: 'rgba(0,0,0,0.6)', overflowX: 'auto', borderBottom: '1px solid var(--wire-border)' }}>
+            <nav className="tab-navigation" style={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                gap: '6px', 
+                padding: '14px 20px 12px 20px', 
+                background: 'rgba(0,0,0,0.6)', 
+                overflowX: 'auto', 
+                borderBottom: '1px solid var(--wire-border)',
+                flexShrink: 0,
+                boxSizing: 'border-box'
+            }}>
                 {TABS.map(tab => (
                     <button 
                         key={tab} 
                         className={`btn-glass-nav ${activeTab === tab ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab)}
                         style={{
-                            color: activeTab === tab ? 'var(--gold-core)' : '#EEDD82', // Lighter, pale goldenrod for inactive tabs
+                            color: activeTab === tab ? 'var(--gold-core)' : '#EEDD82',
                             padding: '10px 18px',
                             fontFamily: "'JetBrains Mono', monospace",
                             fontSize: '0.75rem',
                             cursor: 'pointer',
                             whiteSpace: 'nowrap',
                             textTransform: 'uppercase',
-                            fontWeight: activeTab === tab ? 'bold' : 'normal'
+                            fontWeight: activeTab === tab ? 'bold' : 'normal',
+                            boxSizing: 'border-box'
                         }}
                     >
                         {tab}
@@ -88,31 +101,36 @@ export default function App() {
             </nav>
 
             {/* DYNAMIC TAB MOUNTING AREA (PERSISTENT STATE) */}
-            <main className="tab-content-area" style={{ flexGrow: 1, overflow: 'hidden', position: 'relative' }}>
+            <main className="tab-content-area" style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
                 
-                {/* ACTIVE MODULES (Mounted permanently, hidden via CSS when inactive) */}
-                <div style={{ display: activeTab === '01 EXEC' ? 'block' : 'none', height: '100%' }}>
+                {/* ACTIVE MODULES */}
+                <div style={{ display: activeTab === '01 EXEC' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
                     <Tab01Exec ws={mcncSocket} />
                 </div>
                 
-                <div style={{ display: activeTab === '02 WAR ROOM' ? 'block' : 'none', height: '100%' }}>
+                <div style={{ display: activeTab === '02 WAR ROOM' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
                     <Tab02WarRoom ws={mcncSocket} />
                 </div>
                 
-                <div style={{ display: activeTab === '03 PROJECTS' ? 'block' : 'none', height: '100%' }}>
+                <div style={{ display: activeTab === '03 PROJECTS' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
                     <Tab03Projects />
                 </div>
                 
-                <div style={{ display: activeTab === '04 TASK BOARD' ? 'block' : 'none', height: '100%' }}>
+                <div style={{ display: activeTab === '04 TASK BOARD' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
                     <Tab04TaskBoard ws={mcncSocket} />
+                </div>
+
+                <div style={{ display: activeTab === '05 CALENDAR' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
+                    <Tab05Calendar ws={mcncSocket} />
                 </div>
 
                 {/* DEFAULT PLACEHOLDER FOR UNMOUNTED TABS */}
                 {![
                     '01 EXEC', 
                     '02 WAR ROOM', 
-                    '03 PROJECTS',
-                    '04 TASK BOARD'
+                    '03 PROJECTS', 
+                    '04 TASK BOARD',
+                    '05 CALENDAR'
                 ].includes(activeTab) && (
                     <div className="placeholder-module" style={{ 
                         padding: '40px', 

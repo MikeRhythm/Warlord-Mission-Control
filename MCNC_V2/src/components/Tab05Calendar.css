@@ -1,0 +1,167 @@
+.tab-05-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    padding: 24px;
+    box-sizing: border-box;
+    gap: 20px;
+    overflow-y: auto;
+}
+
+/* HEADER & ALWAYS RUNNING */
+.calendar-header {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    border-bottom: 1px solid rgba(255, 184, 0, 0.15);
+    padding-bottom: 20px;
+}
+
+.calendar-title-group h2 {
+    color: var(--text-main, #EEDD82);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+    margin: 0 0 5px 0;
+}
+
+.calendar-title-group p {
+    color: var(--text-mist, #94a3b8);
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.always-running-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: rgba(13, 17, 23, 0.4);
+    padding: 10px 15px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.always-running-label {
+    color: #60a5fa;
+    font-size: 0.9rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.running-pill {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-mist, #94a3b8);
+}
+
+/* 7-DAY GRID SYSTEM */
+.calendar-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
+    flex: 1;
+}
+
+.calendar-day-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.day-header {
+    font-size: 0.85rem;
+    color: var(--text-mist, #94a3b8);
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-transform: capitalize;
+}
+
+/* ROUTINE TASK CARDS & COLOR SPECTRUM */
+.routine-card {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    gap: 6px;
+    border: 1px solid transparent;
+}
+
+.routine-title {
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.routine-time {
+    font-size: 0.7rem;
+    opacity: 0.8;
+}
+
+/* --- THE 8-TONE COLOR SCHEMA --- */
+
+.theme-amber {
+    background: rgba(217, 119, 6, 0.15);
+    border-color: rgba(217, 119, 6, 0.3);
+    color: #f59e0b;
+}
+
+.theme-slate {
+    background: rgba(148, 163, 184, 0.1);
+    border-color: rgba(148, 163, 184, 0.2);
+    color: #cbd5e1;
+}
+
+.theme-crimson {
+    background: rgba(225, 29, 72, 0.15);
+    border-color: rgba(225, 29, 72, 0.3);
+    color: #fb7185;
+}
+
+.theme-emerald {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #34d399;
+}
+
+.theme-gold {
+    background: rgba(234, 179, 8, 0.15);
+    border-color: rgba(234, 179, 8, 0.3);
+    color: #facc15;
+}
+
+.theme-cerulean {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+}
+
+.theme-indigo {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #818cf8;
+}
+
+.theme-violet {
+    background: rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.3);
+    color: #a78bfa;
+}
+
+.zero-state-col {
+    height: 100px;
+    border: 1px dashed rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.1);
+    font-size: 0.7rem;
+}

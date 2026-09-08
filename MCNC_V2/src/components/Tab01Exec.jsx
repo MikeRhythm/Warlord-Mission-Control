@@ -39,7 +39,8 @@ const BRAIN_TIERS = [
 ];
 
 export default function Tab01Exec() {
-  const [selectedModel, setSelectedModel] = useState('openrouter/anthropic/claude-3.5-sonnet');
+  // Default brain locked to GPT-4o Frontier
+  const [selectedModel, setSelectedModel] = useState('openrouter/openai/gpt-4o');
   const [selectedProject, setSelectedProject] = useState('MCNC');
   const [inputPrompt, setInputPrompt] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
@@ -53,15 +54,7 @@ export default function Tab01Exec() {
   const [isListening, setIsListening] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'CHIEF OF STAFF // MONTY 2 (BASE 1 PIPELINE)',
-      role: 'agent',
-      time: '18:15:00',
-      text: 'Pipeline active. Exec staging room secured. Multimodal vision and execution bridge initialized. Awaiting direct instructions.'
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   
   // Stopwatch & Streaming State
   const [isStreaming, setIsStreaming] = useState(false);
@@ -312,7 +305,7 @@ export default function Tab01Exec() {
         ...prev,
         {
           id: Date.now() + 1,
-          sender: 'CHIEF OF STAFF // MONTY 2',
+          sender: 'CHIEF OF STAFF // MONTY',
           role: 'agent',
           time: new Date().toLocaleTimeString(),
           text: data.reply || data.error || 'Execution completed with empty response.'
@@ -326,7 +319,7 @@ export default function Tab01Exec() {
           ...prev,
           {
             id: Date.now() + 1,
-            sender: 'CHIEF OF STAFF // MONTY 2',
+            sender: 'CHIEF OF STAFF // MONTY',
             role: 'agent',
             time: new Date().toLocaleTimeString(),
             text: `[COMMUNICATION ERROR]: Could not reach backend daemon at http://localhost:8081/api/chat. ${err.message}`
@@ -356,10 +349,22 @@ export default function Tab01Exec() {
     ]);
   };
 
+  // Refine logic: Format text into machine-executable parameters
+  const handleRefinePrompt = () => {
+    if (!inputPrompt.trim()) return;
+    const refinedDirective = `TASK EXECUTION DIRECTIVE:
+[OBJECTIVE]: Precision optimization of specified parameters.
+[INPUT PAYLOAD]:
+${inputPrompt.trim()}
+[EXECUTION CRITERIA]: Machine-executable logic only. Strip ambiguities. Enforce strict type safety and zero-state init standards.`;
+    setInputPrompt(refinedDirective);
+    basePromptRef.current = refinedDirective;
+  };
+
   return (
     <div className="flex h-full w-full bg-[#080a0c] text-xs gap-2">
       {/* Pinned Left Menu */}
-      <div className="w-80 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-2.5 select-none overflow-hidden">
+      <div className="w-80 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-2.5 select-none overflow-hidden flex-shrink-0">
         <div className="px-2 py-1 text-[#ffb800] font-bold tracking-wider text-xs flex items-center justify-between border-b border-[#1f242d] pb-2 mb-2">
           <div className="flex items-center gap-1.5">
             <Sliders className="w-4 h-4 text-[#ffb800]" />
@@ -368,7 +373,7 @@ export default function Tab01Exec() {
           <span className="text-[9px] bg-[#10b981]/15 text-[#10b981] px-1.5 py-0.5 rounded font-mono font-bold">PINNED</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
           {/* CATEGORY 1: MONTY'S BRAIN TIERS */}
           <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
             <button
@@ -495,9 +500,9 @@ export default function Tab01Exec() {
       </div>
 
       {/* Main Conversational Stream Viewport & Input Dock */}
-      <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
+      <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden min-w-0">
         {/* Stream Header */}
-        <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono">
+        <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono flex-shrink-0">
           <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2">
             <span>STATUS: <span className="text-[#10b981] font-bold">CONNECTED</span></span>
             <span>|</span>
@@ -535,7 +540,7 @@ export default function Tab01Exec() {
         </div>
 
         {/* Chat Stream Viewport */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-1 group">
               <div className="flex items-center justify-between select-none">
@@ -620,7 +625,7 @@ export default function Tab01Exec() {
                 <div className="flex items-center gap-2.5">
                   <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
                   <span className="text-[#ffb800] font-bold text-xs tracking-wider">
-                    MONTY 2 // TELEMETRY PIPELINE ENGAGED
+                    MONTY // TELEMETRY PIPELINE ENGAGED
                   </span>
                 </div>
 
@@ -644,7 +649,7 @@ export default function Tab01Exec() {
 
         {/* Attachment Tray */}
         {attachedFiles.length > 0 && (
-          <div className="px-3 py-2 bg-[#14171c] border-t border-[#1f242d] flex flex-wrap gap-2 items-center select-none">
+          <div className="px-3 py-2 bg-[#14171c] border-t border-[#1f242d] flex flex-wrap gap-2 items-center select-none flex-shrink-0">
             <span className="text-[10px] text-[#ffb800] font-bold">STAGED ASSETS:</span>
             {attachedFiles.map((file, idx) => (
               <div key={idx} className="flex items-center gap-1.5 bg-[#080a0c] border border-[#232832] px-2 py-1 rounded text-[11px] text-[#e2e8f0]">
@@ -666,7 +671,7 @@ export default function Tab01Exec() {
         )}
 
         {/* Input Dock */}
-        <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none">
+        <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none flex-shrink-0">
           <div className="flex items-center justify-between text-[11px] bg-[#14171c] px-3 py-1.5 rounded border border-[#232832]">
             <label className="text-[#ffb800] hover:text-[#fef08a] flex items-center gap-2 font-bold tracking-wider transition-colors cursor-pointer select-none">
               <Paperclip className="w-4 h-4 text-[#ffb800]" />
@@ -692,6 +697,7 @@ export default function Tab01Exec() {
             </div>
           </div>
 
+          {/* Text Input with Dedicated Vertical Scrollbar */}
           <div className="relative">
             <textarea
               value={inputPrompt}
@@ -707,7 +713,7 @@ export default function Tab01Exec() {
               }}
               placeholder="Enter instructions, code directives, or prompt parameters here... (Paste screenshots with Ctrl+V, or click Mic to dictate)"
               rows={3}
-              className="w-full bg-[#0d0f12] text-[#e2e8f0] border border-[#1f242d] rounded p-2.5 text-xs font-mono focus:outline-none focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800] resize-none pr-10 select-text"
+              className="w-full bg-[#0d0f12] text-[#e2e8f0] border border-[#1f242d] rounded p-2.5 text-xs font-mono focus:outline-none focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800] resize-none pr-10 select-text overflow-y-auto custom-scrollbar max-h-40 min-h-[72px]"
             />
             <button 
               type="button"
@@ -733,14 +739,9 @@ export default function Tab01Exec() {
                 SUBMIT
               </button>
               <button 
-                onClick={() => setInputPrompt((prev) => prev ? `${prev}\n+ ` : '+ ')}
+                onClick={handleRefinePrompt}
                 className="px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] hover:bg-[#1c2129] hover:text-white cursor-pointer"
-              >
-                + ADD
-              </button>
-              <button 
-                onClick={() => setInputPrompt((prev) => prev ? `Please refine, optimize, and streamline this output:\n\n${prev}` : 'Please refine and optimize the previous response.')}
-                className="px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] hover:bg-[#1c2129] hover:text-white cursor-pointer"
+                title="Format instruction into machine-executable directives"
               >
                 REFINE
               </button>
