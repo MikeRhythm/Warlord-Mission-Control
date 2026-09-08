@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import './index.css'; 
+import './high_finance_master.css'; // [WARLORD MASTER PALETTE INJECTED]
 
 import Tab01Exec from './components/Tab01Exec'; 
 import Tab02WarRoom from './components/Tab02WarRoom';
 import Tab03Projects from './components/Tab03Projects';
-import Tab04TaskBoard from './components/Tab04TaskBoard'; // Task Board mounted
+import Tab04TaskBoard from './components/Tab04TaskBoard'; 
 
 const TABS = [
     '01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD',
     '05 CALENDAR', '06 MEMORY', '07 PAPERCLIP', '08 PALETTES',
-    '09 ORG', '10 TOKENS', '11 GALAXY', '12 REVIEW', // Reverted to 11 GALAXY
+    '09 ORG', '10 TOKENS', '11 GALAXY', '12 REVIEW', 
     '13 DOCS', '14 OTHER'
 ];
 
@@ -51,37 +52,34 @@ export default function App() {
     }, []);
 
     return (
-        <div className="mcnc-master-layout" style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--glass-panel, #050608)' }}>
+        <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
             
             {/* TOP NAVIGATION / BRANDING HEADER */}
-            <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 20px', borderBottom: '1px solid var(--border-dim, #2A2D35)', backgroundColor: '#080A0E' }}>
-                <div className="brand-title" style={{ color: 'var(--gold-core, #D4AF37)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px' }}>
+            <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 20px', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.8)' }}>
+                <div className="brand-title" style={{ color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px' }}>
                     WARLORD MISSION CONTROL // MCNC MASTER
                 </div>
-                <div className="system-status" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', color: 'var(--text-mist, #94A3B8)' }}>
-                    BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core, #10B981)' : 'var(--orange-red, #FF4500)', fontWeight: 'bold' }}>{wsStatus} (BASE 1)</span> | FRAMEWORK: REACT VITE
+                <div className="system-status" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', color: 'var(--text-mist)' }}>
+                    BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core)' : 'var(--ruby-core)', fontWeight: 'bold' }}>{wsStatus} (BASE 1)</span> | FRAMEWORK: REACT VITE
                 </div>
             </header>
 
             {/* 14-TAB NAVIGATION BAR */}
-            <nav className="tab-navigation" style={{ display: 'flex', gap: '2px', padding: '10px 20px', background: 'rgba(0,0,0,0.8)', overflowX: 'auto', borderBottom: '1px solid var(--border-dim, #2A2D35)' }}>
+            <nav className="tab-navigation" style={{ display: 'flex', gap: '4px', padding: '10px 20px', background: 'rgba(0,0,0,0.6)', overflowX: 'auto', borderBottom: '1px solid var(--wire-border)' }}>
                 {TABS.map(tab => (
                     <button 
                         key={tab} 
-                        className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+                        className={`btn-glass-nav ${activeTab === tab ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab)}
                         style={{
-                            background: activeTab === tab ? 'rgba(212, 175, 55, 0.1)' : 'transparent',
-                            border: '1px solid',
-                            borderColor: activeTab === tab ? 'var(--gold-core, #D4AF37)' : 'transparent',
-                            color: activeTab === tab ? 'var(--gold-core, #D4AF37)' : 'var(--text-mist, #94A3B8)',
+                            color: activeTab === tab ? 'var(--gold-core)' : '#EEDD82', // Lighter, pale goldenrod for inactive tabs
                             padding: '10px 18px',
                             fontFamily: "'JetBrains Mono', monospace",
                             fontSize: '0.75rem',
                             cursor: 'pointer',
                             whiteSpace: 'nowrap',
-                            transition: 'all 0.2s ease',
-                            textTransform: 'uppercase'
+                            textTransform: 'uppercase',
+                            fontWeight: activeTab === tab ? 'bold' : 'normal'
                         }}
                     >
                         {tab}
@@ -127,19 +125,20 @@ export default function App() {
                         textAlign: 'center'
                     }}>
                         <div style={{
-                            border: '1px solid var(--border-dim, #2A2D35)',
-                            background: 'rgba(0,0,0,0.4)',
+                            border: '1px solid var(--wire-border)',
+                            background: 'rgba(0,0,0,0.6)',
                             padding: '30px',
                             borderRadius: '4px',
-                            maxWidth: '500px'
+                            maxWidth: '500px',
+                            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)'
                         }}>
-                            <h3 style={{ color: 'var(--gold-core, #D4AF37)', letterSpacing: '2px', margin: '0 0 15px 0' }}>
+                            <h3 style={{ color: 'var(--gold-core)', letterSpacing: '2px', margin: '0 0 15px 0' }}>
                                 ACTIVE MODULE: {activeTab}
                             </h3>
-                            <p style={{ color: 'var(--text-mist, #94A3B8)', lineHeight: '1.6', margin: '0 0 20px 0' }}>
+                            <p style={{ color: 'var(--text-mist)', lineHeight: '1.6', margin: '0 0 20px 0' }}>
                                 This module is currently offline. Awaiting React JSX conversion from Charlie via Base 1 pipeline.
                             </p>
-                            <div style={{ display: 'inline-block', padding: '5px 10px', border: '1px solid var(--orange-red, #FF4500)', color: 'var(--orange-red, #FF4500)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '10px' }}>
+                            <div style={{ display: 'inline-block', padding: '5px 10px', border: '1px solid var(--ruby-core)', color: 'var(--ruby-core)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '10px' }}>
                                 STATUS: STANDBY
                             </div>
                         </div>
