@@ -1,0 +1,397 @@
+﻿.tab-12-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    padding: 24px;
+    box-sizing: border-box;
+    gap: 16px;
+    overflow-y: auto;
+    background: #090807;
+}
+
+/* HEADER */
+.review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid rgba(200, 138, 53, 0.2);
+    padding-bottom: 12px;
+}
+
+.review-title-group h2 {
+    color: #C88A35;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.15rem;
+    letter-spacing: 1px;
+    margin: 0 0 4px 0;
+}
+
+.review-title-group p {
+    color: #8A7E72;
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+.review-pills {
+    display: flex;
+    gap: 12px;
+}
+
+.review-pill {
+    background: rgba(18, 14, 11, 0.85);
+    border: 1px solid rgba(140, 98, 57, 0.3);
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.review-pill .lbl {
+    color: #8A7E72;
+    font-size: 0.65rem;
+}
+
+.review-pill .val {
+    color: #C88A35;
+    font-weight: bold;
+}
+
+/* SIGNAL-TO-NOISE TELEMETRY GAUGE BANNER */
+.fluff-meter-banner {
+    background: rgba(16, 14, 12, 0.85);
+    border: 1px solid rgba(140, 98, 57, 0.28);
+    border-radius: 6px;
+    padding: 12px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.meter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+}
+
+.meter-label {
+    color: #C88A35;
+    letter-spacing: 1px;
+    font-weight: bold;
+}
+
+.meter-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 0.7rem;
+}
+
+.meter-stats .stat-nugget {
+    color: #A3D9B1;
+}
+
+.meter-stats .stat-fluff {
+    color: #8A7E72;
+}
+
+/* THE SPLIT DUAL-BAR */
+.meter-track {
+    height: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(140, 98, 57, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    position: relative;
+}
+
+.bar-nugget {
+    background: linear-gradient(90deg, #2D5A3F, #00FF66);
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+.bar-fluff {
+    background: rgba(140, 98, 57, 0.35);
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+.meter-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.68rem;
+    color: #8A7E72;
+}
+
+/* WORKSPACE DECK */
+.review-deck {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    gap: 20px;
+    flex: 1;
+    min-height: 540px;
+}
+
+.refinery-card {
+    background: rgba(16, 14, 12, 0.75);
+    border: 1px solid rgba(140, 98, 57, 0.22);
+    border-radius: 6px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.card-titlebar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #C88A35;
+    letter-spacing: 1px;
+}
+
+/* INPUT CONTROLS */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.input-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.label-with-add {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.input-label {
+    font-size: 0.68rem;
+    color: #A39682;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-add-inline {
+    background: rgba(200, 138, 53, 0.12);
+    border: 1px solid rgba(200, 138, 53, 0.35);
+    color: #C88A35;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.15s ease;
+}
+
+.btn-add-inline:hover {
+    background: #C88A35;
+    color: #000;
+}
+
+.refinery-input {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(140, 98, 57, 0.35);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #E8D5B5;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    outline: none;
+}
+
+.refinery-input:focus {
+    border-color: #C88A35;
+}
+
+.refinery-input.override-active {
+    border-color: #2D5A3F;
+    box-shadow: 0 0 8px rgba(45, 90, 63, 0.4);
+}
+
+.refinery-textarea {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(140, 98, 57, 0.35);
+    border-radius: 4px;
+    padding: 10px 12px;
+    color: #E8D5B5;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    height: 105px;
+    resize: vertical;
+    outline: none;
+}
+
+.refinery-textarea:focus {
+    border-color: #C88A35;
+}
+
+/* AI SUGGESTION BANNER */
+.suggestion-guidance-box {
+    background: rgba(20, 16, 12, 0.85);
+    border: 1px solid rgba(200, 138, 53, 0.3);
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sg-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+}
+
+.sg-top .label {
+    color: #C88A35;
+    font-weight: bold;
+}
+
+.sg-top .confidence {
+    color: #A3D9B1;
+    font-size: 0.68rem;
+}
+
+.sg-desc {
+    font-size: 0.7rem;
+    color: #8A7E72;
+    line-height: 1.4;
+}
+
+.sg-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.btn-tag-pill {
+    background: rgba(200, 138, 53, 0.12);
+    border: 1px solid rgba(200, 138, 53, 0.3);
+    color: #E8D5B5;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.btn-tag-pill:hover {
+    background: #C88A35;
+    color: #000;
+}
+
+.btn-tag-pill.active {
+    border-color: #A3D9B1;
+    color: #A3D9B1;
+    background: rgba(45, 90, 63, 0.2);
+}
+
+.btn-refine {
+    background: rgba(200, 138, 53, 0.15);
+    border: 1px solid #C88A35;
+    color: #C88A35;
+    padding: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: bold;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    margin-top: 4px;
+}
+
+.btn-refine:hover {
+    background: #C88A35;
+    color: #000;
+}
+
+/* NUGGET VIEWER */
+.classification-meta-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(140, 98, 57, 0.2);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #8A7E72;
+}
+
+.classification-meta-bar span.tag {
+    color: #C88A35;
+    background: rgba(200, 138, 53, 0.12);
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+
+.classification-meta-bar span.override-badge {
+    margin-left: auto;
+    color: #A3D9B1;
+    font-size: 0.65rem;
+    border: 1px solid rgba(45, 90, 63, 0.5);
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+
+.nugget-box {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(140, 98, 57, 0.2);
+    border-radius: 4px;
+    padding: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    color: #E8D5B5;
+    line-height: 1.55;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    outline: none;
+}
+
+.nugget-box:focus {
+    border-color: rgba(200, 138, 53, 0.4);
+}
+
+.btn-save-nugget {
+    background: rgba(45, 90, 63, 0.25);
+    border: 1px solid #2D5A3F;
+    color: #A3D9B1;
+    padding: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+}
+
+.btn-save-nugget:hover {
+    background: #2D5A3F;
+    color: #fff;
+}

@@ -1,0 +1,103 @@
+﻿.tab-11-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: #080706; /* Deep Onyx Base */
+    overflow: hidden;
+    user-select: none;
+}
+
+.galaxy-canvas-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+}
+
+.galaxy-canvas-layer:active {
+    cursor: grabbing;
+}
+
+/* HIGH FINANCE HUD */
+.galaxy-hud-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.hud-title h2 {
+    color: #C88A35; /* Raw Ochre */
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    letter-spacing: 1.5px;
+    margin: 0 0 4px 0;
+}
+
+.hud-title span {
+    color: #8C6239; /* Dark Bronze / Copper */
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+}
+
+.hud-readouts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+}
+
+.hud-pill {
+    background: rgba(18, 14, 11, 0.85);
+    border: 1px solid rgba(140, 98, 57, 0.35);
+    padding: 5px 12px;
+    border-radius: 4px;
+    color: #A39682;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+}
+
+.hud-pill b {
+    color: #C88A35;
+}
+
+.hud-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.hud-reticle-box {
+    border-left: 2px solid #2D5A3F; /* Deep Forest Green */
+    padding-left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #8A7E72;
+    line-height: 1.5;
+}
+
+.hud-bottom-stats {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #8C6239;
+    letter-spacing: 1px;
+}

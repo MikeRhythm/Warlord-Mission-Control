@@ -1,0 +1,60 @@
+<!-- WARLORD MISSION CONTROL // 04 TASK BOARD -->
+<div id="view-4" class="view-section">
+  <div class="task-grid-layout">
+    <div class="task-main-area">
+      <div class="task-stats">
+        <div class="stat-group"><span class="stat-num" style="color: var(--hf-accent-green);">16</span><span class="stat-label">Active Daemons</span></div>
+        <div class="stat-group"><span class="stat-num" style="color: var(--hf-accent-blue);">3</span><span class="stat-label">Building</span></div>
+        <div class="stat-group"><span class="stat-num" style="color: var(--hf-accent-gold);">1</span><span class="stat-label">Gate / Review</span></div>
+        <div class="stat-group"><span class="stat-num" style="color: var(--hf-text-main);">12</span><span class="stat-label">Total Shipped</span></div>
+      </div>
+      <div class="task-filters">
+        <button class="action-bar-btn primary" style="border:none; padding: 6px 16px; border-radius: 4px; background: var(--hf-accent-blue); color: #fff;">+ New Idea (Capture)</button>
+        <span class="filter-pill active">All</span>
+        <span class="filter-pill">Charlie</span>
+        <span class="filter-pill">Tess</span>
+        <span class="filter-pill">Roxy</span>
+        <span class="filter-pill">Jack</span>
+        <select class="filter-select" style="margin-left: auto;"><option>All Projects &triangledown;</option><option>Rhythm WASP</option><option>Paperclip Daemon</option></select>
+      </div>
+      <div class="kanban-board">
+        <div>
+          <div class="k-col-header"><span><span style="color: var(--hf-text-muted); margin-right:6px;">&bull;</span> Capture & Plan</span><span style="color: var(--hf-text-muted);">2</span></div>
+          <div class="k-card">
+            <div class="k-card-header-row"><div class="k-card-title">TASK-01: Wire WebSocket Bridge</div><button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">x</button></div>
+            <div class="k-card-desc">Connect Base 1 Backend to primary UI daemon on port 8080.</div>
+            <div class="k-card-footer"><span class="agent-badge badge-jack">J Jack</span><span class="time-meta">2 days ago</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="k-col-header"><span><span style="color: var(--hf-accent-blue); margin-right:6px;">&bull;</span> Agent Build</span><span style="color: var(--hf-text-muted);">1</span></div>
+          <div class="k-card task-active">
+            <div class="k-card-header-row"><div class="k-card-title">TASK-03: Command Dock Anchor</div><button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">x</button></div>
+            <div class="k-card-desc">Anchor action buttons and dropzone strictly to the screen bottom.</div>
+            <div class="k-card-footer"><span class="agent-badge badge-roxy">R Roxy</span><span class="status-tag tag-active">CODING</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="k-col-header"><span><span style="color: var(--hf-accent-gold); margin-right:6px;">&bull;</span> Human Gate</span><span style="color: var(--hf-text-muted);">1</span></div>
+          <div class="k-card task-review" style="background: rgba(218,165,32,0.05);">
+            <div class="k-card-header-row"><div class="k-card-title">TASK-06: Memory Safeguard Fix</div><button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">x</button></div>
+            <div class="k-card-desc">Audit memory buffers to prevent NaN poisoning. <strong>Ready for Review.</strong></div>
+            <div class="k-card-footer"><span class="agent-badge badge-charlie">C Charlie</span><button class="action-bar-btn approve-btn" style="padding: 2px 8px; font-size: 9px;" onclick="this.closest('.k-card').remove()">APPROVE</button></div>
+          </div>
+        </div>
+        <div>
+          <div class="k-col-header"><span><span style="color: var(--hf-accent-green); margin-right:6px;">&bull;</span> Shipped</span><span style="color: var(--hf-text-muted);">1</span></div>
+          <div class="k-card task-done">
+            <div class="k-card-header-row"><div class="k-card-title">TASK-04: Master Header Navigation</div><button class="task-del-btn" title="Delete Task" onclick="this.closest('.k-card').remove()">x</button></div>
+            <div class="k-card-desc">Rebuild High Finance palette tabs across global layout.</div>
+            <div class="k-card-footer"><span class="agent-badge badge-roxy">R Roxy</span><span class="time-meta">Shipped</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="live-sidebar">
+      <h4 style="margin: 0; font-size: 13px; color: var(--hf-text-main); border-bottom: 1px solid var(--hf-border); padding-bottom: 10px;">Live Activity Feed</h4>
+      <div class="activity-item"><span class="activity-agent" style="color: var(--hf-accent-blue);">Charlie</span><span class="activity-log">Zero-state check cleared. Memory clean on Base 1 framework.</span></div>
+    </div>
+  </div>
+</div>

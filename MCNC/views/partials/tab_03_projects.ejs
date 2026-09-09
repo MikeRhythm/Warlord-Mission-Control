@@ -1,20 +1,13 @@
-<!-- WARLORD MISSION CONTROL // 03 PROJECTS -->
-<div id="view-3" class="view-section">
-  <h2 style="color:var(--hf-accent-gold); margin-top:0;">03 PROJECTS // ACTIVE MANIFEST</h2>
-  <div class="projects-header-stats">
-    <span><strong style="color: var(--hf-text-main);">6</strong> Total</span>
-    <span><strong style="color: var(--hf-text-main);">4</strong> Active</span>
-    <span><strong style="color: var(--hf-text-main);">2</strong> Planning</span>
-  </div>
-  <div class="projects-grid">
-    <div class="proj-card">
-      <div class="proj-header"><div class="proj-title">Warlord Mission Control</div><div class="proj-status active">Active</div></div>
-      <div class="proj-desc">Central dashboard for the agent organization. Tasks, projects, approvals, and real-time Base 1 pipeline monitoring.</div>
-      <div class="proj-progress-container">
-        <div class="proj-progress-labels"><span style="color: var(--hf-accent-green);">100%</span><span>10/10</span></div>
-        <div class="proj-progress-bar-bg"><div class="proj-progress-fill" style="width: 100%;"></div></div>
-      </div>
-      <div class="proj-footer"><span class="agent-badge badge-charlie">C Charlie</span><span class="proj-priority priority-high">High</span></div>
+<div class="tab-pane" id="tab-projects">
+  <div class="projects-header mb-4">
+    <h2 class="text-sm font-mono text-[#ffb800] tracking-wider uppercase">03 PROJECTS // ACTIVE MANIFEST</h2>
+    <div class="flex gap-4 mt-2 font-mono text-xs text-[#a0aec0]">
+      <div><span class="text-white font-bold" id="total-projects-count">0</span> TOTAL</div>
+      <div><span class="text-[#10b981] font-bold" id="active-projects-count">0</span> ACTIVE</div>
+      <div><span class="text-[#ffb800] font-bold" id="planning-projects-count">0</span> PLANNING</div>
     </div>
+  </div>
+  <div id="projects-manifest-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <!-- Zero State: Dynamic project cards render here -->
   </div>
 </div>
