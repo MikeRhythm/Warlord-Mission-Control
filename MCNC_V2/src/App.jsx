@@ -28,7 +28,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('01 EXEC');
   const [mcncSocket, setMcncSocket] = useState(null);
   const [wsStatus, setWsStatus] = useState('DISCONNECTED');
+  
+  // Shared state for War Room payload transfers from Tab 01
+  const [warRoomPayload, setWarRoomPayload] = useState(null);
 
+  // WebSocket Connection Lifecycle
   useEffect(() => {
     let ws;
     const connectWS = () => {
@@ -59,27 +63,43 @@ export default function App() {
     };
   }, []);
 
+  // Global listener for the "Push to War Room" event dispatched from Tab 01
+  useEffect(() => {
+    const handleWarRoomPush = (e) => {
+      if (e.detail) {
+        setWarRoomPayload(e.detail);
+        setActiveTab('02 WAR ROOM'); // Auto-flip screen to Tab 02
+      }
+    };
+
+    window.addEventListener('push-to-warroom', handleWarRoomPush);
+    return () => {
+      window.removeEventListener('push-to-warroom', handleWarRoomPush);
+    };
+  }, []);
+
   return (
     <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.8)', flexShrink: 0 }}>
-        <div className="brand-title" style={{ color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px' }}>
+      <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.85)', flexShrink: 0 }}>
+        <div className="brand-title" style={{ color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: '0.9rem' }}>
           WARLORD MISSION CONTROL // MCNC MASTER
         </div>
-        <div className="system-status" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', color: 'var(--text-mist)' }}>
+        <div className="system-status" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--text-mist)' }}>
           BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core)' : 'var(--ruby-core)', fontWeight: 'bold' }}>{wsStatus} (BASE 1)</span> | FRAMEWORK: REACT VITE
         </div>
       </header>
 
+      {/* AUTO-FITTING 14-TAB NAVIGATION BAR */}
       <nav className="tab-navigation" style={{ 
         display: 'flex', 
-        alignItems: 'center', 
-        gap: '6px', 
-        padding: '14px 20px 12px 20px', 
-        background: 'rgba(0,0,0,0.6)', 
-        overflowX: 'auto', 
+        alignItems: 'stretch', 
+        gap: '4px', 
+        padding: '8px 12px', 
+        background: 'rgba(0,0,0,0.7)', 
         borderBottom: '1px solid var(--wire-border)',
         flexShrink: 0,
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        width: '100%'
       }}>
         {TABS.map(tab => (
           <button 
@@ -87,14 +107,19 @@ export default function App() {
             className={`btn-glass-nav ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
             style={{
+              flex: 1,
+              minWidth: 0,
               color: activeTab === tab ? 'var(--gold-core)' : '#EEDD82',
-              padding: '10px 18px',
+              padding: '9px 4px',
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '0.75rem',
+              fontSize: '0.68rem',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
               textTransform: 'uppercase',
               fontWeight: activeTab === tab ? 'bold' : 'normal',
+              textAlign: 'center',
               boxSizing: 'border-box'
             }}
           >
@@ -109,7 +134,7 @@ export default function App() {
         </div>
         
         <div style={{ display: activeTab === '02 WAR ROOM' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
-          <Tab02WarRoom ws={mcncSocket} />
+          <Tab02WarRoom ws={mcncSocket} initialPayload={warRoomPayload} />
         </div>
         
         <div style={{ display: activeTab === '03 PROJECTS' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>

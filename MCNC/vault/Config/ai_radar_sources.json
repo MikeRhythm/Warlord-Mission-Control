@@ -1,0 +1,19 @@
+{
+  "channels": [
+    {
+      "name": "Greg Isenberg",
+      "handle": "@GregIsenberg",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPjNBjflYl0-HQtUvOx0Ibw"
+    },
+    {
+      "name": "Julian Goldie SEO",
+      "handle": "@JulianGoldieSEO",
+      "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=UCGpsgNbzdF7BECCVbB1COHw"
+    },
+    {
+      "name": "Alex Finn",
+      "handle": "@AlexFinnOfficial",
+      "feedUrl": null
+    }
+  ]
+}

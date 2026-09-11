@@ -1,800 +1,528 @@
-import React, { useState, useRef, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Paperclip, Send, X, 
-  Mic, MicOff, RefreshCw, Cpu,
-  Copy, Check, FileText, ChevronDown, ChevronUp,
-  Wrench, Sparkles, Sliders,
-  AlertOctagon, Loader2
+  Send, 
+  Loader2, 
+  AlertOctagon, 
+  Copy, 
+  Check, 
+  ChevronDown, 
+  ChevronUp, 
+  Sparkles, 
+  Mic, 
+  MicOff, 
+  Paperclip, 
+  ArrowRightCircle, 
+  RefreshCw, 
+  Trash2 
 } from 'lucide-react';
 
 const BRAIN_TIERS = [
   {
-    id: 'tier1',
-    tier: 'TIER 1: OLLAMA (LOCAL)',
+    category: 'TIER 1: OLLAMA (LOCAL)',
     models: [
-      { id: 'ollama/llama3', name: 'Llama 3 (Local)', tag: 'Local' },
-      { id: 'ollama/deepseek-r1', name: 'DeepSeek-R1 (Local)', tag: 'Local' },
-      { id: 'ollama/qwen2.5-coder', name: 'Qwen 2.5 Coder', tag: 'Local' }
+      { id: 'llama3:latest', name: 'Llama 3 (Local)', tag: 'LOCAL' },
+      { id: 'deepseek-r1:latest', name: 'DeepSeek-R1 (Local)', tag: 'LOCAL' },
+      { id: 'qwen2.5-coder:latest', name: 'Qwen 2.5 Coder', tag: 'LOCAL' }
     ]
   },
   {
-    id: 'tier2',
-    tier: 'TIER 2: NVIDIA NIM',
+    category: 'TIER 2: GROQ & NVIDIA NIM',
     models: [
-      { id: 'nvidia/deepseek-ai/deepseek-r1', name: 'DeepSeek-R1 (Cloud)', tag: 'NIM' },
-      { id: 'nvidia/meta/llama-3.1-70b-instruct', name: 'Llama 3.1 70B Instruct', tag: 'NIM' },
-      { id: 'nvidia/nvidia/llama-3.1-nemotron-70b-instruct', name: 'Nemotron 70B Ultra', tag: 'NIM' }
+      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Groq)', tag: 'GROQ' },
+      { id: 'deepseek-ai/deepseek-v4-pro-0813', name: 'DeepSeek V4 Pro (Cloud)', tag: 'NIM' },
+      { id: 'meta/llama-3.1-70b-instruct', name: 'Llama 3.1 70B Instruct', tag: 'NIM' },
+      { id: 'nvidia/nemotron-70b-ultra', name: 'Nemotron 70B Ultra', tag: 'NIM' }
     ]
   },
   {
-    id: 'tier3',
-    tier: 'TIER 3: OPENROUTER',
+    category: 'TIER 3: OPENROUTER (ELITE)',
     models: [
-      { id: 'openrouter/anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', tag: 'Elite' },
-      { id: 'openrouter/openai/gpt-4o', name: 'GPT-4o Frontier', tag: 'Elite' }
+      { id: 'anthropic/claude-sonnet-4.6', name: 'Claude Sonnet 4.6', tag: 'ELITE' },
+      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'ELITE' },
+      { id: 'openai/gpt-4o', name: 'GPT-4o Frontier', tag: 'ELITE' }
     ]
   }
 ];
 
-export default function Tab01Exec() {
-  // Default brain locked to GPT-4o Frontier
-  const [selectedModel, setSelectedModel] = useState('openrouter/openai/gpt-4o');
-  const [selectedProject, setSelectedProject] = useState('MCNC');
+const DIRECTOR_BOARD = [
+  'TESS // QUANT', 
+  'SILAS // DATABASE', 
+  'AMBER // COPYWRITER', 
+  'ARES // EXECUTION',
+  'ATLAS // INFRASTRUCTURE', 
+  'VALERIE // RELATIONS', 
+  'JACK // MARKETING', 
+  'MAVERICK // SEO',
+  'SKYLA // FRONTEND WEB', 
+  'JAX // ARTWORK OMEGA', 
+  'ROXY // ARTWORK ALPHA', 
+  'CHARLIE // CODE'
+];
+
+const INITIAL_PROJECTS = [
+  'MCNC REACT VITE', 
+  'RHYTHM WASP V8.5', 
+  'PAPERCLIP DAEMON'
+];
+
+export default function Tab01Exec({ ws }) {
+  const [selectedBrain, setSelectedBrain] = useState('deepseek-ai/deepseek-v4-pro-0813');
   const [inputPrompt, setInputPrompt] = useState('');
-  const [attachedFiles, setAttachedFiles] = useState([]);
-  
-  // Left sidebar accordion controls
-  const [isBrainSectionOpen, setIsBrainSectionOpen] = useState(true);
-  const [openTiers, setOpenTiers] = useState({ tier1: true, tier2: true, tier3: true });
-  const [isToolsOpen, setIsToolsOpen] = useState(false);
-  const [isSkillsOpen, setIsSkillsOpen] = useState(false);
-
-  const [isListening, setIsListening] = useState(false);
-  const [copiedId, setCopiedId] = useState(null);
-  const [copiedAll, setCopiedAll] = useState(false);
-  const [messages, setMessages] = useState([]);
-  
-  // Stopwatch & Streaming State
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState('0.0');
-
-  const chatEndRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const basePromptRef = useRef('');
-  const abortControllerRef = useRef(null);
-  const timerIntervalRef = useRef(null);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isStreaming]);
-
-  // Live Timer Stopwatch Effect
-  useEffect(() => {
-    if (isStreaming) {
-      setElapsedSeconds('0.0');
-      const startTime = Date.now();
-      timerIntervalRef.current = setInterval(() => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        setElapsedSeconds(elapsed.toFixed(1));
-      }, 100);
-    } else {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+  const [conversation, setConversation] = useState([
+    {
+      id: 1,
+      sender: 'CHIEF OF STAFF // MONTY',
+      text: 'Mission Control Base 1 is live and standing by. Select an operational brain tier and submit instructions.',
+      type: 'system',
+      timestamp: 'INITIALIZED'
     }
-    return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    };
-  }, [isStreaming]);
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [isListening, setIsListening] = useState(false);
 
-  // Global Clipboard Paste (Ctrl+V)
-  useEffect(() => {
-    const handleGlobalPaste = (e) => {
-      const items = (e.clipboardData || window.clipboardData)?.items;
-      if (!items) return;
+  const [projects, setProjects] = useState(INITIAL_PROJECTS);
+  const [selectedProject, setSelectedProject] = useState('MCNC REACT VITE');
+  const [selectedAgent, setSelectedAgent] = useState('ALL DIRECTORS // AUTO-ROUTING');
 
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.type.indexOf('image') !== -1) {
-          const file = item.getAsFile();
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              setAttachedFiles((prev) => [
-                ...prev,
-                { name: `screenshot_${Date.now()}.png`, data: event.target.result, type: 'image' }
-              ]);
-            };
-            reader.readAsDataURL(file);
-          }
-        }
-      }
-    };
+  const chatBottomRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-    window.addEventListener('paste', handleGlobalPaste);
-    return () => window.removeEventListener('paste', handleGlobalPaste);
-  }, []);
+  useEffect(() => { 
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  }, [conversation]);
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setConversation(prev => [...prev, {
+        id: Date.now(),
+        sender: 'SYSTEM // UPLOAD',
+        text: `[ATTACHMENT STAGED]: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
+        type: 'system',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      }]);
+      e.target.value = null; 
+    }
+  };
 
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setAttachedFiles((prev) => [
-          ...prev,
-          { 
-            name: file.name, 
-            data: event.target.result, 
-            type: file.type.startsWith('image/') ? 'image' : 'file' 
-          }
-        ]);
-      };
-      reader.readAsDataURL(file);
+  const handleSendPrompt = async () => {
+    if (!inputPrompt.trim() || isLoading) return;
+    
+    const userText = inputPrompt.trim();
+    const timestamp = new Date().toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
     });
 
-    e.target.value = '';
-  };
-
-  const removeAttachment = (index) => {
-    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const toggleTier = (tierId) => {
-    setOpenTiers((prev) => ({ ...prev, [tierId]: !prev[tierId] }));
-  };
-
-  // Web Speech Recognition
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = 0; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        const base = basePromptRef.current ? basePromptRef.current.trim() + ' ' : '';
-        setInputPrompt(base + (finalTranscript + interimTranscript).trim());
-      };
-
-      recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
-  }, []);
-
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      alert('Speech Recognition is not supported in this browser. Please use Chrome.');
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      try {
-        basePromptRef.current = inputPrompt;
-        recognitionRef.current.start();
-        setIsListening(true);
-      } catch (err) {
-        console.error('STT Start Error:', err);
+    setConversation(prev => [
+      ...prev, 
+      { 
+        id: Date.now(), 
+        sender: 'MIKE // WARLORD', 
+        text: userText, 
+        type: 'user', 
+        timestamp 
       }
-    }
-  };
-
-  const handleCopy = (text, id) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleCopyFullConversation = () => {
-    const fullLog = messages.map((m) => {
-      const header = `[${m.time}] ${m.sender}:`;
-      const atts = m.attachments && m.attachments.length > 0 
-        ? `\n[ATTACHMENTS: ${m.attachments.map(a => a.name).join(', ')}]` 
-        : '';
-      return `${header}${atts}\n${m.text}\n`;
-    }).join('\n---\n\n');
-
-    navigator.clipboard.writeText(fullLog);
-    setCopiedAll(true);
-    setTimeout(() => setCopiedAll(false), 2500);
-  };
-
-  // EMERGENCY ALL STOP PROTOCOL
-  const handleAllStop = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-
-    if (recognitionRef.current && isListening) {
-      try {
-        recognitionRef.current.stop();
-      } catch (err) {
-        console.error('STT Halt Error:', err);
-      }
-    }
-
-    setIsStreaming(false);
-    setInputPrompt('');
-    basePromptRef.current = '';
-    setAttachedFiles([]);
-
-    const haltMessage = {
-      id: Date.now(),
-      sender: 'DEFCON 1 // ALL STOP PROTOCOL',
-      role: 'system',
-      time: new Date().toLocaleTimeString(),
-      text: `**ALL STOP ENGAGED.** In-flight telemetry aborted at ${elapsedSeconds}s. Pipelines flushed to clean state.`
-    };
-
-    setMessages((prev) => [...prev, haltMessage]);
-  };
-
-  // Direct Execution Request to Monty Backend
-  const executePayload = async (customPrompt) => {
-    const promptToSend = customPrompt !== undefined ? customPrompt : inputPrompt;
-    if (!promptToSend.trim() && attachedFiles.length === 0) return;
-
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
-
-    const userMessage = {
-      id: Date.now(),
-      sender: 'MIKE // WARLORD',
-      role: 'user',
-      time: new Date().toLocaleTimeString(),
-      text: promptToSend,
-      attachments: [...attachedFiles]
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    const outgoingPrompt = promptToSend;
-    const outgoingAttachments = [...attachedFiles];
+    ]);
     
     setInputPrompt('');
-    basePromptRef.current = '';
-    setAttachedFiles([]);
-    setIsStreaming(true);
-
-    abortControllerRef.current = new AbortController();
+    setIsLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8081/api/chat', {
+      const response = await fetch('http://127.0.0.1:8081/api/chat', {
         method: 'POST',
-        signal: abortControllerRef.current.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: outgoingPrompt,
-          attachments: outgoingAttachments,
-          model: selectedModel,
-          project: selectedProject
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ 
+          prompt: userText, 
+          model: selectedBrain, 
+          project: selectedProject, 
+          director: selectedAgent 
         })
       });
+      
+      const data = await response.json();
+      const replyTime = new Date().toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
 
-      const data = await res.json();
-
-      setMessages((prev) => [
-        ...prev,
+      setConversation(prev => [
+        ...prev, 
         {
           id: Date.now() + 1,
           sender: 'CHIEF OF STAFF // MONTY',
-          role: 'agent',
-          time: new Date().toLocaleTimeString(),
-          text: data.reply || data.error || 'Execution completed with empty response.'
+          text: data.error ? `Daemon error: ${data.error}` : (data.reply || 'Action executed successfully.'),
+          type: data.error ? 'error' : 'agent',
+          timestamp: replyTime
         }
       ]);
     } catch (err) {
-      if (err.name === 'AbortError') {
-        console.log('[ALL STOP]: In-flight stream aborted by user.');
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now() + 1,
-            sender: 'CHIEF OF STAFF // MONTY',
-            role: 'agent',
-            time: new Date().toLocaleTimeString(),
-            text: `[COMMUNICATION ERROR]: Could not reach backend daemon at http://localhost:8081/api/chat. ${err.message}`
-          }
-        ]);
-      }
-    } finally {
-      setIsStreaming(false);
-      abortControllerRef.current = null;
+      setConversation(prev => [
+        ...prev, 
+        {
+          id: Date.now() + 1, 
+          sender: 'CHIEF OF STAFF // MONTY', 
+          text: `Daemon failure: ${err.message}`, 
+          type: 'error', 
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ]);
+    } finally { 
+      setIsLoading(false); 
     }
   };
 
-  const handleSubmit = (e) => {
-    e?.preventDefault();
-    executePayload();
-  };
+  const handlePushToWarRoom = () => {
+    const transferPayload = inputPrompt.trim();
+    if (!transferPayload) return;
+    
+    window.dispatchEvent(new CustomEvent('push-to-warroom', { 
+      detail: { 
+        payload: transferPayload, 
+        project: selectedProject 
+      } 
+    }));
 
-  const clearChat = () => {
-    setMessages([
-      {
-        id: Date.now(),
-        sender: 'SYSTEM // TELEMETRY',
-        role: 'system',
-        time: new Date().toLocaleTimeString(),
-        text: 'Exec terminal cleared. System ready.'
+    setInputPrompt('');
+    setConversation(prev => [
+      ...prev, 
+      { 
+        id: Date.now(), 
+        sender: 'SYSTEM // ROUTER', 
+        text: `[PAYLOAD TRANSFERRED] Scope pushed to War Room matrix.\nTarget: ${selectedProject}`, 
+        type: 'system', 
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
       }
     ]);
   };
 
-  // Refine logic: Format text into machine-executable parameters
-  const handleRefinePrompt = () => {
-    if (!inputPrompt.trim()) return;
-    const refinedDirective = `TASK EXECUTION DIRECTIVE:
-[OBJECTIVE]: Precision optimization of specified parameters.
-[INPUT PAYLOAD]:
-${inputPrompt.trim()}
-[EXECUTION CRITERIA]: Machine-executable logic only. Strip ambiguities. Enforce strict type safety and zero-state init standards.`;
-    setInputPrompt(refinedDirective);
-    basePromptRef.current = refinedDirective;
+  const handleRefine = () => {
+    setInputPrompt(prev => prev ? `[REFINEMENT CONSTRAINTS]: ${prev}` : '');
+  };
+
+  const handleCls = () => { 
+    setConversation([]); 
+    setInputPrompt(''); 
+  };
+
+  const handleCopy = (id, text) => { 
+    navigator.clipboard.writeText(text); 
+    setCopiedId(id); 
+    setTimeout(() => setCopiedId(null), 2000); 
+  };
+
+  const handleCopyFull = () => {
+    navigator.clipboard.writeText(
+      conversation.map(c => `[${c.timestamp}] ${c.sender}:\n${c.text}\n`).join('\n---\n\n')
+    );
+  };
+
+  const handleAllStop = () => { 
+    setIsLoading(false); 
+    setConversation(prev => [
+      ...prev, 
+      { 
+        id: Date.now(), 
+        sender: 'WARLORD // OVERRIDE', 
+        text: '[!] ALL STOP INITIATED.', 
+        type: 'error', 
+        timestamp: new Date().toLocaleTimeString() 
+      }
+    ]); 
   };
 
   return (
-    <div className="flex h-full w-full bg-[#080a0c] text-xs gap-2">
-      {/* Pinned Left Menu */}
-      <div className="w-80 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-2.5 select-none overflow-hidden flex-shrink-0">
-        <div className="px-2 py-1 text-[#ffb800] font-bold tracking-wider text-xs flex items-center justify-between border-b border-[#1f242d] pb-2 mb-2">
-          <div className="flex items-center gap-1.5">
-            <Sliders className="w-4 h-4 text-[#ffb800]" />
-            <span>EXEC CONTROL PANEL</span>
+    <div className="flex h-full w-full bg-[#080a0c] text-xs gap-2 select-none font-mono">
+      {/* LEFT SIDEBAR */}
+      <div className="w-80 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-2.5 overflow-hidden flex-shrink-0">
+        
+        <div className="flex items-center justify-between px-3 py-2 bg-[#14171c] border border-[#1f242d] rounded mb-2 text-[#ffb800] font-bold">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="tracking-wider text-xs">EXEC CONTROL PANEL</span>
           </div>
-          <span className="text-[9px] bg-[#10b981]/15 text-[#10b981] px-1.5 py-0.5 rounded font-mono font-bold">PINNED</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/40 font-bold">
+            PINNED
+          </span>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-          {/* CATEGORY 1: MONTY'S BRAIN TIERS */}
           <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
-            <button
-              onClick={() => setIsBrainSectionOpen(!isBrainSectionOpen)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-[#14171c] hover:bg-[#1a1f26] text-[#ffb800] font-bold text-xs transition-colors cursor-pointer"
+            <button 
+              onClick={() => setIsPanelOpen(!isPanelOpen)} 
+              className="w-full flex items-center justify-between px-3 py-2 bg-[#14171c] hover:bg-[#1a1f26] text-[#ffb800] font-bold text-xs border-b border-[#1f242d] cursor-pointer"
             >
-              <div className="flex items-center gap-2">
-                <Cpu className="w-4 h-4" />
-                <span>MONTY'S BRAIN TIERS</span>
-              </div>
-              {isBrainSectionOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <span>MONTY'S BRAIN TIERS</span>
+              {isPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
-
-            {isBrainSectionOpen && (
+            
+            {isPanelOpen && (
               <div className="p-2 space-y-3 bg-[#0a0c0e]">
-                {BRAIN_TIERS.map((tierGroup) => {
-                  const isOpen = openTiers[tierGroup.id];
-                  return (
-                    <div key={tierGroup.id} className="space-y-1">
-                      <button
-                        onClick={() => toggleTier(tierGroup.id)}
-                        className="w-full flex items-center justify-between text-[10px] text-[#5c6b7f] hover:text-[#8fa0b5] font-semibold tracking-wider px-1 py-0.5 cursor-pointer"
-                      >
-                        <span>{tierGroup.tier}</span>
-                        {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                      </button>
-
-                      {isOpen && (
-                        <div className="space-y-1 pl-1">
-                          {tierGroup.models.map((model) => {
-                            const isSelected = selectedModel === model.id;
-                            return (
-                              <button
-                                key={model.id}
-                                onClick={() => setSelectedModel(model.id)}
-                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-[#10b981]/15 text-[#10b981] border border-[#10b981] font-bold shadow-[0_0_8px_rgba(16,185,129,0.2)]'
-                                    : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'
-                                }`}
-                              >
-                                <span className="truncate pr-1">{model.name}</span>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${
-                                  isSelected ? 'bg-[#10b981] text-black' : 'bg-[#1f242d] text-[#5c6b7f]'
-                                }`}>
-                                  {model.tag}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                {BRAIN_TIERS.map((tierGroup) => (
+                  <div key={tierGroup.category} className="space-y-1">
+                    <div className="text-[10px] text-[#5c6b7f] font-bold uppercase tracking-wider px-1">
+                      {tierGroup.category}
                     </div>
-                  );
-                })}
+                    {tierGroup.models.map((model) => {
+                      const isSelected = selectedBrain === model.id;
+                      return (
+                        <button 
+                          key={model.id} 
+                          onClick={() => setSelectedBrain(model.id)} 
+                          className={`
+                            w-full flex items-center justify-between px-2.5 py-1.5 
+                            rounded text-[11px] font-mono cursor-pointer transition-all
+                            ${isSelected 
+                              ? 'bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/60 font-bold' 
+                              : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26]'
+                            }
+                          `}
+                        >
+                          <span className="truncate pr-1">{model.name}</span>
+                          <span className={`
+                            text-[9px] px-1.5 py-0.5 rounded uppercase font-bold 
+                            ${isSelected ? 'bg-[#10b981] text-black' : 'bg-[#1f242d] text-[#5c6b7f]'}
+                          `}>
+                            {model.tag}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
-
-          {/* CATEGORY 2: DIRECTOR TOOLS */}
-          <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
-            <button
-              onClick={() => setIsToolsOpen(!isToolsOpen)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-[#14171c] hover:bg-[#1a1f26] text-[#8fa0b5] hover:text-white font-bold text-xs transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <Wrench className="w-4 h-4 text-[#38bdf8]" />
-                <span>DIRECTOR TOOLS</span>
-              </div>
-              {isToolsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-
-            {isToolsOpen && (
-              <div className="p-2 space-y-1.5 bg-[#0a0c0e] text-[11px] text-[#5c6b7f] font-mono">
-                <div className="p-1.5 bg-[#14171c] rounded border border-[#1f242d] flex justify-between">
-                  <span>WS Daemon Bridge:</span>
-                  <span className="text-[#10b981]">Port 8081</span>
-                </div>
-                <div className="p-1.5 bg-[#14171c] rounded border border-[#1f242d] flex justify-between">
-                  <span>File System Access:</span>
-                  <span className="text-[#10b981]">Ready</span>
-                </div>
-                <div className="p-1.5 bg-[#14171c] rounded border border-[#1f242d] flex justify-between">
-                  <span>Multimodal Encoder:</span>
-                  <span className="text-[#ffb800]">Active</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* CATEGORY 3: ACTIVE SKILLS */}
-          <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
-            <button
-              onClick={() => setIsSkillsOpen(!isSkillsOpen)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-[#14171c] hover:bg-[#1a1f26] text-[#8fa0b5] hover:text-white font-bold text-xs transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#f43f5e]" />
-                <span>ACTIVE SKILLS</span>
-              </div>
-              {isSkillsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-
-            {isSkillsOpen && (
-              <div className="p-2 space-y-1.5 bg-[#0a0c0e] text-[11px] font-mono">
-                <div className="text-[#10b981] bg-[#10b981]/10 px-2 py-1 rounded border border-[#10b981]/20">
-                  ✔ Multimodal Screenshot Parsing
-                </div>
-                <div className="text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-1 rounded border border-[#38bdf8]/20">
-                  ✔ STT Speech Streaming
-                </div>
-                <div className="text-[#ffb800] bg-[#ffb800]/10 px-2 py-1 rounded border border-[#ffb800]/20">
-                  ✔ 16 Director Delegation Matrix
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-auto pt-2 border-t border-[#1f242d] text-[10px] text-[#5c6b7f] flex justify-between items-center px-1">
-          <span>ACTIVE PIPELINE:</span>
-          <span className="text-[#10b981] font-bold truncate max-w-[140px]">{selectedModel.split('/').pop()?.toUpperCase()}</span>
         </div>
       </div>
 
-      {/* Main Conversational Stream Viewport & Input Dock */}
-      <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden min-w-0">
-        {/* Stream Header */}
-        <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono flex-shrink-0">
-          <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2">
-            <span>STATUS: <span className="text-[#10b981] font-bold">CONNECTED</span></span>
-            <span>|</span>
-            <span>BRAIN: <span className="text-[#ffb800] font-bold">{selectedModel.split('/').pop()?.toUpperCase()}</span></span>
+      {/* RIGHT TERMINAL */}
+      <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
+        
+        <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center">
+          <div className="flex items-center gap-3 text-[11px]">
+            <span className="text-[#5c6b7f]">STATUS:</span>
+            <span className="text-[#10b981] font-bold">CONNECTED</span>
+            <span className="text-[#333e4f]">|</span>
+            <span className="text-[#5c6b7f]">BRAIN:</span>
+            <span className="text-[#ffb800] font-bold uppercase">{selectedBrain}</span>
           </div>
-
+          
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyFullConversation}
-              className="flex items-center gap-1.5 bg-[#14171c] hover:bg-[#1c2129] text-[#e2e8f0] border border-[#232832] hover:border-[#ffb800] px-2.5 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer"
-              title="Copy entire conversation history to clipboard"
+            <button 
+              onClick={handleCopyFull} 
+              className="flex items-center gap-1 px-2.5 py-1 bg-[#14171c] hover:bg-[#1a1f26] text-[#ffb800] border border-[#232832] rounded text-[10px] font-bold cursor-pointer transition-colors"
             >
-              {copiedAll ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-[#10b981]" />
-                  <span className="text-[#10b981]">CONVERSATION COPIED!</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="w-3.5 h-3.5 text-[#ffb800]" />
-                  <span>COPY FULL CONVERSATION</span>
-                </>
-              )}
+              <Copy className="w-3.5 h-3.5" /> 
+              <span>COPY FULL CONVERSATION</span>
             </button>
-
-            <button
-              onClick={handleAllStop}
-              className="flex items-center gap-1.5 bg-[#ef4444]/20 hover:bg-[#ef4444]/30 text-[#fca5a5] hover:text-white border border-[#ef4444]/60 px-3 py-1 rounded text-[11px] font-extrabold transition-all shadow-[0_0_8px_rgba(239,68,68,0.3)] cursor-pointer"
-              title="Emergency Abort All Operations"
+            <button 
+              onClick={handleAllStop} 
+              className="flex items-center gap-1 px-2.5 py-1 bg-[#ef4444]/20 hover:bg-[#ef4444]/30 text-[#fca5a5] border border-[#ef4444]/50 rounded text-[10px] font-extrabold cursor-pointer transition-colors"
             >
-              <AlertOctagon className="w-3.5 h-3.5 text-[#ef4444]" />
+              <AlertOctagon className="w-3.5 h-3.5 text-[#ef4444]" /> 
               <span>ALL STOP</span>
             </button>
           </div>
         </div>
 
-        {/* Chat Stream Viewport */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
-          {messages.map((msg) => (
-            <div key={msg.id} className="space-y-1 group">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 select-text cursor-text custom-scrollbar">
+          {conversation.map((msg) => (
+            <div key={msg.id} className="space-y-1">
               <div className="flex items-center justify-between select-none">
-                <div className="flex items-center gap-2">
-                  <span className={`font-bold text-[11px] tracking-wide ${
-                    msg.role === 'system' ? 'text-[#ef4444]' :
-                    msg.role === 'agent' ? 'text-[#ffb800]' : 
-                    msg.role === 'user' ? 'text-[#10b981]' : 'text-[#8fa0b5]'
-                  }`}>
-                    {msg.sender}
+                <span className={`
+                  font-bold text-[11px] tracking-wide 
+                  ${msg.type === 'error' ? 'text-[#ef4444]' : 
+                    msg.type === 'system' ? 'text-[#ffb800]' : 
+                    msg.type === 'user' ? 'text-[#10b981]' : 
+                    'text-[#ffb800]'
+                  }
+                `}>
+                  {msg.sender} 
+                  <span className="text-[10px] text-[#5c6b7f] font-normal ml-2">
+                    {msg.timestamp}
                   </span>
-                  <span className="text-[10px] text-[#424d5d]">{msg.time}</span>
-                </div>
-
-                <button
-                  onClick={() => handleCopy(msg.text, msg.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] text-[#5c6b7f] hover:text-[#ffb800] bg-[#14171c] border border-[#1f242d] px-2 py-0.5 rounded cursor-pointer select-none"
-                  title="Copy this message"
+                </span>
+                
+                <button 
+                  onClick={() => handleCopy(msg.id, msg.text)} 
+                  className="text-[#5c6b7f] hover:text-white cursor-pointer p-0.5 transition-colors"
                 >
-                  {copiedId === msg.id ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-[#10b981]" />
-                      <span className="text-[#10b981] font-bold">COPIED!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>COPY</span>
-                    </>
-                  )}
+                  {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-[#10b981]" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
-
-              {msg.attachments && msg.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 py-1 select-none">
-                  {msg.attachments.map((att, i) => (
-                    <div key={i} className="border border-[#1f242d] rounded p-1 bg-[#14171c] max-w-xs">
-                      {att.type === 'image' ? (
-                        <img src={att.data} alt="attachment" className="max-h-36 rounded object-cover" />
-                      ) : (
-                        <div className="text-[10px] text-[#8fa0b5] px-2 py-1 flex items-center gap-1">
-                          <Paperclip className="w-3.5 h-3.5 text-[#ffb800]" /> {att.name}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className={`text-xs leading-relaxed pl-3 py-2 rounded border select-text ${
-                msg.role === 'system' 
+              
+              <div className={`
+                text-xs leading-relaxed pl-3 py-2.5 rounded border select-text whitespace-pre-wrap 
+                ${msg.type === 'error' 
                   ? 'bg-[#ef4444]/10 border-[#ef4444]/30 text-[#fca5a5]' 
-                  : 'bg-[#101317]/60 border-[#14181f] text-[#d1d5db]'
-              }`}>
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    h1: ({node, ...props}) => <h1 className="text-[#ffb800] font-bold text-sm mb-1 mt-2" {...props} />,
-                    h2: ({node, ...props}) => <h2 className="text-[#ffb800] font-bold text-xs mb-1 mt-2" {...props} />,
-                    strong: ({node, ...props}) => <strong className="text-[#fef08a] font-bold" {...props} />,
-                    ul: ({node, ...props}) => <ul className="list-disc list-inside space-y-1 my-1" {...props} />,
-                    li: ({node, ...props}) => <li className="text-[#cbd5e1]" {...props} />,
-                    code: ({node, inline, ...props}) => inline ? (
-                      <code className="bg-[#1e232d] text-[#ffb800] px-1 py-0.5 rounded text-[11px]" {...props} />
-                    ) : (
-                      <pre className="bg-[#080a0c] border border-[#1f242d] p-2.5 rounded text-[11px] text-[#38bdf8] overflow-x-auto my-2 font-mono">
-                        <code {...props} />
-                      </pre>
-                    )
-                  }}
-                >
-                  {msg.text}
-                </ReactMarkdown>
+                  : msg.type === 'user' 
+                    ? 'bg-[#101317]/40 border-[#1a1f26] text-[#e2e8f0]' 
+                    : 'bg-[#101317]/80 border-[#1f242d] text-[#d1d5db]'
+                }
+              `}>
+                {msg.text}
               </div>
             </div>
           ))}
-
-          {/* CLASSIC MCNC RADAR DIAL WITH LIVE SECONDS STOPWATCH */}
-          {isStreaming && (
-            <div className="border border-[#ffb800]/50 bg-[#0a0c0e] rounded-md p-3 my-2 space-y-2 select-none shadow-[0_0_15px_rgba(255,184,0,0.12)]">
-              <div className="flex items-center justify-between font-mono">
-                <div className="flex items-center gap-2.5">
-                  <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
-                  <span className="text-[#ffb800] font-bold text-xs tracking-wider">
-                    MONTY // TELEMETRY PIPELINE ENGAGED
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-[#5c6b7f]">ELAPSED:</span>
-                  <span className="text-[#10b981] font-bold font-mono text-xs bg-[#10b981]/15 px-2 py-0.5 rounded border border-[#10b981]/30">
-                    {elapsedSeconds}s
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] text-[#8fa0b5] font-mono pt-1 border-t border-[#1f242d]">
-                <span>STREAM: <span className="text-[#ffb800]">TRANSMITTING INFERENCE TO BASE 1</span></span>
-                <span className="text-[#fca5a5] animate-pulse">PRESS "ALL STOP" TO ABORT</span>
-              </div>
+          
+          {isLoading && (
+            <div className="flex items-center gap-2 text-xs text-[#38bdf8] p-2 bg-[#38bdf8]/10 border border-[#38bdf8]/20 rounded">
+              <Loader2 className="w-4 h-4 animate-spin text-[#38bdf8]" />
+              <span>Routing request through {selectedBrain}... Monty generating telemetry response...</span>
             </div>
           )}
-
-          <div ref={chatEndRef} />
+          <div ref={chatBottomRef} />
         </div>
 
-        {/* Attachment Tray */}
-        {attachedFiles.length > 0 && (
-          <div className="px-3 py-2 bg-[#14171c] border-t border-[#1f242d] flex flex-wrap gap-2 items-center select-none flex-shrink-0">
-            <span className="text-[10px] text-[#ffb800] font-bold">STAGED ASSETS:</span>
-            {attachedFiles.map((file, idx) => (
-              <div key={idx} className="flex items-center gap-1.5 bg-[#080a0c] border border-[#232832] px-2 py-1 rounded text-[11px] text-[#e2e8f0]">
-                {file.type === 'image' ? (
-                  <img src={file.data} alt="thumb" className="w-5 h-5 rounded object-cover" />
-                ) : (
-                  <Paperclip className="w-3.5 h-3.5 text-[#ffb800]" />
-                )}
-                <span className="max-w-[120px] truncate">{file.name}</span>
-                <button 
-                  onClick={() => removeAttachment(idx)}
-                  className="text-[#ef4444] hover:text-white ml-1 cursor-pointer"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Input Dock */}
-        <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none flex-shrink-0">
+        {/* INPUT DOCK & BOTTOM CONTROLS */}
+        <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none">
+          
           <div className="flex items-center justify-between text-[11px] bg-[#14171c] px-3 py-1.5 rounded border border-[#232832]">
-            <label className="text-[#ffb800] hover:text-[#fef08a] flex items-center gap-2 font-bold tracking-wider transition-colors cursor-pointer select-none">
-              <Paperclip className="w-4 h-4 text-[#ffb800]" />
-              <span>+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</span>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                multiple 
-                className="hidden" 
-              />
-            </label>
-
-            <div className="flex items-center gap-2">
-              {isListening && (
-                <span className="text-[#ef4444] text-[10px] font-bold animate-pulse">
-                  ● LISTENING (DICTATION ACTIVE)...
-                </span>
-              )}
-              <div className="text-[10px] text-[#10b981] font-mono border border-[#10b981]/40 bg-[#10b981]/15 px-2.5 py-0.5 rounded font-bold">
-                [ {selectedModel.split('/').pop()?.toUpperCase()} ACTIVE ]
-              </div>
-            </div>
-          </div>
-
-          {/* Text Input with Dedicated Vertical Scrollbar */}
-          <div className="relative">
-            <textarea
-              value={inputPrompt}
-              onChange={(e) => {
-                setInputPrompt(e.target.value);
-                basePromptRef.current = e.target.value;
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder="Enter instructions, code directives, or prompt parameters here... (Paste screenshots with Ctrl+V, or click Mic to dictate)"
-              rows={3}
-              className="w-full bg-[#0d0f12] text-[#e2e8f0] border border-[#1f242d] rounded p-2.5 text-xs font-mono focus:outline-none focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800] resize-none pr-10 select-text overflow-y-auto custom-scrollbar max-h-40 min-h-[72px]"
+            
+            {/* HIDDEN FILE INPUT */}
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              className="hidden" 
+              onChange={handleFileSelect}
             />
+            
+            {/* CLICKABLE BUTTON VIA REF */}
             <button 
               type="button"
-              onClick={toggleListening}
-              className={`absolute right-3 bottom-3 p-1.5 rounded transition-all cursor-pointer ${
-                isListening 
-                  ? 'bg-[#ef4444]/20 text-[#ef4444] animate-pulse border border-[#ef4444]' 
-                  : 'text-[#5c6b7f] hover:text-[#ffb800] hover:bg-[#14171c]'
-              }`}
-              title={isListening ? "Stop Voice Dictation" : "Start Voice Dictation"}
+              onClick={() => fileInputRef.current?.click()}
+              className="text-[#ffb800] flex items-center gap-2 font-bold tracking-wider cursor-pointer hover:text-[#fef08a] transition-colors bg-transparent border-none outline-none"
             >
-              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              <Paperclip className="w-4 h-4" />
+              <span>+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</span>
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={() => setIsListening(!isListening)} 
+              className={`
+                flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all
+                ${isListening 
+                  ? 'bg-[#ffb800] text-black border border-[#ffb800]' 
+                  : 'bg-[#0d0f12] text-[#ffb800] border border-[#ffb800]/40 hover:bg-[#ffb800]/10'
+                }
+              `}
+            >
+              {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+              <span>CHROME MIC</span>
             </button>
           </div>
 
-          {/* Action Toolbar */}
+          <textarea
+            value={inputPrompt}
+            onChange={(e) => setInputPrompt(e.target.value)}
+            onKeyDown={(e) => { 
+              if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                handleSendPrompt(); 
+              } 
+            }}
+            onPaste={(e) => {
+              const items = e.clipboardData?.items;
+              if (!items) return;
+              for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                  const file = items[i].getAsFile();
+                  setConversation(prev => [...prev, {
+                    id: Date.now(),
+                    sender: 'SYSTEM // UPLOAD',
+                    text: `[CLIPBOARD IMAGE STAGED]: ${file.name || 'Pasted_Screenshot.png'}`,
+                    type: 'system',
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                  }]);
+                }
+              }
+            }}
+            placeholder={`Enter command for Monty dispatch via [${selectedBrain}]...`}
+            rows={3}
+            className="w-full bg-[#0d0f12] text-[#e2e8f0] border border-[#1f242d] rounded p-2.5 text-xs focus:outline-none focus:border-[#ffb800] resize-none select-text transition-colors"
+          />
+
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleSubmit}
-                className="px-4 py-1.5 bg-[#ffb800] text-black font-bold rounded text-[11px] hover:bg-[#e6a600] transition-colors cursor-pointer"
-              >
-                SUBMIT
-              </button>
+              
               <button 
-                onClick={handleRefinePrompt}
-                className="px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] hover:bg-[#1c2129] hover:text-white cursor-pointer"
-                title="Format instruction into machine-executable directives"
+                onClick={handleSendPrompt} 
+                disabled={isLoading || !inputPrompt.trim()} 
+                className={`
+                  px-4 py-1.5 rounded text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all
+                  ${isLoading || !inputPrompt.trim() 
+                    ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832]' 
+                    : 'bg-[#ffb800] text-black hover:bg-[#e6a600]'
+                  }
+                `}
               >
-                REFINE
+                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> : <Send className="w-3.5 h-3.5" />} 
+                <span>SUBMIT</span>
               </button>
+              
               <button 
-                onClick={() => executePayload('Approved. Proceed with direct execution and lock changes into codebase.')}
-                className="px-3 py-1.5 bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/40 font-semibold rounded text-[11px] hover:bg-[#10b981]/30 cursor-pointer"
+                onClick={handlePushToWarRoom} 
+                className="px-3 py-1.5 bg-[#38bdf8]/15 hover:bg-[#38bdf8]/25 text-[#38bdf8] border border-[#38bdf8]/50 font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors"
               >
-                APPROVE
+                <ArrowRightCircle className="w-3.5 h-3.5" /> 
+                <span>PUSH TO WAR ROOM</span>
               </button>
+              
               <button 
-                onClick={clearChat}
-                className="px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] hover:bg-[#592525] cursor-pointer"
+                onClick={handleRefine} 
+                className="px-3 py-1.5 bg-[#14171c] hover:bg-[#1c2129] hover:text-white text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
               >
-                CLS
+                <RefreshCw className="w-3 h-3" /> 
+                <span>REFINE</span>
               </button>
+              
               <button 
-                onClick={handleAllStop}
-                className="px-3 py-1.5 bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/60 font-extrabold rounded text-[11px] hover:bg-[#ef4444]/40 cursor-pointer flex items-center gap-1"
+                onClick={handleCls} 
+                className="px-3 py-1.5 bg-[#592525]/40 hover:bg-[#592525] text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
               >
-                <AlertOctagon className="w-3 h-3 text-[#ef4444]" />
-                <span>ALL STOP</span>
+                <Trash2 className="w-3 h-3" /> 
+                <span>CLS</span>
               </button>
+              
             </div>
-
-            {/* Project & Push to War Room Strip */}
-            <div className="flex items-center gap-2">
+            
+            <div className="flex items-center gap-1.5">
+              
               <select 
-                value={selectedProject}
-                onChange={(e) => setSelectedProject(e.target.value)}
-                className="bg-[#14171c] text-[#a0aec0] border border-[#232832] text-[11px] px-2 py-1.5 rounded focus:outline-none focus:border-[#ffb800]"
+                value={selectedProject} 
+                onChange={(e) => setSelectedProject(e.target.value)} 
+                className="bg-[#14171c] text-[#a0aec0] border border-[#232832] text-[11px] px-2 py-1.5 rounded outline-none focus:border-[#ffb800] cursor-pointer"
               >
-                <option value="MCNC">[ PROJECT: MCNC ]</option>
-                <option value="RHYTHM">[ PROJECT: RHYTHM ]</option>
-                <option value="WARLORD">[ PROJECT: WARLORD ]</option>
+                {projects.map(p => (
+                  <option key={p} value={p}>
+                    [ PROJECT: {p} ]
+                  </option>
+                ))}
               </select>
-
-              <button 
-                type="button"
-                onClick={() => {
-                  if (!inputPrompt.trim() && attachedFiles.length === 0) return;
-                  window.dispatchEvent(new CustomEvent('push-to-warroom', { 
-                    detail: { 
-                      payload: inputPrompt,
-                      project: selectedProject
-                    } 
-                  }));
-                  setInputPrompt(''); 
-                  basePromptRef.current = '';
-                }}
-                className="px-4 py-1.5 bg-[#d97706]/30 text-[#fef08a] border border-[#d97706] font-bold rounded text-[11px] hover:bg-[#d97706]/50 cursor-pointer transition-colors"
+              
+              <select 
+                value={selectedAgent} 
+                onChange={(e) => setSelectedAgent(e.target.value)} 
+                className="bg-[#14171c] text-[#ffb800] font-bold border border-[#232832] text-[11px] px-2 py-1.5 rounded outline-none focus:border-[#ffb800] cursor-pointer"
               >
-                PUSH TO WARROOM
-              </button>
+                <option value="ALL DIRECTORS // AUTO-ROUTING">
+                  [ ASSIGN: ALL DIRECTORS // AUTO-ROUTING ]
+                </option>
+                {DIRECTOR_BOARD.map(agent => (
+                  <option key={agent} value={agent} className="bg-[#0d0f12] text-[#e2e8f0]">
+                    [ ASSIGN: {agent} ]
+                  </option>
+                ))}
+              </select>
+              
             </div>
           </div>
         </div>

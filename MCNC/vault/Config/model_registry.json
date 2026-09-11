@@ -1,0 +1,37 @@
+{
+  "last_synced": "2026-09-11T15:01:12.998Z",
+  "providers": {
+    "groq": {
+      "active_models": [
+        "whisper-large-v3",
+        "meta-llama/llama-prompt-guard-2-22m",
+        "groq/compound-mini",
+        "qwen/qwen3.8-27b",
+        "groq/compound",
+        "allam-2-7b",
+        "meta-llama/llama-prompt-guard-2-86m",
+        "canopylabs/orpheus-arabic-saudi",
+        "whisper-large-v3-turbo",
+        "openai/gpt-oss-120b",
+        "canopylabs/orpheus-v1-english",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.6-27b",
+        "openai/gpt-oss-safeguard-20b"
+      ],
+      "tiers": {
+        "REASONING_TIER": "qwen/qwen3.8-27b",
+        "FAST_TIER": "qwen/qwen3.8-27b"
+      }
+    }
+  },
+  "default_routing": {
+    "REASONING_TIER": {
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b"
+    },
+    "FAST_TIER": {
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b"
+    }
+  }
+}

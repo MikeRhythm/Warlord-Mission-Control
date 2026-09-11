@@ -1,21 +1,22 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck 
+  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff 
 } from 'lucide-react';
 import './Tab02WarRoom.css';
 
 const CASCADE_LLMS = [
-  { id: 'GPT-4O', label: 'GPT-4O FRONTIER', role: 'Architect & Core Logic' },
-  { id: 'CLAUDE-3.5', label: 'CLAUDE 3.5 SONNET', role: 'Logical Integrity & Safety' },
-  { id: 'GEMINI-1.5', label: 'GEMINI 1.5 PRO', role: 'Ecosystem Mapping' },
-  { id: 'GROK-2', label: 'GROK 2', role: 'Final Polish & Actionable Spec' }
+  { id: 'DEEPSEEK-R1', label: 'DEEPSEEK-R1', role: 'Logic & Architecture Mapping' },
+  { id: 'ASKARI-LLAMA', label: 'THE ASKARI (LLAMA 3.3)', role: 'SOP & Adversarial Validation' },
+  { id: 'CLAUDE-3.5', label: 'CLAUDE 3.5 SONNET', role: 'Final Execution & PRD Generation' }
 ];
 
 const BOARDROOM_OPTIONS = [
-  { id: 'CASCADE', name: 'FULL 4-MODEL CASCADE', tag: 'PIPELINE' },
-  { id: 'GPT-4O', name: 'GPT-4o Frontier', tag: 'ELITE' },
+  { id: 'CASCADE', name: 'LEAN 3-MODEL CASCADE', tag: 'BASE 1' },
   { id: 'CLAUDE-3.5', name: 'Claude 3.5 Sonnet', tag: 'ELITE' },
+  { id: 'GPT-4O', name: 'GPT-4o Frontier', tag: 'ELITE' },
   { id: 'GEMINI-1.5', name: 'Gemini 1.5 Pro', tag: 'ELITE' },
+  { id: 'DEEPSEEK-R1', name: 'DeepSeek-R1', tag: 'FREE' },
+  { id: 'ASKARI-LLAMA', name: 'The Askari (Llama 3.3 70B)', tag: 'FREE' },
   { id: 'GROK-2', name: 'Grok 2', tag: 'ELITE' }
 ];
 
@@ -29,7 +30,6 @@ const DIRECTOR_BOARD = [
 const INITIAL_PROJECTS = ['MCNC REACT VITE', 'RHYTHM WASP V8.5', 'PAPERCLIP DAEMON'];
 
 export default function Tab02WarRoom({ ws }) {
-  // Core Execution States
   const [currentCascadeIndex, setCurrentCascadeIndex] = useState(0);
   const [isCascading, setIsCascading] = useState(false);
   const [isSingleLLMScanning, setIsSingleLLMScanning] = useState(false);
@@ -37,11 +37,9 @@ export default function Tab02WarRoom({ ws }) {
   const [analysisMode, setAnalysisMode] = useState('BOARDROOM'); 
   const [workflowState, setWorkflowState] = useState('IDLE'); 
   
-  // UI Expand/Collapse States
   const [isBoardroomOpen, setIsBoardroomOpen] = useState(true);
   const [isDirectorsOpen, setIsDirectorsOpen] = useState(false);
 
-  // Scoping States
   const [selectedLLM, setSelectedLLM] = useState('CASCADE');
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
   const [selectedProject, setSelectedProject] = useState('MCNC REACT VITE');
@@ -49,11 +47,72 @@ export default function Tab02WarRoom({ ws }) {
   const [newProjectName, setNewProjectName] = useState('');
   const [selectedAgent, setSelectedAgent] = useState('ALL DIRECTORS // AUTO-ROUTING');
   
-  // Comms Buffer
   const [inputBuffer, setInputBuffer] = useState('');
   const [streamLog, setStreamLog] = useState([]);
 
-  // BRIDGE: Listen for PUSH TO WARROOM from Tab 01 Exec
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechSupported(false);
+      return;
+    }
+
+    const recog = new SpeechRecognition();
+    recog.continuous = true;
+    recog.interimResults = true;
+    recog.lang = 'en-US';
+
+    recog.onresult = (event) => {
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+      }
+      if (finalTranscript) {
+        setInputBuffer((prev) => (prev ? prev + ' ' + finalTranscript.trim() : finalTranscript.trim()));
+      }
+    };
+
+    recog.onerror = (err) => {
+      console.warn('Speech recognition warning:', err.error);
+      if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
+        setIsListening(false);
+      }
+    };
+
+    recog.onend = () => {
+      if (isListening) {
+        try { recog.start(); } catch (e) { setIsListening(false); }
+      }
+    };
+
+    recognitionRef.current = recog;
+    return () => { if (recog) recog.stop(); };
+  }, [isListening]);
+
+  const toggleMic = () => {
+    if (!speechSupported) {
+      alert('Chrome Speech Recognition is only supported natively in Google Chrome.');
+      return;
+    }
+    if (isListening) {
+      setIsListening(false);
+      recognitionRef.current?.stop();
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
   useEffect(() => {
     const handleTransfer = (e) => {
       if (e.detail && e.detail.payload) {
@@ -65,7 +124,6 @@ export default function Tab02WarRoom({ ws }) {
     return () => window.removeEventListener('push-to-warroom', handleTransfer);
   }, []);
 
-  // Handle WebSocket telemetry from Base 1
   useEffect(() => {
     if (!ws) return;
     const handleMessage = (event) => {
@@ -87,7 +145,6 @@ export default function Tab02WarRoom({ ws }) {
     return () => ws.removeEventListener('message', handleMessage);
   }, [ws]);
 
-  // PIPELINE 1A: Sequential OpenRouter Cascade Simulator
   useEffect(() => {
     let timer;
     if (isCascading && currentCascadeIndex < CASCADE_LLMS.length) {
@@ -96,7 +153,7 @@ export default function Tab02WarRoom({ ws }) {
         ...prev,
         {
           id: Date.now(),
-          sender: `${activeModel.id} // OPENROUTER`,
+          sender: `${activeModel.id} // COMMAND INTERFACE`,
           text: `Analyzing requirement for project [${selectedProject}] under role [${activeModel.role}]...`,
           type: 'agent'
         }
@@ -113,7 +170,7 @@ export default function Tab02WarRoom({ ws }) {
             {
               id: Date.now(),
               sender: 'MONTY // CHIEF OF STAFF',
-              text: `Full Cascade Analysis for [${selectedProject}] complete. PRD standards met. Awaiting Authorization.`,
+              text: `Lean Base 1 Cascade Analysis for [${selectedProject}] complete. PRD standards met. Awaiting Authorization.`,
               type: 'system'
             }
           ]);
@@ -123,7 +180,6 @@ export default function Tab02WarRoom({ ws }) {
     return () => clearTimeout(timer); 
   }, [isCascading, currentCascadeIndex, selectedProject]);
 
-  // PIPELINE 1B: Single LLM Scan Simulator
   useEffect(() => {
     let timer;
     if (isSingleLLMScanning) {
@@ -144,7 +200,6 @@ export default function Tab02WarRoom({ ws }) {
     return () => clearTimeout(timer); 
   }, [isSingleLLMScanning, selectedLLM, selectedProject]);
 
-  // PIPELINE 2: Director Agent Scan / Auto-Routing Simulator
   useEffect(() => {
     let timer;
     if (isDirectorScanning) {
@@ -317,11 +372,8 @@ export default function Tab02WarRoom({ ws }) {
 
   return (
     <div className="flex h-full w-full bg-[#080a0c] text-xs gap-2 select-none">
-      
-      {/* LEFT NAVIGATION: SCOPING & TIER SELECTION */}
+      {/* LEFT NAVIGATION */}
       <div className="w-80 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-2.5 overflow-hidden flex-shrink-0">
-        
-        {/* 1. PROJECT CONTAINER SCOPE PANEL */}
         <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden mb-2">
           <div className="px-3 py-2 bg-[#14171c] flex items-center justify-between border-b border-[#1f242d]">
             <span className="text-[#ffb800] font-bold text-xs tracking-wider">PROJECT CONTAINER</span>
@@ -362,7 +414,7 @@ export default function Tab02WarRoom({ ws }) {
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-          {/* 2. BOARDROOM CASCADE */}
+          {/* BOARDROOM CASCADE */}
           <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
             <button
               onClick={() => { setIsBoardroomOpen(!isBoardroomOpen); setAnalysisMode('BOARDROOM'); }}
@@ -377,7 +429,6 @@ export default function Tab02WarRoom({ ws }) {
                 {BOARDROOM_OPTIONS.map((model) => {
                   const isSelected = selectedLLM === model.id;
                   
-                  // Logic for dynamic status text
                   let statusText = 'STANDBY';
                   let statusColor = 'text-[#5c6b7f] bg-[#1f242d]';
                   let isSpinning = false;
@@ -393,7 +444,6 @@ export default function Tab02WarRoom({ ws }) {
                     }
                   }
 
-                  // If cascading, show active on the specific model currently running
                   if (isCascading && selectedLLM === 'CASCADE' && model.id !== 'CASCADE') {
                     const activeModelId = CASCADE_LLMS[currentCascadeIndex]?.id;
                     const modelIndex = CASCADE_LLMS.findIndex(m => m.id === model.id);
@@ -431,7 +481,7 @@ export default function Tab02WarRoom({ ws }) {
             )}
           </div>
 
-          {/* 3. DIRECTOR BOARD */}
+          {/* DIRECTOR BOARD */}
           <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
             <button
               onClick={() => { setIsDirectorsOpen(!isDirectorsOpen); setAnalysisMode('DIRECTORS'); }}
@@ -488,17 +538,15 @@ export default function Tab02WarRoom({ ws }) {
         </div>
       </div>
 
-      {/* RIGHT PANEL: COMMS & INPUT ROW */}
+      {/* RIGHT PANEL */}
       <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
-        
-        {/* Stream Header */}
         <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono">
           <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2 uppercase tracking-widest font-bold">
             THE WAR ROOM // LIVE COMMS & PRD PIPELINE <span className="text-[#ffb800]">[{selectedProject}]</span>
           </div>
         </div>
         
-        {/* Chat Stream Viewport */}
+        {/* Stream */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
           {streamLog.map(log => (
             <div key={log.id} className="space-y-1">
@@ -520,52 +568,28 @@ export default function Tab02WarRoom({ ws }) {
               </div>
             </div>
           ))}
-          
-          {/* Active Status Spinners */}
-          {isCascading && selectedLLM === 'CASCADE' && (
-            <div className="space-y-1">
-              <span className="font-bold text-[11px] tracking-wide text-[#38bdf8] flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {CASCADE_LLMS[currentCascadeIndex].id} // OPENROUTER CASCADE ACTIVE
-              </span>
-              <div className="text-xs italic pl-3 py-2 text-[#5c6b7f] animate-pulse">
-                {CASCADE_LLMS[currentCascadeIndex].role}...
-              </div>
-            </div>
-          )}
-
-          {isSingleLLMScanning && (
-            <div className="space-y-1">
-              <span className="font-bold text-[11px] tracking-wide text-[#38bdf8] flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {selectedLLM} // DIRECT INFERENCE ACTIVE
-              </span>
-              <div className="text-xs italic pl-3 py-2 text-[#5c6b7f] animate-pulse">
-                Synthesizing parameters and formulating execution plan...
-              </div>
-            </div>
-          )}
-
-          {isDirectorScanning && (
-            <div className="space-y-1">
-              <span className="font-bold text-[11px] tracking-wide text-[#38bdf8] flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {selectedAgent === 'ALL DIRECTORS // AUTO-ROUTING' ? 'AUTO-ROUTING MATRIX' : selectedAgent} // SCAN ACTIVE
-              </span>
-              <div className="text-xs italic pl-3 py-2 text-[#5c6b7f] animate-pulse">
-                {selectedAgent === 'ALL DIRECTORS // AUTO-ROUTING' ? 'Evaluating project directives against 16 Director profiles...' : 'Evaluating project directives and dependencies...'}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Input Dock (Match 01 EXEC perfectly) */}
+        {/* Input Dock */}
         <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none">
           <div className="flex items-center justify-between text-[11px] bg-[#14171c] px-3 py-1.5 rounded border border-[#232832]">
             <label className="text-[#ffb800] hover:text-[#fef08a] flex items-center gap-2 font-bold tracking-wider transition-colors cursor-pointer select-none">
               <Paperclip className="w-4 h-4 text-[#ffb800]" />
               <span>+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</span>
             </label>
+            <button
+              type="button"
+              onClick={toggleMic}
+              title={isListening ? "Stop Chrome Mic" : "Dictate via Chrome Web Speech"}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                isListening 
+                  ? 'bg-[#ffb800] text-black border border-[#ffb800] shadow-[0_0_8px_rgba(255,184,0,0.4)]' 
+                  : 'bg-[#0d0f12] text-[#ffb800] border border-[#ffb800]/40 hover:bg-[#ffb800]/10'
+              }`}
+            >
+              {isListening ? <MicOff className="w-3.5 h-3.5 text-black" /> : <Mic className="w-3.5 h-3.5 text-[#ffb800]" />}
+              <span>{isListening ? 'STOP MIC' : 'CHROME MIC'}</span>
+            </button>
           </div>
 
           <div className="relative">
@@ -573,16 +597,20 @@ export default function Tab02WarRoom({ ws }) {
               id="warroom-input"
               value={inputBuffer}
               onChange={(e) => setInputBuffer(e.target.value)}
-              placeholder={analysisMode === 'BOARDROOM' ? `Enter core objective for [${selectedProject}] OpenRouter Analysis...` : `Enter direct scope for [${selectedProject}] Director Board execution...`}
+              placeholder={
+                isListening 
+                  ? "Streaming voice via Chrome... speak naturally..." 
+                  : (analysisMode === 'BOARDROOM' ? `Enter core objective for [${selectedProject}] OpenRouter Analysis...` : `Enter direct scope for [${selectedProject}] Director Board execution...`)
+              }
               rows={3}
-              className="w-full bg-[#0d0f12] text-[#e2e8f0] border border-[#1f242d] rounded p-2.5 text-xs font-mono focus:outline-none focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800] resize-none select-text"
+              className={`w-full bg-[#0d0f12] text-[#e2e8f0] border rounded p-2.5 text-xs font-mono focus:outline-none resize-none select-text transition-colors ${
+                isListening ? 'border-[#ffb800] ring-1 ring-[#ffb800]' : 'border-[#1f242d] focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800]'
+              }`}
             />
           </div>
 
-          {/* Action Toolbar (Exact 01 EXEC Styling) */}
+          {/* Action Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            
-            {/* Left Cluster */}
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => handleAction('INITIATE LLM ANALYSIS')}
@@ -591,7 +619,6 @@ export default function Tab02WarRoom({ ws }) {
                 {isCascading || isSingleLLMScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 {isCascading || isSingleLLMScanning ? 'ACTIVE...' : 'INITIATE LLM'}
               </button>
-
               <button 
                 onClick={() => handleAction('INITIATE DIRECTOR ANALYSIS')}
                 className={`px-3 py-1.5 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -601,14 +628,12 @@ export default function Tab02WarRoom({ ws }) {
                 {isDirectorScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 {isDirectorScanning ? 'SCANNING...' : 'INITIATE DIR'}
               </button>
-
               <button 
                 onClick={() => handleAction('REFINE')}
                 className="px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] hover:bg-[#1c2129] hover:text-white cursor-pointer"
               >
                 REFINE
               </button>
-
               <button 
                 onClick={() => handleAction('AUTHORIZE ACTION')}
                 className={`px-3 py-1.5 font-semibold rounded text-[11px] transition-all flex items-center gap-1.5 ${
@@ -620,7 +645,6 @@ export default function Tab02WarRoom({ ws }) {
                 {workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? <Check className="w-3.5 h-3.5" /> : null}
                 {workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'AUTHORIZED' : 'AUTHORIZE'}
               </button>
-
               <button 
                 onClick={() => handleAction('MONTY DISPATCH')}
                 className={`px-3 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 ${
@@ -632,14 +656,12 @@ export default function Tab02WarRoom({ ws }) {
                 {workflowState === 'DISPATCHED' ? <Check className="w-3.5 h-3.5" /> : null}
                 {workflowState === 'DISPATCHED' ? 'DISPATCHED' : 'DISPATCH'}
               </button>
-
               <button 
                 onClick={handleCls}
                 className="px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] hover:bg-[#592525] cursor-pointer"
               >
                 CLS
               </button>
-
               <button 
                 onClick={handleAllStop}
                 className="px-3 py-1.5 bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/60 font-extrabold rounded text-[11px] hover:bg-[#ef4444]/40 cursor-pointer flex items-center gap-1"
@@ -649,7 +671,6 @@ export default function Tab02WarRoom({ ws }) {
               </button>
             </div>
 
-            {/* Right Cluster: Routing */}
             <div className="flex items-center gap-1.5">
               <select 
                 value={selectedProject}
@@ -658,7 +679,6 @@ export default function Tab02WarRoom({ ws }) {
               >
                 {projects.map(p => <option key={p} value={p}>[ PROJECT: {p} ]</option>)}
               </select>
-
               <select 
                 value={selectedAgent}
                 onChange={(e) => setSelectedAgent(e.target.value)}
@@ -671,7 +691,6 @@ export default function Tab02WarRoom({ ws }) {
                   </option>
                 ))}
               </select>
-
               <button 
                 onClick={() => handleAction('ASSIGN')}
                 className="px-3.5 py-1.5 bg-[#10b981]/20 hover:bg-[#10b981]/30 text-[#10b981] border border-[#10b981]/50 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
@@ -680,7 +699,6 @@ export default function Tab02WarRoom({ ws }) {
                 <span>ASSIGN</span>
               </button>
             </div>
-            
           </div>
         </div>
       </div>

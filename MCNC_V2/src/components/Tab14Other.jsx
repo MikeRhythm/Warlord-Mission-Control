@@ -1,10 +1,10 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './Tab14Other.css';
 
 const INITIAL_PIPELINE = [
     { id: 'ollama', name: 'Ollama Local Engine', port: '11434', status: 'ONLINE', tag: '[ + ONLINE ]' },
-    { id: 'openclaw', name: 'OpenClaw Gateway', port: '18789', status: 'OFFLINE', tag: '[ - OFFLINE ]' },
-    { id: 'paperclip', name: 'Paperclip Orchestrator', port: '3100', status: 'OFFLINE', tag: '[ - OFFLINE ]' },
+    { id: 'openclaw', name: 'OpenClaw Gateway', port: '18789', status: 'ONLINE', tag: '[ + ONLINE ]' },
+    { id: 'paperclip', name: 'Paperclip Orchestrator', port: '3100', status: 'ONLINE', tag: '[ + ONLINE ]' },
     { id: 'mcnc', name: 'MCNC Dashboard', port: '5173', status: 'ONLINE', tag: '[ + ONLINE ]' },
     { id: 'bridge', name: 'Warlord Bridge', port: '8081', status: 'OFFLINE', tag: '[ - OFFLINE ]' },
     { id: 'vpn', name: 'Paris VPN (Contabo Uplink)', port: 'TUN0', status: 'SECURE', tag: '[ + SECURE ]' }
@@ -23,11 +23,7 @@ export default function Tab14Other({ ws }) {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const [traceLogs, setTraceLogs] = useState([
-        { id: 1, ts: '04:30:02', text: '[SYSTEM] Matrix Link Check triggered.' },
-        { id: 2, ts: '04:30:05', text: '[WARN] OpenClaw Gateway (18789) unreceptive.' },
-        { id: 3, ts: '04:30:07', text: '[WARN] Paperclip Orchestrator (3100) stopped.' },
-        { id: 4, ts: '04:30:10', text: '[WARN] Warlord Bridge (8081) offline. WebSocket disconnected.' },
-        { id: 5, ts: '04:30:12', text: '[OK] Paris VPN (Contabo Uplink) secure.' }
+        { id: 1, ts: new Date().toTimeString().split(' ')[0], text: '[SYSTEM] Tab 14 live telemetry initialized.' }
     ]);
 
     const addTrace = (text) => {
@@ -35,15 +31,36 @@ export default function Tab14Other({ ws }) {
         setTraceLogs(prev => [...prev, { id: Date.now() + Math.random(), ts, text }]);
     };
 
-    const handleRefreshMatrix = () => {
+    // Live backend ping
+    const handleRefreshMatrix = async () => {
         setIsRefreshing(true);
-        addTrace('[POLL] Pinging all Base 1 ports & Upstream APIs...');
+        addTrace('[POLL] Pinging Warlord Bridge (8081)...');
 
-        setTimeout(() => {
+        try {
+            const res = await fetch('http://127.0.0.1:8081/api/status');
+            if (res.ok) {
+                const data = await res.json();
+                setPipeline(prev => prev.map(p => 
+                    p.id === 'bridge' ? { ...p, status: 'ONLINE', tag: '[ + ONLINE ]' } : p
+                ));
+                addTrace(`[RESULT] Bridge ONLINE. WS Clients: ${data.ws_clients_connected}`);
+            } else {
+                throw new Error('Bad response');
+            }
+        } catch (err) {
+            setPipeline(prev => prev.map(p => 
+                p.id === 'bridge' ? { ...p, status: 'OFFLINE', tag: '[ - OFFLINE ]' } : p
+            ));
+            addTrace('[WARN] Warlord Bridge (8081) offline or unreachable.');
+        } finally {
             setIsRefreshing(false);
-            addTrace('[RESULT] Scan complete: 3 pillars offline (OpenClaw:18789, Paperclip:3100, Bridge:8081).');
-        }, 800);
+        }
     };
+
+    // Auto-ping on mount
+    useEffect(() => {
+        handleRefreshMatrix();
+    }, []);
 
     const handleTestUpstream = (prov) => {
         addTrace(`[PING] Probing ${prov.name}...`);
@@ -90,7 +107,6 @@ export default function Tab14Other({ ws }) {
                         <span style={{ fontSize: '0.7rem', color: '#8A7E72' }}>PORT LISTENERS</span>
                     </div>
 
-                    {/* HUD DISPLAY BOX */}
                     <div className="hud-matrix-box">
                         <div className="hud-matrix-title">SYSTEM MATRIX LINKED</div>
 
@@ -119,7 +135,6 @@ export default function Tab14Other({ ws }) {
                         </div>
                     </div>
 
-                    {/* UPSTREAM APIS */}
                     <div className="pipe-card-titlebar" style={{ marginTop: '8px' }}>
                         <span>UPSTREAM INFERENCE &amp; FAILOVER NODES</span>
                     </div>
