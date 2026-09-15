@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "Cold_Email_Copywriting.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Skills\\Marketing\\Cold_Email_Copywriting.md",
+  "evaluatedAt": "2026-09-12T10:20:22.944Z",
+  "score": 0,
+  "verdict": "REJECTED",
+  "rationale": "The dossier is a generic marketing copywriting playbook for cold email outreach, which is an explicit strict disqualifier. It contains no technical architecture, code, or infrastructure patterns relevant to the Warlord MCNC stack.",
+  "targetSubsystems": [],
+  "suggestedAction": "Discard immediately; this content belongs in a marketing department, not the quant infrastructure repository."
+}

@@ -1,0 +1,14 @@
+{
+  "sourceDossier": "Master_SOPs.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Master_SOPs.md",
+  "evaluatedAt": "2026-09-12T10:25:26.596Z",
+  "score": 45,
+  "verdict": "REJECTED",
+  "rationale": "The dossier defines abstract multi-agent orchestration protocols (Kanban, Adversarial Loops) without specifying the required technical stack (Node.js, MQL5, React) or providing executable code/architecture. It lacks concrete implementation details for the Warlord MCNC backend, frontend, or trading subsystems, rendering it conceptual theory rather than a technical specification.",
+  "targetSubsystems": [
+    "BACKEND",
+    "FRONTEND",
+    "TRADING"
+  ],
+  "suggestedAction": "Rewrite the SOPs to include specific Node.js/Express gateway configurations, MQL5 volatility scanner integration points, and React/Vite telemetry hooks, replacing generic agent roles with concrete API contracts and code snippets."
+}

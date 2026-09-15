@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "2026-09-11_Hermes_Hermes_Obsidian_Is_WILD__FREE__.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Review\\Pending\\2026-09-11_Hermes_Hermes_Obsidian_Is_WILD__FREE__.md",
+  "evaluatedAt": "2026-09-12T10:20:15.000Z",
+  "score": 15,
+  "verdict": "REJECTED",
+  "rationale": "The source is a generic consumer AI/SEO marketing video that lacks any concrete architectural patterns, code, or backend integration details. While it mentions local knowledge management, it provides no technical substance to modify the Warlord MCNC stack's infrastructure or trading logic.",
+  "targetSubsystems": [],
+  "suggestedAction": "Archive to cold storage; do not ingest into active pipeline or documentation vaults."
+}

@@ -1,0 +1,13 @@
+{
+  "sourceDossier": "Obsidion.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Memory\\Obsidion.md",
+  "evaluatedAt": "2026-09-12T10:25:34.293Z",
+  "score": 12,
+  "verdict": "REJECTED",
+  "rationale": "The dossier proposes a consumer-grade note-taking integration (Obsidian) rather than a robust, low-latency persistent memory architecture suitable for high-frequency trading. It lacks any concrete code, API specifications, or architectural diagrams for the Warlord MCNC stack, relying instead on vague conceptual prompts.",
+  "targetSubsystems": [
+    "TRADING",
+    "BACKEND"
+  ],
+  "suggestedAction": "Replace Obsidian with a vector database (e.g., ChromaDB or Pinecone) integrated via Node.js/Express for persistent MQL5 strategy memory, and provide a concrete schema for volatility scanner state persistence."
+}

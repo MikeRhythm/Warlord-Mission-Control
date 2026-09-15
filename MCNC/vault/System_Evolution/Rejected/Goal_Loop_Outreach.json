@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "Goal_Loop_Outreach.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Skills\\Goal_Loop_Outreach.md",
+  "evaluatedAt": "2026-09-12T10:20:21.153Z",
+  "score": 5,
+  "verdict": "REJECTED",
+  "rationale": "The dossier outlines a generic marketing outreach and lead generation protocol, which is a strict disqualifier for the Warlord MCNC stack. It contains no architectural patterns, code, or technical infrastructure relevant to Node.js, React, or MQL5 trading systems.",
+  "targetSubsystems": [],
+  "suggestedAction": "Discard file; route to Marketing department if applicable, but do not integrate into the technical codebase."
+}

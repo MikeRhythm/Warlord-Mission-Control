@@ -1,0 +1,19 @@
+{
+  "proposalId": "PROP-ZS-INIT-01",
+  "title": "Implement Zero-State Initialization and Emergency Brake Protocol",
+  "executiveSummary": "Integrate mandatory zero-state purging and undocumented state escalation into server.js and the MQL5 bridge to prevent NaN contamination. This ensures deterministic behavior and immediate bottom-up alerting for any unhandled states.",
+  "riskLevel": "MEDIUM",
+  "targetFiles": [
+    "server.js",
+    "bridge/mql5_bridge.js",
+    "src/tabs/Tab13Docs.jsx"
+  ],
+  "actionPlan": [
+    "Refactor server.js execution loop to enforce a 'purgeState()' function that resets all indicator variables to zero/null before each cycle, preventing NaN propagation.",
+    "Implement an 'EmergencyBrake' handler in the MQL5 bridge that detects undocumented states and triggers an immediate WebSocket alert to the Cockpit UI instead of attempting silent recovery.",
+    "Update Tab13Docs.jsx to display the current state of the Zero-Init protocol and log any Emergency Brake activations for auditability."
+  ],
+  "verificationCommand": "node -c server.js && node -c bridge/mql5_bridge.js",
+  "sourceCandidate": "Master ROE's.json",
+  "generatedAt": "2026-09-12T10:51:50.887Z"
+}

@@ -1,0 +1,14 @@
+{
+  "sourceDossier": "Master ROE's.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Master ROE's.md",
+  "evaluatedAt": "2026-09-12T10:20:08.894Z",
+  "score": 85,
+  "verdict": "QUALIFIED",
+  "rationale": "The dossier establishes critical architectural constraints for the Warlord stack, specifically mandating zero-state initialization to prevent NaN contamination and enforcing strict infrastructure separation between local dev and live trading environments. It provides a deterministic operational framework that directly impacts how the Node.js backend and MQL5 bridge must handle state management and error escalation.",
+  "targetSubsystems": [
+    "server.js",
+    "MQL5_Bridge",
+    "Tab13Docs"
+  ],
+  "suggestedAction": "Integrate the 'Zero-State Initialization' and 'Emergency Brake' protocols into the core execution loop of server.js and the MQL5 bridge, ensuring all state variables are purged before every cycle and that undocumented states trigger immediate bottom-up escalation rather than silent patching."
+}

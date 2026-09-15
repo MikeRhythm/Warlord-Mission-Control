@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "DeepSeek.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Cutting Edge AI\\DeepSeek.md",
+  "evaluatedAt": "2026-09-12T10:19:57.075Z",
+  "score": 5,
+  "verdict": "REJECTED",
+  "rationale": "The dossier describes a generic consumer AI agent configuration workflow (Hermes Agent/Token Harbor) with no architectural relevance to the Warlord MCNC stack. It lacks any code, backend infrastructure patterns, or trading logic required for integration.",
+  "targetSubsystems": [],
+  "suggestedAction": "Discard dossier; no actionable technical components for Node.js, React, or MQL5 subsystems."
+}

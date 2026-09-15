@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "Chat_GTP.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Cutting Edge AI\\Chat_GTP.md",
+  "evaluatedAt": "2026-09-12T10:19:55.371Z",
+  "score": 5,
+  "verdict": "REJECTED",
+  "rationale": "The dossier focuses exclusively on generic consumer AI marketing tools (Astra 6, Hey Gen, Ad Studio) and e-commerce automation, which are strict disqualifiers for the Warlord MCNC stack. There is zero architectural relevance to Node.js infrastructure, React cockpit telemetry, or MQL5 trading logic.",
+  "targetSubsystems": [],
+  "suggestedAction": "Discard immediately; no components map to the Warlord Inc. technical pillars."
+}

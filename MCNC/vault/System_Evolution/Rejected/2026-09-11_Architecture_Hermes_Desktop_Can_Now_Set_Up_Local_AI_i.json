@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "2026-09-11_Architecture_Hermes_Desktop_Can_Now_Set_Up_Local_AI_i.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Review\\Pending\\2026-09-11_Architecture_Hermes_Desktop_Can_Now_Set_Up_Local_AI_i.md",
+  "evaluatedAt": "2026-09-12T10:25:40.247Z",
+  "score": 15,
+  "verdict": "REJECTED",
+  "rationale": "The dossier references a consumer-facing desktop application for local AI setup, which is irrelevant to the Warlord MCNC stack's specific requirements for Node.js gateways, MQL5 trading logic, and low-latency React telemetry. There is no architectural code, API specification, or integration path provided for the existing infrastructure.",
+  "targetSubsystems": [],
+  "suggestedAction": "Discard dossier; no actionable integration points for Warlord backend or trading engines."
+}

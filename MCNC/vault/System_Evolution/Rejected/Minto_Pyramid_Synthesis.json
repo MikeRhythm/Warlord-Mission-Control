@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "Minto_Pyramid_Synthesis.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Skills\\Marketing\\Minto_Pyramid_Synthesis.md",
+  "evaluatedAt": "2026-09-12T10:25:51.287Z",
+  "score": 0,
+  "verdict": "REJECTED",
+  "rationale": "The dossier contains only a generic communication framework with zero technical substance, code, or architectural mapping to the Warlord MCNC stack. It fails to address any backend, frontend, or trading subsystem requirements.",
+  "targetSubsystems": [],
+  "suggestedAction": "Discard immediately; request a technical specification with concrete Node.js/MQL5 implementation details."
+}

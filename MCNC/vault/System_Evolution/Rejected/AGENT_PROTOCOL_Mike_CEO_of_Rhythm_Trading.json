@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "AGENT_PROTOCOL_Mike_CEO_of_Rhythm_Trading.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\AGENT_PROTOCOL_Mike_CEO_of_Rhythm_Trading.md",
+  "evaluatedAt": "2026-09-12T10:19:51.492Z",
+  "score": 15,
+  "verdict": "REJECTED",
+  "rationale": "The dossier consists entirely of high-level organizational hierarchy, persona definitions, and governance protocols without any concrete code, architectural patterns, or technical specifications. It lacks the necessary infrastructure, backend, or trading logic details required to modify the MCNC stack.",
+  "targetSubsystems": [],
+  "suggestedAction": "Archive as organizational context only; request specific technical dossiers (e.g., MQL5 bridge specs, Node.js gateway configs) for actual stack integration."
+}

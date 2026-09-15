@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "RHYTHM INC.  MASTER MISSION BRIEFING.txt",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\RHYTHM INC.  MASTER MISSION BRIEFING.txt",
+  "evaluatedAt": "2026-09-12T10:20:19.422Z",
+  "score": 15,
+  "verdict": "REJECTED",
+  "rationale": "The dossier consists entirely of high-level organizational hierarchy and mission statements without any concrete code, API specifications, or architectural patterns for the Warlord MCNC stack. It explicitly deprioritizes algorithmic trading and focuses on humanitarian infrastructure, which falls outside the technical scope of the Node.js/MQL5/React pillars.",
+  "targetSubsystems": [],
+  "suggestedAction": "Reject for technical integration; archive as organizational context only. Request specific technical specifications for the 'Hermes' local memory vault or 'OpenClaw' sandbox if they are to be integrated into the existing Node.js backend."
+}

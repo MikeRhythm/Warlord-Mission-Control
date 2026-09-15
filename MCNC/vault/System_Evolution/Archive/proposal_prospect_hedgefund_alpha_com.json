@@ -1,0 +1,19 @@
+{
+  "proposalId": "PROP-85-A1",
+  "title": "Implement Deterministic MQL5-Python Handshake Protocol",
+  "executiveSummary": "Integrate the approved deterministic memory synchronization pattern into the MQL5 Bridge and Local Gateway to eliminate cloud latency. This ensures zero-state initialization and local execution for slippage mitigation as per the qualified prospect dossier.",
+  "riskLevel": "MEDIUM",
+  "targetFiles": [
+    "server.js",
+    "src/tabs/TabBridge.jsx",
+    "vault/Marketing/Pending_Replies/prospect_hedgefund_alpha_com.md"
+  ],
+  "actionPlan": [
+    "Update server.js to expose a /ws/bridge/handshake endpoint that enforces zero-state initialization before any data transmission.",
+    "Modify the MQL5 Bridge logic to implement the deterministic memory synchronization pattern, ensuring local execution priority over cloud calls.",
+    "Append the technical architecture spec for the handshake protocol to the prospect's follow-up dossier in the vault."
+  ],
+  "verificationCommand": "node -c server.js",
+  "sourceCandidate": "prospect_hedgefund_alpha_com.json",
+  "generatedAt": "2026-09-12T10:51:54.759Z"
+}

@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "2026-09-11_Kanban_New_Hermes_Kanban_Agent_Is_CRAZY_.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Review\\Pending\\2026-09-11_Kanban_New_Hermes_Kanban_Agent_Is_CRAZY_.md",
+  "evaluatedAt": "2026-09-12T10:25:45.759Z",
+  "score": 0,
+  "verdict": "REJECTED",
+  "rationale": "The dossier is a low-value SEO link to a YouTube short with no technical substance, code, or architectural detail. It fails to address any Warlord MCNC subsystems (Node.js, React, MQL5) and provides zero actionable engineering data.",
+  "targetSubsystems": [],
+  "suggestedAction": "Discard immediately; do not ingest into the technical vault."
+}

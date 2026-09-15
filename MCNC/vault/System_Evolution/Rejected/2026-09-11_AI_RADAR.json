@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "2026-09-11_AI_RADAR.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Intel\\Daily_Radar\\2026-09-11_AI_RADAR.md",
+  "evaluatedAt": "2026-09-12T10:20:05.274Z",
+  "score": 42,
+  "verdict": "REJECTED",
+  "rationale": "The dossier is a passive list of YouTube links with zero code, architectural patterns, or concrete implementation details, violating the strict disqualifier for high-level buzzword commentary. While the top entry hints at agent orchestration, it lacks the technical depth required to modify the Warlord MCNC stack.",
+  "targetSubsystems": [],
+  "suggestedAction": "Reject for lack of technical substance; require the source to provide actual code snippets, API schemas, or architectural diagrams before re-evaluation."
+}

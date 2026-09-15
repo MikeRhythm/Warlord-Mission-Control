@@ -1,0 +1,10 @@
+{
+  "sourceDossier": "Hermes.md",
+  "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Cutting Edge AI\\Hermes.md",
+  "evaluatedAt": "2026-09-12T10:20:03.264Z",
+  "score": 15,
+  "verdict": "REJECTED",
+  "rationale": "The dossier describes a generic consumer-facing LLM agent orchestration platform (Hermes) with no specific architectural patterns, code, or integration logic for the Warlord MCNC stack. It lacks the required technical depth regarding Node.js gateways, MQL5 bridges, or low-latency trading infrastructure, falling under the disqualifier of generic AI tooling.",
+  "targetSubsystems": [],
+  "suggestedAction": "Discard dossier; request specific technical specifications for any potential WebSocket or API bridge if the user intends to integrate Hermes as a backend service, otherwise ignore."
+}
