@@ -1,130 +1,314 @@
 .tab-07-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
     width: 100%;
-    padding: 24px;
+    height: 100%;
+    padding: 16px;
     box-sizing: border-box;
-    gap: 20px;
+    background: #080706;
+    color: #E8D5B5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
     overflow-y: auto;
+    position: relative;
 }
 
-/* HEADER & GOVERNANCE STRIP */
+/* HEADER STRIP */
 .paperclip-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    border-bottom: 1px solid rgba(255, 184, 0, 0.15);
-    padding-bottom: 16px;
+    align-items: center;
+    border-bottom: 1px solid rgba(140, 98, 57, 0.3);
+    padding-bottom: 12px;
+    margin-bottom: 12px;
 }
 
 .paperclip-title-group h2 {
-    color: var(--text-main, #EEDD82);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.2rem;
-    letter-spacing: 1px;
-    margin: 0 0 5px 0;
+    margin: 0;
+    font-size: 1.15rem;
+    letter-spacing: 1.5px;
+    color: #C88A35;
+    font-family: monospace;
 }
 
 .paperclip-title-group p {
-    color: var(--text-mist, #94a3b8);
-    font-size: 0.85rem;
-    margin: 0;
+    margin: 3px 0 0 0;
+    font-size: 0.74rem;
+    color: #8A857A;
 }
 
 .paperclip-stats-strip {
     display: flex;
-    gap: 14px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
+    gap: 12px;
 }
 
 .stat-pill {
-    background: rgba(13, 17, 23, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 6px 14px;
-    border-radius: 4px;
+    background: rgba(18, 16, 14, 0.9);
+    border: 1px solid rgba(140, 98, 57, 0.25);
+    padding: 5px 12px;
+    display: flex;
+    gap: 8px;
+    font-size: 0.72rem;
+    font-family: monospace;
+}
+
+.stat-pill .label {
+    color: #8A857A;
+}
+
+.stat-pill .val {
+    color: #E8D5B5;
+    font-weight: bold;
+}
+
+/* CONTROL DECK & PRD INGESTION STRIP */
+.paperclip-control-deck {
+    display: flex;
+    gap: 16px;
+    background: rgba(18, 16, 14, 0.85);
+    border: 1px solid rgba(140, 98, 57, 0.25);
+    padding: 12px 18px;
+    margin-bottom: 14px;
+    align-items: center;
+}
+
+.deck-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 260px;
+}
+
+.deck-col-grow {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-grow: 1;
+}
+
+.deck-label {
+    font-size: 0.7rem;
+    font-family: monospace;
+    letter-spacing: 1px;
+    color: #C88A35;
+}
+
+.deck-select, .deck-input {
+    background: rgba(8, 7, 6, 0.9);
+    border: 1px solid rgba(140, 98, 57, 0.4);
+    color: #E8D5B5;
+    padding: 8px 12px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    outline: none;
+}
+
+.deck-select:focus, .deck-input:focus {
+    border-color: #C88A35;
+}
+
+/* INGESTED PRD STAGE BOX */
+.prd-stage-box {
+    background: rgba(200, 138, 53, 0.08);
+    border: 1px solid rgba(200, 138, 53, 0.35);
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 280px;
+}
+
+.prd-stage-tag {
+    font-size: 0.62rem;
+    font-family: monospace;
+    color: #C88A35;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.prd-stage-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+
+.prd-id {
+    color: #00FF66;
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.prd-title {
+    color: #E8D5B5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+.prd-budget {
+    font-size: 0.68rem;
+    color: #8A857A;
+    font-family: monospace;
+}
+
+.dispatch-input-wrap {
     display: flex;
     gap: 8px;
 }
 
-.stat-pill .label {
-    color: var(--text-mist, #94a3b8);
+.dispatch-input-wrap .deck-input {
+    flex-grow: 1;
 }
 
-.stat-pill .val {
-    color: var(--gold-core, #FFB800);
-    font-weight: bold;
+.deck-btn-dispatch {
+    background: linear-gradient(180deg, #C88A35 0%, #A05832 100%);
+    border: none;
+    color: #080706;
+    font-weight: 700;
+    font-size: 0.78rem;
+    font-family: monospace;
+    padding: 0 16px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+}
+
+.deck-btn-dispatch:hover {
+    opacity: 0.9;
 }
 
 /* WORKSPACE GRID */
 .paperclip-workspace-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    flex: 1;
+    gap: 16px;
+    flex-grow: 1;
     min-height: 0;
 }
 
 .paperclip-card {
-    background: rgba(13, 17, 23, 0.7);
-    border: 1px solid rgba(255, 184, 0, 0.15);
-    border-radius: 6px;
-    padding: 18px;
+    background: rgba(14, 12, 10, 0.75);
+    border: 1px solid rgba(140, 98, 57, 0.2);
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    overflow-y: auto;
+    min-height: 0;
 }
 
 .card-subhead {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    color: var(--gold-core, #FFB800);
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    padding-bottom: 8px;
-    margin: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 10px 14px;
+    background: rgba(22, 19, 16, 0.9);
+    border-bottom: 1px solid rgba(140, 98, 57, 0.2);
+    font-size: 0.78rem;
+    font-family: monospace;
+    color: #E8D5B5;
+    letter-spacing: 0.5px;
 }
 
-/* ORG HIERARCHY TREE */
-.org-node-list {
+.subhead-secondary {
+    background: rgba(14, 12, 10, 0.6);
+    border-top: 1px solid rgba(140, 98, 57, 0.2);
+}
+
+/* CEO SPOTLIGHT */
+.ceo-spotlight-box {
+    margin: 14px;
+    padding: 16px;
+    background: linear-gradient(180deg, rgba(200, 138, 53, 0.12) 0%, rgba(14, 12, 10, 0.8) 100%);
+    border: 1px solid #C88A35;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
 }
 
-.org-node-card {
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-left: 3px solid var(--gold-core, #FFB800);
-    border-radius: 4px;
-    padding: 12px 14px;
+.ceo-spotlight-badge {
+    align-self: flex-start;
+    background: #C88A35;
+    color: #080706;
+    font-family: monospace;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 2px 6px;
+}
+
+.ceo-spotlight-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.org-node-info {
+.ceo-spotlight-name {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #E8D5B5;
+    font-family: monospace;
+    letter-spacing: 1px;
+}
+
+.ceo-spotlight-desc {
+    font-size: 0.78rem;
+    color: #A0988A;
+}
+
+.ceo-spotlight-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(200, 138, 53, 0.2);
+    font-size: 0.72rem;
+    font-family: monospace;
+    color: #8A857A;
+}
+
+.ceo-spotlight-meta b {
+    color: #E8D5B5;
+}
+
+/* SQUAD & MINIONS */
+.org-node-list, .deliverable-list {
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.squad-member-container {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
+.org-node-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(20, 18, 15, 0.6);
+    border: 1px solid rgba(140, 98, 57, 0.15);
+    padding: 10px 12px;
+    transition: all 0.2s;
+}
+
+.org-node-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .org-node-name {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
+    font-family: monospace;
     font-weight: bold;
-    color: #fff;
+    font-size: 0.82rem;
+    color: #E8D5B5;
 }
 
 .org-node-role {
-    font-size: 0.75rem;
-    color: var(--text-mist, #94a3b8);
+    font-size: 0.74rem;
+    color: #A0988A;
 }
 
 .org-node-meta {
@@ -132,43 +316,379 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
 }
 
 .node-status-pill {
-    padding: 2px 8px;
-    border-radius: 3px;
     font-size: 0.65rem;
-    font-weight: bold;
-    letter-spacing: 0.5px;
+    font-family: monospace;
+    padding: 2px 6px;
+    border-radius: 2px;
 }
 
 .status-active {
-    background: rgba(16, 185, 129, 0.2);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.4);
+    background: rgba(0, 255, 102, 0.1);
+    color: #00FF66;
+    border: 1px solid rgba(0, 255, 102, 0.3);
 }
 
-.status-standby {
-    background: rgba(148, 163, 184, 0.15);
-    color: #cbd5e1;
-    border: 1px solid rgba(148, 163, 184, 0.3);
+.node-cap {
+    font-size: 0.7rem;
+    color: #8A857A;
+    font-family: monospace;
 }
 
-/* ZERO STATE FALLBACK */
-.paperclip-empty-state {
-    flex: 1;
+.minion-sublist {
+    margin-left: 20px;
+    border-left: 2px solid rgba(200, 138, 53, 0.3);
+    padding-left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.minion-card {
     display: flex;
     align-items: center;
-    justify-content: center;
-    border: 1px dashed rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
-    color: var(--text-mist, #94a3b8);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    letter-spacing: 1px;
-    min-height: 180px;
+    justify-content: space-between;
+    background: rgba(14, 12, 10, 0.9);
+    border: 1px solid rgba(140, 98, 57, 0.15);
+    padding: 6px 10px;
+    font-size: 0.7rem;
+    font-family: monospace;
+}
+
+.minion-indicator {
+    color: #C88A35;
+    font-weight: bold;
+}
+
+.minion-info b {
+    color: #E8D5B5;
+}
+
+.minion-status {
+    color: #00FF66;
+    font-size: 0.65rem;
+}
+
+/* DELIVERABLES & TICKETS */
+.ticket-item-card {
+    background: rgba(18, 16, 14, 0.85);
+    border: 1px solid rgba(140, 98, 57, 0.2);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.ticket-approved {
+    border-left: 3px solid #00FF66;
+    background: rgba(0, 255, 102, 0.03);
+}
+
+.ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ticket-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ticket-id {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #C88A35;
+    font-weight: bold;
+}
+
+.ticket-type-badge {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(140, 98, 57, 0.3);
+    font-size: 0.62rem;
+    font-family: monospace;
+    padding: 1px 6px;
+    color: #8A857A;
+}
+
+.ticket-time {
+    font-size: 0.68rem;
+    color: #6E523A;
+    font-family: monospace;
+}
+
+.ticket-title {
+    margin: 2px 0 0 0;
+    font-size: 0.85rem;
+    color: #E8D5B5;
+    font-weight: 600;
+}
+
+.ticket-summary {
+    margin: 0;
+    font-size: 0.76rem;
+    color: #A0988A;
+    line-height: 1.35;
+}
+
+.ticket-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 8px;
+    margin-top: 4px;
+}
+
+.ticket-agent {
+    font-size: 0.72rem;
+    color: #8A857A;
+    font-family: monospace;
+}
+
+.ticket-agent b {
+    color: #C5B59E;
+}
+
+.ticket-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* MONTY ADVICE BUTTON */
+.btn-action-monty {
+    background: rgba(200, 138, 53, 0.15);
+    border: 1px solid #C88A35;
+    color: #C88A35;
+    font-size: 0.72rem;
+    font-family: monospace;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.btn-action-monty:hover {
+    background: #C88A35;
+    color: #080706;
+}
+
+.btn-action-revise {
+    background: transparent;
+    border: 1px solid #A05832;
+    color: #E8D5B5;
+    font-size: 0.72rem;
+    font-family: monospace;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+.btn-action-revise:hover {
+    background: rgba(160, 88, 50, 0.2);
+}
+
+.btn-action-approve {
+    background: rgba(0, 255, 102, 0.15);
+    border: 1px solid #00FF66;
+    color: #00FF66;
+    font-size: 0.72rem;
+    font-family: monospace;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-action-approve:hover {
+    background: rgba(0, 255, 102, 0.25);
+}
+
+.status-badge-seal {
+    font-size: 0.72rem;
+    font-family: monospace;
+    font-weight: bold;
+    padding: 2px 8px;
+}
+
+.badge-seal-green {
+    color: #00FF66;
+}
+
+.badge-seal-amber {
+    color: #C88A35;
+}
+
+.paperclip-empty-state {
+    padding: 40px 20px;
     text-align: center;
-    padding: 20px;
+    color: #8A857A;
+    font-family: monospace;
+    font-size: 0.8rem;
+    border: 1px dashed rgba(140, 98, 57, 0.25);
+    margin: 12px;
+}
+
+/* MONTY ADVISORY MODAL STYLES */
+.monty-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.monty-modal-panel {
+    background: #0D0B0A;
+    border: 1px solid #C88A35;
+    box-shadow: 0 0 24px rgba(200, 138, 53, 0.25);
+    width: 580px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.monty-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid rgba(140, 98, 57, 0.3);
+    background: rgba(22, 19, 16, 0.95);
+}
+
+.monty-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.monty-badge {
+    background: #C88A35;
+    color: #080706;
+    font-size: 0.65rem;
+    font-weight: bold;
+    font-family: monospace;
+    padding: 2px 6px;
+}
+
+.monty-modal-title h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-family: monospace;
+    color: #E8D5B5;
+    letter-spacing: 0.8px;
+}
+
+.btn-close-modal {
+    background: transparent;
+    border: none;
+    color: #8A857A;
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.btn-close-modal:hover {
+    color: #E8D5B5;
+}
+
+.monty-modal-ticket-context {
+    padding: 10px 18px;
+    background: rgba(200, 138, 53, 0.05);
+    border-bottom: 1px solid rgba(140, 98, 57, 0.15);
+    font-size: 0.75rem;
+    font-family: monospace;
+    display: flex;
+    gap: 8px;
+}
+
+.modal-context-label {
+    color: #8A857A;
+}
+
+.modal-context-id {
+    color: #E8D5B5;
+    font-weight: bold;
+}
+
+.monty-modal-body {
+    padding: 18px;
+}
+
+.monty-briefing-quote {
+    font-family: monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #E8D5B5;
+    background: rgba(18, 16, 14, 0.85);
+    border-left: 3px solid #C88A35;
+    padding: 14px 16px;
+}
+
+.monty-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid rgba(140, 98, 57, 0.2);
+    background: rgba(14, 12, 10, 0.95);
+}
+
+.btn-modal-dismiss {
+    background: transparent;
+    border: 1px solid #6E523A;
+    color: #8A857A;
+    font-family: monospace;
+    font-size: 0.74rem;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.btn-modal-dismiss:hover {
+    color: #E8D5B5;
+    border-color: #8A857A;
+}
+
+.btn-modal-revise {
+    background: transparent;
+    border: 1px solid #A05832;
+    color: #E8D5B5;
+    font-family: monospace;
+    font-size: 0.74rem;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.btn-modal-revise:hover {
+    background: rgba(160, 88, 50, 0.2);
+}
+
+.btn-modal-approve {
+    background: rgba(0, 255, 102, 0.15);
+    border: 1px solid #00FF66;
+    color: #00FF66;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 0.74rem;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+
+.btn-modal-approve:hover {
+    background: rgba(0, 255, 102, 0.25);
 }
