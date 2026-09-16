@@ -2,6 +2,7 @@
 import { 
   Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X 
 } from 'lucide-react';
+import SpeakerBtn from './SpeakerBtn';
 import './Tab02WarRoom.css';
 
 const ELITE_CASCADE_STEPS = [
@@ -313,6 +314,8 @@ export default function Tab02WarRoom({ ws }) {
     }
   };
 
+  const lastAgentLog = [...streamLog].reverse().find(l => l.type === 'agent' || l.type === 'system');
+
   return (
     <div className="flex h-full w-full bg-[#080a0c] text-xs gap-2 select-none">
       <div className="w-80 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-2.5 overflow-hidden flex-shrink-0">
@@ -425,15 +428,23 @@ export default function Tab02WarRoom({ ws }) {
           <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2 uppercase tracking-widest font-bold">
             THE WAR ROOM // LIVE COMMS & PRD PIPELINE <span className="text-[#ffb800]">[{selectedProject}]</span>
           </div>
+          {lastAgentLog && (
+            <div className="flex items-center gap-2">
+              <SpeakerBtn text={lastAgentLog.text} label="VOICE BRIEF" />
+            </div>
+          )}
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
           {streamLog.map(log => (
             <div key={log.id} className="space-y-1">
-              <div className="flex items-center gap-2 select-none">
+              <div className="flex items-center justify-between select-none">
                 <span className={`font-bold text-[11px] tracking-wide ${log.type === 'error' ? 'text-[#ef4444]' : log.type === 'system' ? 'text-[#10b981]' : log.type === 'user' ? 'text-[#ffb800]' : 'text-[#8fa0b5]'}`}>
                   {log.sender}
                 </span>
+                {(log.type === 'agent' || log.type === 'system') && (
+                  <SpeakerBtn text={log.text} label="LISTEN" />
+                )}
               </div>
               <div className={`text-xs leading-relaxed pl-3 py-2 rounded border select-text whitespace-pre-wrap ${log.type === 'error' ? 'bg-[#ef4444]/10 border-[#ef4444]/30 text-[#fca5a5]' : 'bg-[#101317]/60 border-[#14181f] text-[#d1d5db]'}`}>
                 {log.text}

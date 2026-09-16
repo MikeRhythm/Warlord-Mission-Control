@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
-import { Sparkles, Loader2, Database, AlertOctagon } from 'lucide-react';
+import { Sparkles, Loader2, Database, AlertOctagon, CheckCircle, Trash2 } from 'lucide-react';
+import SpeakerBtn from './SpeakerBtn';
 
 const INITIAL_DOMAINS = [
   'Market & Currency Pairs',
@@ -25,8 +26,8 @@ export default function Tab12Review() {
 
   const [url, setUrl] = useState('');
   const [contentDump, setContentDump] = useState('');
-  const [topicDomain, setTopicDomain] = useState('Cutting Edge AI');
-  const [specialization, setSpecialization] = useState('Hermes');
+  const [topicDomain, setTopicDomain] = useState('Hardware & Infrastructure');
+  const [specialization, setSpecialization] = useState('Kaggle');
   const [pruneAndMerge, setPruneAndMerge] = useState(true);
 
   const [harvestedNugget, setHarvestedNugget] = useState(
@@ -34,6 +35,7 @@ export default function Tab12Review() {
   );
   const [isHarvesting, setIsHarvesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [signalRatio, setSignalRatio] = useState({ nuggetInt: 28, fluffInt: 72 });
 
@@ -72,11 +74,21 @@ export default function Tab12Review() {
     }
   };
 
+  const handleCls = () => {
+    setUrl('');
+    setContentDump('');
+    setHarvestedNugget('// Paste videos, notes, or raw discussions on the left, then click \'HARVEST PURE NUGGET\'.\n// The gauge above will calculate the exact signal-to-noise ratio and time saved.\n// Click \'PUSH TO 13 DOCS LIBRARY\' to merge and synthesize the payload into the canonical master dossier.');
+    setHasError(false);
+    setSaveSuccess(false);
+    setSignalRatio({ nuggetInt: 28, fluffInt: 72 });
+  };
+
   const handleHarvest = async () => {
     if (!url.trim() && !contentDump.trim()) return;
 
     setIsHarvesting(true);
     setHasError(false);
+    setSaveSuccess(false);
     setHarvestedNugget('// Executing multi-tier extraction pipeline...\n// Scraping source vectors and stripping narrative fluff...');
 
     try {
@@ -118,12 +130,12 @@ export default function Tab12Review() {
   };
 
   const handlePushToDocs = async () => {
-    if (hasError || isHarvesting || isSaving) return;
+    if (hasError || isHarvesting || isSaving || saveSuccess) return;
     
     setIsSaving(true);
     
     try {
-      const response = await fetch('http://127.0.0.1:8081/api/docs/save', {
+      const fetchPromise = fetch('http://127.0.0.1:8081/api/docs/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -133,6 +145,11 @@ export default function Tab12Review() {
           pruneAndMerge: pruneAndMerge
         })
       });
+
+      const [response] = await Promise.all([
+        fetchPromise,
+        new Promise(resolve => setTimeout(resolve, 800))
+      ]);
       
       const data = await response.json();
       
@@ -140,9 +157,19 @@ export default function Tab12Review() {
         setHasError(true);
         setHarvestedNugget((prev) => `[VAULT WRITE ERROR]: ${data.error}\n\n${prev}`);
       } else {
-        setHarvestedNugget((prev) => `// [VAULT SYNTHESIS SUCCESS]: ${data.message}\n\n${prev}`);
-        // Dispatch instant disk refresh signal to Tab 13
+        setSaveSuccess(true);
+        setHarvestedNugget(`// [VAULT SYNTHESIS SUCCESS]: ${data.message}\n// Payload securely routed to 13 DOCS LIBRARY.\n\n// Base 1 standing by for next extraction.`);
+        
         window.dispatchEvent(new CustomEvent('MCNC_PUSH_TO_DOCS'));
+        
+        setTimeout(() => {
+          setUrl('');
+          setContentDump('');
+        }, 1500);
+
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 4000);
       }
     } catch (err) {
       setHasError(true);
@@ -153,8 +180,25 @@ export default function Tab12Review() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none">
+    <div className="relative flex flex-col h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none">
       
+      {/* EXCITING FULL-SCREEN SPINNER OVERLAY */}
+      {(isHarvesting || isSaving) && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#080a0c]/85 backdrop-blur-sm rounded">
+          <div className="relative flex items-center justify-center w-28 h-28 mb-5">
+            <div className="absolute w-full h-full border-4 border-t-[#ffb800] border-r-transparent border-b-[#10b981] border-l-transparent rounded-full animate-spin" style={{ animationDuration: '1.2s' }}></div>
+            <div className="absolute w-20 h-20 border-4 border-t-transparent border-r-[#38bdf8] border-b-transparent border-l-[#ffb800] rounded-full animate-spin" style={{ animationDuration: '0.8s', animationDirection: 'reverse' }}></div>
+            <Sparkles className="w-8 h-8 text-[#ffb800] animate-pulse" />
+          </div>
+          <div className="text-[#ffb800] font-bold text-sm tracking-widest animate-pulse drop-shadow-[0_0_8px_rgba(255,184,0,0.5)]">
+            {isHarvesting ? 'EXTRACTING VECTORS & SCRAPING TRANSCRIPT...' : 'SYNTHESIZING TO OBSIDIAN VAULT...'}
+          </div>
+          <div className="text-[#5c6b7f] text-[10px] mt-3 font-mono tracking-widest">
+            PROCESS CONTINUES IN BACKGROUND IF NAVIGATING AWAY
+          </div>
+        </div>
+      )}
+
       {/* HEADER BAR */}
       <div className="flex items-center justify-between bg-[#0d0f12] border border-[#1f242d] px-4 py-2.5 rounded">
         <div>
@@ -165,11 +209,20 @@ export default function Tab12Review() {
             Fluff-to-nugget gauge • Universal domain classification • Canonical dossier synthesis
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[#5c6b7f]">TRIAGE JUDGE:</span>
-          <span className="px-2 py-1 bg-[#14171c] border border-[#232832] text-[#ffb800] font-bold rounded text-[10px]">
-            01 MONTY
-          </span>
+        <div className="flex items-center gap-4">
+          {/* PROMINENT CLS BUTTON */}
+          <button 
+            onClick={handleCls} 
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#14171c] hover:bg-[#ef4444]/20 border border-[#ef4444]/40 hover:border-[#ef4444] text-[whitesmoke] hover:text-[#fca5a5] rounded text-[11px] font-extrabold transition-all cursor-pointer shadow-[0_0_10px_rgba(239,68,68,0.1)]"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> CLS TERMINAL
+          </button>
+          <div className="flex items-center gap-2 border-l border-[#1f242d] pl-4">
+            <span className="text-[10px] text-[whitesmoke]">TRIAGE JUDGE:</span>
+            <span className="px-3 py-1.5 bg-[#14171c] border border-[#232832] text-[#ffb800] font-bold rounded text-[11px]">
+              01 MONTY
+            </span>
+          </div>
         </div>
       </div>
 
@@ -191,8 +244,8 @@ export default function Tab12Review() {
           />
         </div>
         <div className="flex justify-between items-center text-[10px] text-[#5c6b7f] pt-1">
-          <span className={hasError ? "text-[#ef4444]" : ""}>
-            STATUS: {isHarvesting ? 'EXTRACTING VECTORS...' : isSaving ? 'SYNTHESIZING TO VAULT...' : hasError ? 'ERROR ENCOUNTERED' : 'AWAITING CONTENT SCAN'}
+          <span className={hasError ? "text-[#ef4444]" : saveSuccess ? "text-[#10b981] font-bold" : ""}>
+            STATUS: {isHarvesting ? 'EXTRACTING VECTORS...' : isSaving ? 'SYNTHESIZING TO VAULT...' : saveSuccess ? 'SYNTHESIS COMPLETE' : hasError ? 'ERROR ENCOUNTERED' : 'AWAITING CONTENT SCAN'}
           </span>
           <span>ESTIMATED READING/WATCH TIME SAVED: ~{Math.round(signalRatio.fluffInt * 0.3)} MINS</span>
         </div>
@@ -288,11 +341,14 @@ export default function Tab12Review() {
 
         {/* RIGHT PANE: HARVESTED NUGGET */}
         <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-3 space-y-3">
-          <div className={`flex justify-between items-center text-[11px] font-bold border-b border-[#14181f] pb-2 ${hasError ? 'text-[#ef4444]' : 'text-[#10b981]'}`}>
+          <div className={`flex justify-between items-center text-[11px] font-bold border-b border-[#14181f] pb-2 ${hasError ? 'text-[#ef4444]' : saveSuccess ? 'text-[#10b981]' : 'text-[#10b981]'}`}>
             <span>THE HARVESTED NUGGET (EDITABLE)</span>
-            <span className="text-[10px] text-[#5c6b7f] font-normal">
-              {isHarvesting ? 'PROCESSING...' : isSaving ? 'SYNTHESIZING...' : hasError ? 'ERROR' : 'IDLE // READY'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#5c6b7f] font-normal">
+                {isHarvesting ? 'PROCESSING...' : isSaving ? 'SYNTHESIZING...' : saveSuccess ? 'SUCCESS' : hasError ? 'ERROR' : 'IDLE // READY'}
+              </span>
+              <SpeakerBtn text={harvestedNugget} label="VOICE NUGGET" />
+            </div>
           </div>
 
           <div className="flex items-center gap-2 bg-[#101317] border border-[#1f242d] p-2 rounded text-[10px]">
@@ -308,21 +364,25 @@ export default function Tab12Review() {
             className={`flex-1 w-full bg-[#101317] border rounded p-3 text-xs focus:outline-none resize-none font-mono leading-relaxed whitespace-pre-wrap ${
               hasError 
                 ? 'text-[#fca5a5] border-[#ef4444]/30 focus:border-[#ef4444]' 
+                : saveSuccess
+                ? 'text-[#10b981] border-[#10b981]/50 focus:border-[#10b981]'
                 : 'text-[#d1d5db] border-[#1f242d] focus:border-[#10b981]'
             }`}
           />
 
           <button
             onClick={handlePushToDocs}
-            disabled={hasError || isHarvesting || isSaving}
+            disabled={hasError || isHarvesting || isSaving || saveSuccess}
             className={`w-full py-2 font-bold rounded text-xs flex items-center justify-center gap-2 transition-colors ${
-              hasError || isHarvesting || isSaving
+              saveSuccess
+                ? 'bg-[#10b981] text-black border border-[#10b981] cursor-default'
+                : hasError || isHarvesting || isSaving
                 ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'
                 : 'bg-[#10b981]/20 hover:bg-[#10b981]/30 text-[#34d399] border border-[#10b981]/50 cursor-pointer'
             }`}
           >
-            {isSaving ? <Loader2 className="w-4 h-4 text-[#10b981] animate-spin" /> : hasError ? <AlertOctagon className="w-4 h-4 text-[#ef4444]" /> : <Database className="w-4 h-4 text-[#10b981]" />}
-            <span>{isSaving ? 'SYNTHESIZING TO VAULT...' : 'PUSH TO 13 DOCS LIBRARY'}</span>
+            {isSaving ? <Loader2 className="w-4 h-4 text-[#10b981] animate-spin" /> : saveSuccess ? <CheckCircle className="w-4 h-4 text-black" /> : hasError ? <AlertOctagon className="w-4 h-4 text-[#ef4444]" /> : <Database className="w-4 h-4 text-[#10b981]" />}
+            <span>{isSaving ? 'SYNTHESIZING TO VAULT...' : saveSuccess ? 'SYNTHESIS COMPLETE' : 'PUSH TO 13 DOCS LIBRARY'}</span>
           </button>
         </div>
 

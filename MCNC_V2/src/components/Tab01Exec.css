@@ -1,0 +1,35 @@
+/* ==========================================
+   TAB 01 EXEC // TERMINAL STYLES
+   ========================================== */
+
+.tab-01-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: #080a0c;
+  color: #e2e8f0;
+  font-family: monospace;
+  padding: 12px;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+/* Custom Scrollbars for Exec Stream */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #0d0f12;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1f242d;
+  border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #ffb800;
+}

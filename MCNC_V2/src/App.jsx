@@ -84,6 +84,7 @@ export default function App() {
         <div className="brand-title" style={{ color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: '0.9rem' }}>
           WARLORD MISSION CONTROL // MCNC MASTER
         </div>
+
         <div className="system-status" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--text-mist)' }}>
           BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core)' : 'var(--ruby-core)', fontWeight: 'bold' }}>{wsStatus} (BASE 1)</span> | FRAMEWORK: REACT VITE
         </div>

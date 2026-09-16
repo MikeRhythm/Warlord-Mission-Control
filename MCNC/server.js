@@ -7,6 +7,7 @@ const fs = require('fs');
 const cors = require('cors');
 const multer = require('multer');
 const { exec } = require('child_process');
+const { YoutubeTranscript } = require('youtube-transcript');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,8 +21,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// ==========================================
+// ZERO-STATE INIT & DIRECTORY SETUP
+// ==========================================
 const SOULS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'souls');
 const LOGS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC_Logs');
+const VAULT_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC_Vault'); 
 const UPLOADS_PATH = path.join(__dirname, 'uploads');
 const VAULT_DIR = path.join(__dirname, 'vault');
 const TELEMETRY_DIR = path.join(VAULT_DIR, 'telemetry');
@@ -31,10 +36,7 @@ const NIM_CLUSTER_FILE = path.join(KEYS_DIR, 'nim_cluster.json');
 const GROQ_CLUSTER_FILE = path.join(KEYS_DIR, 'groq_cluster.json');
 const GEMINI_CLUSTER_FILE = path.join(KEYS_DIR, 'gemini_cluster.json');
 
-// ==========================================
-// ZERO-STATE INIT & DIRECTORY SETUP
-// ==========================================
-[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR].forEach(dir => {
+[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -121,6 +123,23 @@ function extractPromptText(body) {
     return "Directive audit and status report.";
 }
 
+// ARMORED YOUTUBE PARSER
+function extractYouTubeId(urlStr) {
+    if (!urlStr) return null;
+    try {
+        const urlObj = new URL(urlStr);
+        if (urlObj.hostname.includes('youtube.com')) {
+            if (urlObj.pathname === '/watch') return urlObj.searchParams.get('v');
+            if (urlObj.pathname.startsWith('/embed/') || urlObj.pathname.startsWith('/v/')) return urlObj.pathname.split('/')[2];
+        }
+        if (urlObj.hostname.includes('youtu.be')) return urlObj.pathname.slice(1);
+    } catch (e) {
+        const match = urlStr.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+        return match ? match[1] : null;
+    }
+    return null;
+}
+
 // ==========================================
 // CLUSTER VAULT CONTROLLERS & ROUND-ROBIN
 // ==========================================
@@ -152,7 +171,6 @@ const readGeminiCluster = () => readClusterFile(GEMINI_CLUSTER_FILE, "gemini");
 const writeGeminiCluster = (data) => writeClusterFile(GEMINI_CLUSTER_FILE, data);
 const getActiveGeminiKeys = () => readGeminiCluster().keys.filter(k => k.status === 'ACTIVE').map(k => k.key);
 
-// Round-Robin State Trackers
 const rrState = { nim: 0, groq: 0, gemini: 0 };
 
 function getNextActiveKey(clusterType) {
@@ -192,25 +210,14 @@ const DIRECTOR_TRAITS = {
 };
 
 function routeToOptimalModel(director, fallbackModel) {
-    // Pass-through if no specific director is targeted
-    if (!director || director.includes('AUTO-ROUTING') || director.includes('ROUND-ROBIN')) {
-        return fallbackModel;
-    }
-
+    if (!director || director.includes('AUTO-ROUTING') || director.includes('ROUND-ROBIN')) return fallbackModel;
     const trait = DIRECTOR_TRAITS[director] || 'CREATIVE';
-    
-    // Map capability tag to your strongest harvested free cluster endpoint
     switch (trait) {
-        case 'CODE':
-            return 'meta/llama-3.3-70b-instruct'; // Handled well by NIM
-        case 'REASONING':
-            return 'nvidia/nemotron-70b-ultra'; // NIM's dense quantitative router
-        case 'CONTEXT':
-            return 'gemini-1.5-pro'; // Gemini Studio massive context window
-        case 'CREATIVE':
-            return 'llama-3.3-70b-versatile'; // Groq LPU high-velocity generation
-        default:
-            return fallbackModel;
+        case 'CODE': return 'meta/llama-3.3-70b-instruct';
+        case 'REASONING': return 'nvidia/nemotron-70b-ultra';
+        case 'CONTEXT': return 'gemini-1.5-pro';
+        case 'CREATIVE': return 'llama-3.3-70b-versatile';
+        default: return fallbackModel;
     }
 }
 
@@ -240,26 +247,27 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     console.log(`\n========================================`);
     console.log(`[DISPATCH] Target Model: "${requestedModel}"`);
 
-    // 1. GEMINI NATIVE ROUTING
     if (reqModelLower.includes('gemini')) {
         const activeGeminiKeys = getActiveGeminiKeys();
         for (let i = 0; i < activeGeminiKeys.length; i++) {
             const mask = `...${activeGeminiKeys[i].slice(-6)}`;
             try {
-                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${activeGeminiKeys[i]}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${activeGeminiKeys[i]}` },
-                    body: JSON.stringify({ model: requestedModel, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }], temperature: 0.3, max_tokens: 4096 })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + validContent }] }],
+                        generationConfig: { temperature: 0.3, maxOutputTokens: 8192 }
+                    })
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    return { reply: data.choices?.[0]?.message?.content?.trim(), modelUsed: `${requestedModel} (Gemini [${mask}])` };
+                    return { reply: data.candidates?.[0]?.content?.parts?.[0]?.text?.trim(), modelUsed: `${requestedModel} (Gemini [${mask}])` };
                 }
             } catch (err) {}
         }
     }
 
-    // 2. GROQ NATIVE ROUTING
     if (reqModelLower.includes('groq') || reqModelLower.includes('llama-3.1-70b-versatile') || reqModelLower.includes('mixtral') || reqModelLower === 'llama-3.3-70b-versatile') {
         const activeGroqKeys = getActiveGroqKeys();
         for (let i = 0; i < activeGroqKeys.length; i++) {
@@ -278,9 +286,8 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
-    // 3. NVIDIA NIM CLUSTER ROUTING
     const activeNimKeys = getActiveNimKeys();
-    if (activeNimKeys.length > 0 && !reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/')) {
+    if (activeNimKeys.length > 0 && !reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/') && !reqModelLower.includes('google/')) {
         for (let i = 0; i < activeNimKeys.length; i++) {
             const mask = `...${activeNimKeys[i].slice(-6)}`;
             try {
@@ -297,11 +304,10 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
-    // 4. OPENROUTER FALLBACK SHIELD
     console.warn(`[!] CLUSTERS EXHAUSTED OR ELITE MODEL REQUESTED. ENGAGING OPENROUTER SHIELD...`);
     let fallbackSlug = requestedModel;
     if (!reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/') && !reqModelLower.includes('google/') && !reqModelLower.includes('deepseek/')) {
-        fallbackSlug = 'meta-llama/llama-3.3-70b-instruct'; // Default solid fallback
+        fallbackSlug = 'meta-llama/llama-3.3-70b-instruct';
     }
     const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, fallbackSlug);
     return { reply: fallbackReply.trim(), modelUsed: `${fallbackSlug} (OpenRouter Shield)` };
@@ -311,7 +317,6 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 // REST API ROUTES
 // ==========================================
 
-// --- NIM CLUSTER ROUTES ---
 app.get('/api/cluster/nim/keys', (req, res) => {
     const safeKeys = readNimCluster().keys.map(k => ({ masked: `nvapi-...${k.key.slice(-6)}`, alias: k.alias, status: k.status, lastChecked: k.lastChecked, latency: k.latency || 'N/A' }));
     res.json({ total: safeKeys.length, active: safeKeys.filter(k => k.status === 'ACTIVE').length, keys: safeKeys });
@@ -352,7 +357,6 @@ app.post('/api/cluster/nim/audit', async (req, res) => {
     res.json({ success: true, remainingActive: validKeys.filter(k => k.status === 'ACTIVE').length, totalRemaining: validKeys.length, logs: auditLogs });
 });
 
-// --- GROQ CLUSTER ROUTES ---
 app.get('/api/cluster/groq/keys', (req, res) => {
     const safeKeys = readGroqCluster().keys.map(k => ({ masked: `gsk_...${k.key.slice(-6)}`, alias: k.alias, status: k.status, lastChecked: k.lastChecked, latency: k.latency || 'N/A' }));
     res.json({ total: safeKeys.length, active: safeKeys.filter(k => k.status === 'ACTIVE').length, keys: safeKeys });
@@ -393,7 +397,6 @@ app.post('/api/cluster/groq/audit', async (req, res) => {
     res.json({ success: true, remainingActive: validKeys.filter(k => k.status === 'ACTIVE').length, totalRemaining: validKeys.length, logs: auditLogs });
 });
 
-// --- GEMINI CLUSTER ROUTES ---
 app.get('/api/cluster/gemini/keys', (req, res) => {
     const safeKeys = readGeminiCluster().keys.map(k => ({ masked: `AIza...${k.key.slice(-6)}`, alias: k.alias, status: k.status, lastChecked: k.lastChecked, latency: k.latency || 'N/A' }));
     res.json({ total: safeKeys.length, active: safeKeys.filter(k => k.status === 'ACTIVE').length, keys: safeKeys });
@@ -422,7 +425,7 @@ app.post('/api/cluster/gemini/audit', async (req, res) => {
         const mask = `AIza...${item.key.slice(-6)}`;
         const start = Date.now();
         try {
-            const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models', { headers: { 'x-goog-api-key': item.key } });
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${item.key}`);
             const latency = `${Date.now() - start}ms`;
             if (resp.ok) { item.status = 'ACTIVE'; item.latency = latency; item.lastChecked = new Date().toISOString(); validKeys.push(item); auditLogs.push(`[ACK] GEMINI ${mask} -> ACTIVE (${latency})`); }
             else if (resp.status === 400 || resp.status === 403) { auditLogs.push(`[PURGE] GEMINI ${mask} -> HTTP ${resp.status} (Revoked). DELETED.`); }
@@ -434,7 +437,6 @@ app.post('/api/cluster/gemini/audit', async (req, res) => {
     res.json({ success: true, remainingActive: validKeys.filter(k => k.status === 'ACTIVE').length, totalRemaining: validKeys.length, logs: auditLogs });
 });
 
-// Dynamic Model Registry for Cockpit
 app.get('/api/models/active', async (req, res) => {
     const activeNimKeys = getActiveNimKeys();
     const activeGroqKeys = getActiveGroqKeys();
@@ -452,7 +454,7 @@ app.get('/api/models/active', async (req, res) => {
     }
     if (activeGeminiKeys.length > 0) {
         try {
-            const gemRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models', { headers: { 'x-goog-api-key': activeGeminiKeys[0] } });
+            const gemRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${activeGeminiKeys[0]}`);
             if (gemRes.ok) {
                 const gData = await gemRes.json();
                 geminiModels = (gData.models || []).filter(m => m.supportedGenerationMethods?.includes("generateContent")).map(m => ({ id: m.name.replace('models/', ''), name: m.displayName || m.name.replace('models/', ''), tag: 'GEMINI' }));
@@ -468,10 +470,6 @@ app.get('/api/models/active', async (req, res) => {
 
     res.json({ tiers });
 });
-
-// ==========================================
-// CORE MCNC EXECUTION ROUTES
-// ==========================================
 
 app.post('/api/orchestrate/turn', async (req, res) => {
     const { turnId, payload } = req.body;
@@ -515,32 +513,25 @@ app.post('/api/chat', async (req, res) => {
         const targetDirector = req.body?.director || 'ALL DIRECTORS // AUTO-ROUTING';
         const rawRequestedModel = req.body?.model || 'meta/llama-3.3-70b-instruct';
         
-        // MONTY'S BRAIN: Intercept and force optimal routing based on Capability Matrix
         const optimalModel = routeToOptimalModel(targetDirector, rawRequestedModel);
         req.body.model = optimalModel; 
 
-        // Load core Base 1 souls
         const montySoul = loadSoul('monty');
         const mikeSoul = loadSoul('mike');
         const liveTelemetry = getLiveSystemSnapshot();
         
-        // Dynamically load the targeted Director's soul file
         let directorSoul = "";
         if (targetDirector && !targetDirector.includes('AUTO-ROUTING') && !targetDirector.includes('ROUND-ROBIN')) {
-            // Extracts "CHARLIE" from "CHARLIE // CODE" and loads matching .md file
             const baseName = targetDirector.split(' // ')[0].toLowerCase().trim();
             directorSoul = loadSoul(baseName);
         }
         
-        // Construct the Master System Prompt
         let systemPrompt = liveTelemetry + "\n\n" + WARLORD_CORE_DIRECTIVE;
         if (montySoul) systemPrompt += `\n\n=== CHIEF OF STAFF PROTOCOL (MONTY) ===\n${montySoul}`;
         if (mikeSoul) systemPrompt += `\n\n=== COMMANDER PROFILE & INNER CIRCLE (MIKE) ===\n${mikeSoul}`;
         
-        // Inject the active Director's specific SOPs into the payload
         if (directorSoul) {
             systemPrompt += `\n\n=== ACTIVE DIRECTOR PROTOCOL (${targetDirector}) ===\n${directorSoul}`;
-            console.log(`[SOUL INJECTED] Successfully loaded protocol for: ${targetDirector}`);
         }
         
         const { reply, modelUsed } = await dispatchToBrain(systemPrompt, req.body);
@@ -591,6 +582,148 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     res.json({ status: 'UPLOADED', filePath: req.file.path, filename: req.file.filename });
 });
 
+// ==========================================
+// TAB 12 & 13: OBSIDIAN VAULT OPERATIONS
+// ==========================================
+
+app.post('/api/harvest', async (req, res) => {
+    try {
+        const { url, contentDump, topicDomain, specialization } = req.body;
+        
+        let sourceMaterial = "";
+        
+        if (url && url.trim().length > 0) {
+            sourceMaterial += `SOURCE URL: ${url.trim()}\n\n`;
+            const videoId = extractYouTubeId(url.trim());
+            
+            if (videoId) {
+                try {
+                    const transcriptArr = await YoutubeTranscript.fetchTranscript(videoId);
+                    const fetchedTranscript = transcriptArr.map(t => t.text).join(' ');
+                    sourceMaterial += `=== YOUTUBE TRANSCRIPT SCRAPED ===\n${fetchedTranscript}\n\n`;
+                    console.log(`[HARVEST TACTICAL] Transcript extracted: ${fetchedTranscript.length} characters.`);
+                } catch (ytErr) {
+                    console.warn(`[HARVEST WARN] Failed to grab transcript for ${videoId}:`, ytErr.message);
+                    return res.status(400).json({ error: `Transcript extraction failed: ${ytErr.message}` });
+                }
+            } else {
+                return res.status(400).json({ error: 'CRITICAL FAILURE: Invalid YouTube URL format.' });
+            }
+        }
+
+        if (contentDump && contentDump.trim().length > 0) {
+            sourceMaterial += `=== RAW CONTENT DUMP ===\n${contentDump.trim()}\n\n`;
+        }
+
+        if (!sourceMaterial.trim() || sourceMaterial === `SOURCE URL: ${url.trim()}\n\n`) {
+            return res.status(400).json({ error: "No URL or transcript extracted for processing." });
+        }
+
+        console.log(`[HARVEST DISPATCH] Domain: ${topicDomain} // Specialization: ${specialization}. Raw length: ${sourceMaterial.length}`);
+
+        const systemPrompt = `You are MONTY, the Base 1 Intelligence Refinery Daemon.
+Your objective is to perform a 'Fluff-to-Nugget' extraction.
+DOMAIN: ${topicDomain}
+SPECIALIZATION: ${specialization}
+
+INSTRUCTIONS:
+1. Strip all narrative fluff, filler words, sponsorships, and irrelevant tangents.
+2. Extract only the high-value, actionable "nuggets" (code blocks, core concepts, tactical data, quantitative metrics).
+3. Format the output in clean Warlord Master Markdown (### for headers, bullet points).
+4. Do not include introductory or concluding conversational text. Output ONLY the refined dossier content.`;
+
+        // EXPLICIT BYPASS OF OPENROUTER: ROUTE STRICTLY TO GEMINI FOR 1M TOKEN CONTEXT WINDOW
+        const harvestPayload = { model: 'gemini-1.5-pro', prompt: sourceMaterial };
+        const { reply, modelUsed } = await dispatchToBrain(systemPrompt, harvestPayload);
+
+        res.json({ nugget: reply, activeModelUsed: modelUsed });
+    } catch (error) {
+        console.error('[HARVEST ERROR]:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/docs', (req, res) => {
+    try {
+        if (!fs.existsSync(VAULT_PATH)) return res.json([]);
+        const files = fs.readdirSync(VAULT_PATH).filter(f => f.endsWith('.md'));
+        
+        const docs = files.map(file => {
+            const rawContent = fs.readFileSync(path.join(VAULT_PATH, file), 'utf8');
+            let title = file.replace('.md', '');
+            let domain = 'Vault';
+            let niche = 'General';
+            
+            const lines = rawContent.split('\n');
+            const domainLine = lines.find(l => l.toUpperCase().includes('DOMAIN:'));
+            const nicheLine = lines.find(l => l.toUpperCase().includes('NICHE:'));
+            if (domainLine) domain = domainLine.split(':')[1].trim();
+            if (nicheLine) niche = nicheLine.split(':')[1].trim();
+
+            return { filename: file, title, domain, niche, content: rawContent };
+        });
+        res.json(docs);
+    } catch (err) {
+        console.error('[DOCS LIST ERROR]:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/docs/save', (req, res) => {
+    const { filename, title, domain, specialization, niche, content, pruneAndMerge } = req.body;
+    try {
+        let saveName = filename;
+        if (!saveName) {
+            const safeDomain = (domain || 'Vault').replace(/[^a-zA-Z0-9_-]/g, '');
+            const safeNiche = (specialization || niche || 'General').replace(/[^a-zA-Z0-9_-]/g, '_');
+            saveName = `${safeDomain}_${safeNiche}.md`;
+        }
+
+        const fullPath = path.join(VAULT_PATH, saveName);
+        
+        if (pruneAndMerge && fs.existsSync(fullPath)) {
+            const existingContent = fs.readFileSync(fullPath, 'utf8');
+            const mergedContent = existingContent + "\n\n---\n\n" + content;
+            fs.writeFileSync(fullPath, mergedContent, 'utf8');
+            console.log(`[VAULT WRITE] Appended document to ${fullPath}`);
+            res.json({ message: 'Appended to existing dossier in Vault.', filename: saveName });
+        } else {
+            fs.writeFileSync(fullPath, content || '', 'utf8');
+            console.log(`[VAULT WRITE] Created document ${fullPath}`);
+            res.json({ message: 'Dossier committed to Vault successfully.', filename: saveName });
+        }
+    } catch (err) {
+        console.error('[VAULT WRITE ERROR]:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/docs/prune', async (req, res) => {
+    try {
+        const { filePath } = req.body;
+        if (!filePath || !fs.existsSync(filePath)) {
+            return res.status(400).json({ status: 'ERROR', error: 'File path invalid or not found.' });
+        }
+
+        const rawContent = fs.readFileSync(filePath, 'utf8');
+        
+        const systemPrompt = `You are MONTY, the Base 1 Intelligence Refinery Daemon.
+Your objective is to PRUNE and DISTILL the provided dossier file.
+1. Remove duplicate information, conversational fluff, and redundant vectors.
+2. Consolidate the core operational signals, rules of engagement, code snippets, and hard metrics.
+3. Maintain clean Markdown formatting. Do not output anything other than the final refined file content.`;
+
+        const prunePayload = { model: 'gemini-1.5-pro', prompt: rawContent };
+        const { reply } = await dispatchToBrain(systemPrompt, prunePayload);
+
+        fs.writeFileSync(filePath, reply.trim(), 'utf8');
+        res.json({ status: 'SUCCESS', content: reply.trim() });
+    } catch (error) {
+        console.error('[PRUNE ERROR]:', error);
+        res.status(500).json({ status: 'ERROR', error: error.message });
+    }
+});
+
 app.get('/', (req, res) => res.render('layout'));
 
 app.get('/api/status', (req, res) => {
@@ -600,8 +733,9 @@ app.get('/api/status', (req, res) => {
 const PORT = process.env.PORT || 8081;
 server.listen(PORT, () => {
     console.log(`====================================================`);
-    console.log(`[BASE 1 MASTER DAEMON]    : Port ${PORT}`);
+    console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
     console.log(`[COMPUTE ARCHITECTURE]   : Multi-Cluster Vaults -> OpenRouter Shield`);
     console.log(`[INTELLIGENCE MATRIX]    : Director Capability Routing Active`);
+    console.log(`[OBSIDIAN VAULT]         : ${VAULT_PATH}`);
     console.log(`====================================================`);
 });

@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
+const { YoutubeTranscript } = require('youtube-transcript');
 
 const app = express();
 const server = http.createServer(app);
@@ -22,8 +23,9 @@ app.set('views', path.join(__dirname, 'views'));
 const SOULS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'souls');
 const LOGS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC_Logs');
 const UPLOADS_PATH = path.join(__dirname, 'uploads');
+const VAULT_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC_Vault'); // Explicit Vault target for Tab 13
 
-[LOGS_PATH, UPLOADS_PATH].forEach(dir => {
+[LOGS_PATH, UPLOADS_PATH, VAULT_PATH].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -88,6 +90,30 @@ function extractPromptText(body) {
     return "Directive audit and status report.";
 }
 
+// ARMORED YOUTUBE PARSER: Safely extracts the 11-character ID, ignoring playlists & timestamps
+function extractYouTubeId(urlStr) {
+    if (!urlStr) return null;
+    try {
+        const urlObj = new URL(urlStr);
+        if (urlObj.hostname.includes('youtube.com')) {
+            if (urlObj.pathname === '/watch') {
+                return urlObj.searchParams.get('v');
+            }
+            if (urlObj.pathname.startsWith('/embed/') || urlObj.pathname.startsWith('/v/')) {
+                return urlObj.pathname.split('/')[2];
+            }
+        }
+        if (urlObj.hostname.includes('youtu.be')) {
+            return urlObj.pathname.slice(1);
+        }
+    } catch (e) {
+        // Fallback regex if URL parsing fails
+        const match = urlStr.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+        return match ? match[1] : null;
+    }
+    return null;
+}
+
 async function dispatchToBrain(systemPrompt, rawBody) {
     const validContent = extractPromptText(rawBody);
     const requestedModel = rawBody?.selectedModel || rawBody?.model || 'openrouter/openai/gpt-4o';
@@ -95,7 +121,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 
     console.log(`\n========================================`);
     console.log(`[DISPATCH] Target Brain: "${requestedModel}"`);
-    console.log(`[DISPATCH] User Input  : "${validContent}"`);
+    console.log(`[DISPATCH] User Input  : "${validContent.substring(0, 50)}..."`);
 
     // Tier 1: Local Ollama
     if (reqModelLower.includes('local') || reqModelLower.includes('ollama')) {
@@ -135,7 +161,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                     { role: 'user', content: validContent }
                 ],
                 temperature: 0.3,
-                max_tokens: 2048
+                max_tokens: 4096
             })
         });
         if (!response.ok) throw new Error(`NVIDIA Error ${response.status}: ${await response.text()}`);
@@ -170,7 +196,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                 { role: 'user', content: validContent }
             ],
             temperature: 0.3,
-            max_tokens: 4096
+            max_tokens: 8192
         })
     });
     if (!response.ok) throw new Error(`OpenRouter Error ${response.status}: ${await response.text()}`);
@@ -181,6 +207,9 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     return { reply: content.trim(), modelUsed: targetModel };
 }
 
+// ----------------------------------------------------
+// TAB 01 EXEC & TAB 02 WAR ROOM // STANDARD CHAT ROUTE
+// ----------------------------------------------------
 app.post('/api/chat', async (req, res) => {
     try {
         const montySoul = loadSoul('monty');
@@ -198,6 +227,124 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
+// ----------------------------------------------------
+// TAB 12 REVIEW // HARVEST ROUTE (YOUTUBE TRANSCRIPTS)
+// ----------------------------------------------------
+app.post('/api/harvest', async (req, res) => {
+    const { url, contentDump, topicDomain, specialization } = req.body;
+    try {
+        let transcriptText = contentDump || '';
+
+        // If a YouTube link is provided, attempt extraction
+        if (url && url.trim().length > 0) {
+            const videoId = extractYouTubeId(url.trim());
+            if (!videoId) {
+                return res.status(400).json({ error: 'CRITICAL FAILURE: Invalid YouTube URL format.' });
+            }
+
+            console.log(`[HARVEST TACTICAL] YouTube ID parsed: ${videoId}. Extracting transcript...`);
+            try {
+                const transcriptArr = await YoutubeTranscript.fetchTranscript(videoId);
+                const fetchedTranscript = transcriptArr.map(t => t.text).join(' ');
+                
+                // If a manual dump was also provided, prepend the fetched transcript
+                if (transcriptText) {
+                    transcriptText = `${fetchedTranscript}\n\n=== MANUAL DUMP ===\n${transcriptText}`;
+                } else {
+                    transcriptText = fetchedTranscript;
+                }
+                console.log(`[HARVEST TACTICAL] Transcript extracted: ${fetchedTranscript.length} characters.`);
+            } catch (ytErr) {
+                console.warn(`[HARVEST WARN] Failed to grab transcript for ${videoId}:`, ytErr.message);
+                return res.status(400).json({ error: `Transcript extraction failed: ${ytErr.message}` });
+            }
+        }
+
+        if (!transcriptText || transcriptText.trim().length === 0) {
+            return res.status(400).json({ 
+                error: 'No content extracted. The YouTube video may lack captions, or the raw dump box was empty.' 
+            });
+        }
+
+        console.log(`[HARVEST DISPATCH] Domain: ${topicDomain} // Specialization: ${specialization}. Raw length: ${transcriptText.length}`);
+
+        const harvestSystemPrompt = `You are MONTY, Chief of Staff.
+Your objective: Process the raw intelligence transcript provided by the user.
+Target Domain: ${topicDomain}
+Target Sub-Niche: ${specialization}
+
+Strict Guidelines:
+1. Strip out all YouTube fluff (sponsors, "like and subscribe", small talk).
+2. Distill into pure, actionable tactical intelligence.
+3. Use Warlord Master markdown formatting (### for headers, bold for terms, bullet points for brevity).
+4. Do not output anything outside of the pure markdown payload. Do not say "Here is your summary".
+5. Structure:
+   ### Video / Context Details
+   ### Extracted Nuggets
+   ### Core Directives / Action Plan`;
+
+        // Send payload to OpenRouter GPT-4o for primary intel extraction
+        const { reply, modelUsed } = await dispatchToBrain(harvestSystemPrompt, { prompt: transcriptText, model: 'openrouter/openai/gpt-4o' });
+        
+        return res.json({ nugget: reply, modelUsed });
+
+    } catch (err) {
+        console.error('[HARVEST ROUTE ERROR]:', err.message);
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+// ----------------------------------------------------
+// TAB 13 DOCS // OBSIDIAN VAULT OPERATIONS
+// ----------------------------------------------------
+app.get('/api/docs', (req, res) => {
+    try {
+        if (!fs.existsSync(VAULT_PATH)) return res.json([]);
+        const files = fs.readdirSync(VAULT_PATH).filter(f => f.endsWith('.md'));
+        
+        const docs = files.map(file => {
+            const rawContent = fs.readFileSync(path.join(VAULT_PATH, file), 'utf8');
+            let title = file.replace('.md', '');
+            let domain = 'Vault';
+            let niche = 'General';
+            
+            // Very simple markdown frontmatter or line parser to extract metadata if present
+            const lines = rawContent.split('\n');
+            const domainLine = lines.find(l => l.toUpperCase().includes('DOMAIN:'));
+            const nicheLine = lines.find(l => l.toUpperCase().includes('NICHE:'));
+            if (domainLine) domain = domainLine.split(':')[1].trim();
+            if (nicheLine) niche = nicheLine.split(':')[1].trim();
+
+            return { filename: file, title, domain, niche, content: rawContent };
+        });
+        res.json(docs);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/docs/save', (req, res) => {
+    const { filename, title, domain, specialization, niche, content } = req.body;
+    try {
+        let saveName = filename;
+        if (!saveName) {
+            // Used by Tab 12 Harvest push
+            const safeDomain = (domain || 'Vault').replace(/[^a-zA-Z0-9_-]/g, '');
+            const safeNiche = (specialization || niche || 'General').replace(/[^a-zA-Z0-9_-]/g, '_');
+            saveName = `${safeDomain}_${safeNiche}.md`;
+        }
+
+        const fullPath = path.join(VAULT_PATH, saveName);
+        fs.writeFileSync(fullPath, content || '', 'utf8');
+        console.log(`[VAULT WRITE] Document saved to ${fullPath}`);
+        res.json({ message: 'Dossier committed to Vault successfully.', filename: saveName });
+    } catch (err) {
+        console.error('[VAULT WRITE ERROR]:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
 app.post('/api/upload', upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
     res.json({ status: 'UPLOADED', filePath: req.file.path, filename: req.file.filename });
@@ -212,6 +359,7 @@ app.get('/api/status', (req, res) => {
         bridge: 'ACTIVE',
         port: PORT,
         director_board: SOULS_PATH,
+        vault: VAULT_PATH,
         ws_clients_connected: wss.clients.size
     });
 });
@@ -233,5 +381,6 @@ server.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`[BASE 1 MASTER DAEMON]    : Port ${PORT}`);
     console.log(`[SOULS DIRECTORY]         : ${SOULS_PATH}`);
+    console.log(`[OBSIDIAN VAULT]          : ${VAULT_PATH}`);
     console.log(`====================================================`);
 });
