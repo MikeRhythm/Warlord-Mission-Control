@@ -26,7 +26,7 @@ app.set('views', path.join(__dirname, 'views'));
 // ==========================================
 const SOULS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'souls');
 const LOGS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC_Logs');
-const VAULT_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC_Vault'); 
+const VAULT_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'vault');
 const UPLOADS_PATH = path.join(__dirname, 'uploads');
 const VAULT_DIR = path.join(__dirname, 'vault');
 const TELEMETRY_DIR = path.join(VAULT_DIR, 'telemetry');
@@ -49,7 +49,7 @@ const upload = multer({ storage });
 const WARLORD_CORE_DIRECTIVE = `You are MONTY, Chief of Staff for Warlord MCNC Base 1.
 Operational control, planning, and agent orchestration under Rhythm Holdings and W.A.S.P.
 Commander Mike (The Warlord) is supreme command.
-DIRECTORS: Tess (Quant), Silas (Database), Charlie (MQL5/Node), Roxy (UI/UX), Jack (Marketing).
+DIRECTORS: Tess (Quant), Silas (Database), Charlie (MQL5/Node), Roxy (UI/UX), Jack (Marketing), Skyla (Frontend), Atlas (Infrastructure), Ares (Execution), Vance (Finance), Orion (Strategic Intel), The Askari (Security), Amber (Copywriter), Jax (Artwork Omega), Valerie (Relations), Maverick (SEO), Justin (Risk Legal).
 SOP: Full functional code only. Solid DodgerBlue, OrangeRed, Goldenrod lines only for chart indicators. High Finance palette for UI. Zero filler.
 RHYTHM MULTIPLIER: Enforce 0.0 to 1.0 scaling on quantitative and telemetry arrays. Default 1.0.`;
 
@@ -188,7 +188,7 @@ function getNextActiveKey(clusterType) {
 }
 
 // ==========================================
-// CAPABILITY ROUTING MATRIX (MONTY'S BRAIN)
+// CAPABILITY ROUTING MATRIX (MONTY'S BRAIN - 16 DIRECTORS)
 // ==========================================
 const DIRECTOR_TRAITS = {
     'CHARLIE // CODE': 'CODE',
@@ -306,7 +306,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 
     console.warn(`[!] CLUSTERS EXHAUSTED OR ELITE MODEL REQUESTED. ENGAGING OPENROUTER SHIELD...`);
     let fallbackSlug = requestedModel;
-    if (!reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/') && !reqModelLower.includes('google/') && !reqModelLower.includes('deepseek/')) {
+    if (!reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/') && !reqModelLower.includes('google/')) {
         fallbackSlug = 'meta-llama/llama-3.3-70b-instruct';
     }
     const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, fallbackSlug);
@@ -542,6 +542,105 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
+// ==========================================
+// TAB 06 MEMORY // PERSISTENT CONTEXT
+// ==========================================
+app.get('/api/memory', (req, res) => {
+    try {
+        const memoryNodes = [];
+
+        // Recursive file collector for nested Obsidian vault directories
+        const getAllFiles = (dirPath, arrayOfFiles = []) => {
+            if (!fs.existsSync(dirPath)) return arrayOfFiles;
+            const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+            entries.forEach(entry => {
+                const fullPath = path.join(dirPath, entry.name);
+                if (entry.isDirectory()) {
+                    if (entry.name !== '.obsidian' && entry.name !== '.git') {
+                        getAllFiles(fullPath, arrayOfFiles);
+                    }
+                } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.txt') || entry.name.endsWith('.json'))) {
+                    arrayOfFiles.push(fullPath);
+                }
+            });
+            return arrayOfFiles;
+        };
+
+        // 1. DIRECTIVES & CORE (souls folder - All 16 Directors)
+        if (fs.existsSync(SOULS_PATH)) {
+            const soulFiles = fs.readdirSync(SOULS_PATH).filter(f => f.endsWith('.md') || f.endsWith('.txt'));
+            soulFiles.forEach(file => {
+                const fullPath = path.join(SOULS_PATH, file);
+                const content = fs.readFileSync(fullPath, 'utf8');
+                const title = file.replace(/\.(md|txt)$/, '').replace(/_/g, ' ').toUpperCase();
+                memoryNodes.push({
+                    id: `core-${file}`,
+                    title: `DIRECTIVE // ${title}`,
+                    category: 'system',
+                    content: content,
+                    updated: fs.statSync(fullPath).mtime.toLocaleString()
+                });
+            });
+        }
+
+        // 2. SESSION CACHE (telemetry folder)
+        if (fs.existsSync(TELEMETRY_DIR)) {
+            const telemetryFiles = fs.readdirSync(TELEMETRY_DIR).filter(f => f.endsWith('.md') || f.endsWith('.json') || f.endsWith('.log'));
+            telemetryFiles.forEach(file => {
+                const fullPath = path.join(TELEMETRY_DIR, file);
+                const content = fs.readFileSync(fullPath, 'utf8');
+                memoryNodes.push({
+                    id: `ephemeral-${file}`,
+                    title: `SESSION // ${file}`,
+                    category: 'ephemeral',
+                    content: content,
+                    updated: fs.statSync(fullPath).mtime.toLocaleString()
+                });
+            });
+        }
+
+        // 3. AGENT CHECKPOINTS (System_Evolution proposals & checkpoints)
+        const proposalsDir = path.join(VAULT_DIR, 'System_Evolution', 'Proposals');
+        if (fs.existsSync(proposalsDir)) {
+            const propFiles = fs.readdirSync(proposalsDir).filter(f => f.endsWith('.json') || f.endsWith('.md'));
+            propFiles.forEach(file => {
+                const fullPath = path.join(proposalsDir, file);
+                const content = fs.readFileSync(fullPath, 'utf8');
+                memoryNodes.push({
+                    id: `checkpoint-${file}`,
+                    title: `CHECKPOINT // ${file}`,
+                    category: 'agents',
+                    content: content,
+                    updated: fs.statSync(fullPath).mtime.toLocaleString()
+                });
+            });
+        }
+
+        // 4. VECTOR / RAG INDEX (Deep scan across MCNC_Vault root + all nested subfolders)
+        if (fs.existsSync(VAULT_PATH)) {
+            const vaultFiles = getAllFiles(VAULT_PATH);
+            vaultFiles.forEach(fullPath => {
+                if (!fullPath.includes('telemetry') && !fullPath.includes('System_Evolution')) {
+                    const content = fs.readFileSync(fullPath, 'utf8');
+                    const relativeName = path.relative(VAULT_PATH, fullPath).replace(/\\/g, ' > ').replace('.md', '');
+                    memoryNodes.push({
+                        id: `rag-${Buffer.from(fullPath).toString('base64')}`,
+                        title: `RAG VECTOR // ${relativeName}`,
+                        category: 'rag',
+                        content: content,
+                        updated: fs.statSync(fullPath).mtime.toLocaleString()
+                    });
+                }
+            });
+        }
+
+        res.json({ status: 'SUCCESS', nodes: memoryNodes });
+    } catch (err) {
+        console.error('[MEMORY API ERROR]:', err.message);
+        res.status(500).json({ status: 'ERROR', error: err.message, nodes: [] });
+    }
+});
+
 app.get('/api/evolution/proposals', (req, res) => {
     try {
         const propDir = path.join(__dirname, 'vault', 'System_Evolution', 'Proposals');
@@ -735,7 +834,7 @@ server.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
     console.log(`[COMPUTE ARCHITECTURE]   : Multi-Cluster Vaults -> OpenRouter Shield`);
-    console.log(`[INTELLIGENCE MATRIX]    : Director Capability Routing Active`);
+    console.log(`[INTELLIGENCE MATRIX]    : 16-Director Capability Matrix Active`);
     console.log(`[OBSIDIAN VAULT]         : ${VAULT_PATH}`);
     console.log(`====================================================`);
 });
