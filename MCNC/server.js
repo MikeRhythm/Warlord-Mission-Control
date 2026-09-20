@@ -222,6 +222,55 @@ function routeToOptimalModel(director, fallbackModel) {
 }
 
 // ==========================================
+// KAGGLE LIVE PROBE ENGINE (NON-BLOCKING)
+// ==========================================
+let kaggleHealthCache = {
+    isLive: false,
+    lastChecked: 0,
+    latency: 'N/A'
+};
+
+async function verifyKaggleTunnel() {
+    const now = Date.now();
+    if (now - kaggleHealthCache.lastChecked < 8000) {
+        return kaggleHealthCache.isLive;
+    }
+
+    const tunnelBase = process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL;
+    if (!tunnelBase) {
+        kaggleHealthCache = { isLive: false, lastChecked: now, latency: 'OFFLINE' };
+        return false;
+    }
+
+    const cleanBase = tunnelBase.replace(/\/+$/, '');
+    const probeUrl = cleanBase.endsWith('/v1') ? `${cleanBase}/models` : `${cleanBase}/v1/models`;
+
+    const start = Date.now();
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+        const response = await fetch(probeUrl, {
+            method: 'GET',
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        const latency = `${Date.now() - start}ms`;
+        if (response.ok) {
+            kaggleHealthCache = { isLive: true, lastChecked: now, latency };
+            return true;
+        } else {
+            kaggleHealthCache = { isLive: false, lastChecked: now, latency: `HTTP_${response.status}` };
+            return false;
+        }
+    } catch (e) {
+        kaggleHealthCache = { isLive: false, lastChecked: now, latency: 'TIMEOUT/OFFLINE' };
+        return false;
+    }
+}
+
+// ==========================================
 // ROUTING ENGINE (KAGGLE COMPUTE + IN-FLIGHT ROLLOVER)
 // ==========================================
 
@@ -229,7 +278,6 @@ async function dispatchToKaggle(systemPrompt, userText, modelSlug) {
     let tunnelBase = process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL;
     if (!tunnelBase) throw new Error("KAGGLE_TUNNEL_URL missing from .env");
 
-    // Clean trailing slashes
     tunnelBase = tunnelBase.replace(/\/+$/, '');
     const targetUrl = tunnelBase.endsWith('/v1') ? `${tunnelBase}/chat/completions` : `${tunnelBase}/v1/chat/completions`;
 
@@ -286,21 +334,26 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     const validContent = extractPromptText(rawBody);
     const requestedModel = rawBody?.model || 'meta/llama-3.3-70b-instruct';
     const reqModelLower = requestedModel.toLowerCase();
-    const computeMode = (process.env.COMPUTE_MODE || process.env.VITE_COMPUTE_MODE || '').toUpperCase();
+    const computeMode = (process.env.COMPUTE_MODE || process.env.VITE_COMPUTE_MODE || 'STANDBY').toUpperCase();
     const kaggleUrl = process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL;
 
     console.log(`\n========================================`);
-    console.log(`[DISPATCH] Target Model: "${requestedModel}" | Mode: "${computeMode || 'STANDARD'}"`);
+    console.log(`[DISPATCH] Target Model: "${requestedModel}" | Mode: "${computeMode}"`);
 
-    // 1. TIER 0: KAGGLE FREE CLOUD COMPUTE BRIDGE
+    // 1. TIER 0: KAGGLE FREE CLOUD COMPUTE BRIDGE (Only if toggled ON and responding)
     if (computeMode === 'KAGGLE' && kaggleUrl) {
-        try {
-            const kaggleModel = (requestedModel.includes('/') || requestedModel.includes('gemini')) ? 'qwen2.5:7b' : requestedModel;
-            const reply = await dispatchToKaggle(systemPrompt, validContent, kaggleModel);
-            return { reply: reply.trim(), modelUsed: `${kaggleModel} (Kaggle Dual-T4)` };
-        } catch (kaggleErr) {
-            console.warn(`[WARN] Kaggle Compute Failed (${kaggleErr.message}). Rolling over to Multi-Cluster...`);
-            broadcast('WARN', `[ROLLOVER] Kaggle unreachable. Engaging Multi-Cluster Vaults...`);
+        const isTunnelLive = await verifyKaggleTunnel();
+        if (isTunnelLive) {
+            try {
+                const kaggleModel = (requestedModel.includes('/') || requestedModel.includes('gemini')) ? 'qwen2.5:7b' : requestedModel;
+                const reply = await dispatchToKaggle(systemPrompt, validContent, kaggleModel);
+                return { reply: reply.trim(), modelUsed: `${kaggleModel} (Kaggle Dual-T4)` };
+            } catch (kaggleErr) {
+                console.warn(`[WARN] Kaggle Compute Failed (${kaggleErr.message}). Rolling over to Multi-Cluster...`);
+                broadcast('WARN', `[ROLLOVER] Kaggle unreachable. Engaging Multi-Cluster Vaults...`);
+            }
+        } else {
+            console.warn(`[WARN] Kaggle Mode is KAGGLE but Tunnel is DEAD. Rolling over...`);
         }
     }
 
@@ -500,11 +553,12 @@ app.post('/api/cluster/gemini/audit', async (req, res) => {
 
 app.get('/api/models/active', async (req, res) => {
     const activeNimKeys = getActiveNimKeys();
-    const activeGroqKeys = getActiveGroqKeys();
     const activeGeminiKeys = getActiveGeminiKeys();
-    const computeMode = (process.env.COMPUTE_MODE || process.env.VITE_COMPUTE_MODE || '').toUpperCase();
-    const kaggleUrl = process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL;
-    let nimModels = []; let groqModels = []; let geminiModels = [];
+    const computeMode = (process.env.COMPUTE_MODE || 'STANDBY').toUpperCase();
+    const isLive = computeMode === 'KAGGLE' ? await verifyKaggleTunnel() : false;
+
+    let nimModels = [];
+    let geminiModels = [];
 
     if (activeNimKeys.length > 0) {
         try {
@@ -526,7 +580,7 @@ app.get('/api/models/active', async (req, res) => {
     }
 
     const tiers = [];
-    if (computeMode === 'KAGGLE' && kaggleUrl) {
+    if (isLive) {
         tiers.push({
             category: 'TIER 0: KAGGLE FREE CLOUD COMPUTE (DUAL T4 32GB)',
             models: [
@@ -608,7 +662,6 @@ app.post('/api/chat', async (req, res) => {
         }
         
         const { reply, modelUsed } = await dispatchToBrain(systemPrompt, req.body);
-        
         return res.json({ reply, activeModelUsed: modelUsed });
     } catch (err) {
         return res.status(500).json({ reply: `Daemon execution error: ${err.message}`, activeModelUsed: 'ERROR' });
@@ -892,17 +945,64 @@ Your objective is to PRUNE and DISTILL the provided dossier file.
 
 app.get('/', (req, res) => res.render('layout'));
 
-app.get('/api/status', (req, res) => {
-    const computeMode = (process.env.COMPUTE_MODE || process.env.VITE_COMPUTE_MODE || '').toUpperCase();
-    const kaggleActive = computeMode === 'KAGGLE' && Boolean(process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL);
+// ==========================================
+// SYSTEM STATUS & DYNAMIC COMPUTE TOGGLES
+// ==========================================
+
+app.get('/api/status', async (req, res) => {
+    const computeMode = (process.env.COMPUTE_MODE || 'STANDBY').toUpperCase();
+    const isLive = computeMode === 'KAGGLE' ? await verifyKaggleTunnel() : false;
+
     res.json({ 
         status: 'ONLINE', 
         station: 'Base 1 Command', 
         bridge: 'ACTIVE', 
-        compute_mode: computeMode || 'STANDARD',
-        kaggle_gpu_online: kaggleActive,
+        compute_mode: computeMode,
+        kaggle_gpu_online: isLive,
+        kaggle_latency: kaggleHealthCache.latency,
         port: PORT, 
         ws_clients_connected: wss.clients.size 
+    });
+});
+
+// Toggle Kaggle Mode: ACTIVE <-> STANDBY
+app.post('/api/compute/toggle', async (req, res) => {
+    const current = (process.env.COMPUTE_MODE || 'STANDBY').toUpperCase();
+    process.env.COMPUTE_MODE = current === 'KAGGLE' ? 'STANDBY' : 'KAGGLE';
+    const isKaggle = process.env.COMPUTE_MODE === 'KAGGLE';
+    
+    kaggleHealthCache.lastChecked = 0;
+    const isLive = isKaggle ? await verifyKaggleTunnel() : false;
+
+    console.log(`[COMPUTE TOGGLE] Mode switched to: ${process.env.COMPUTE_MODE} (Live: ${isLive})`);
+    broadcast('COMPUTE_MODE_CHANGED', { compute_mode: process.env.COMPUTE_MODE, kaggle_gpu_online: isLive });
+    
+    res.json({
+        success: true,
+        compute_mode: process.env.COMPUTE_MODE,
+        kaggle_gpu_online: isLive,
+        kaggle_latency: kaggleHealthCache.latency
+    });
+});
+
+// Update Kaggle Tunnel URL dynamically from UI
+app.post('/api/compute/tunnel', async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL required' });
+
+    process.env.KAGGLE_TUNNEL_URL = url.trim();
+    process.env.COMPUTE_MODE = 'KAGGLE';
+    kaggleHealthCache.lastChecked = 0;
+    const isLive = await verifyKaggleTunnel();
+
+    console.log(`[TUNNEL UPDATED] New URL: ${process.env.KAGGLE_TUNNEL_URL} (Live: ${isLive})`);
+    broadcast('TRACE', `[COMPUTE] Updated Kaggle Tunnel -> ${isLive ? 'ONLINE' : 'UNREACHABLE'}`);
+
+    res.json({
+        success: true,
+        tunnel_url: process.env.KAGGLE_TUNNEL_URL,
+        kaggle_gpu_online: isLive,
+        latency: kaggleHealthCache.latency
     });
 });
 
@@ -910,7 +1010,7 @@ const PORT = process.env.PORT || 8081;
 server.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
-    console.log(`[COMPUTE ARCHITECTURE]   : Kaggle Dual-T4 -> Multi-Cluster -> OpenRouter Shield`);
+    console.log(`[COMPUTE ARCHITECTURE]   : Kaggle Dual-T4 (Handshake Probed) -> Multi-Cluster -> OpenRouter Shield`);
     console.log(`[INTELLIGENCE MATRIX]    : 16-Director Capability Matrix Active`);
     console.log(`[OBSIDIAN VAULT]         : ${VAULT_PATH}`);
     console.log(`====================================================`);

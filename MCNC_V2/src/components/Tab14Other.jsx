@@ -6,13 +6,16 @@ const INITIAL_PIPELINE = [
     { id: 'openclaw', name: 'OpenClaw Gateway', port: '18789', status: 'ONLINE', tag: '[ + ONLINE ]' },
     { id: 'paperclip', name: 'Paperclip Orchestrator', port: '3100', status: 'ONLINE', tag: '[ + ONLINE ]' },
     { id: 'mcnc', name: 'MCNC Dashboard', port: '5173', status: 'ONLINE', tag: '[ + ONLINE ]' },
-    { id: 'bridge', name: 'Warlord Bridge', port: '8081', status: 'OFFLINE', tag: '[ - OFFLINE ]' },
+    { id: 'bridge', name: 'Warlord Bridge', port: '8081', status: 'ONLINE', tag: '[ + ONLINE ]' },
+    { id: 'kaggle', name: 'Kaggle GPU Compute (Dual T4)', port: 'BRIDGE', status: 'STANDBY', tag: '[ - STANDBY ]' },
     { id: 'vpn', name: 'Paris VPN (Contabo Uplink)', port: 'TUN0', status: 'SECURE', tag: '[ + SECURE ]' }
 ];
 
 export default function Tab14Other({ ws }) {
     const [pipeline, setPipeline] = useState(INITIAL_PIPELINE);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [computeMode, setComputeMode] = useState('STANDARD');
+    const [kaggleOnline, setKaggleOnline] = useState(false);
     
     // Cluster States
     const [nimStats, setNimStats] = useState({ total: 0, active: 0, keys: [] });
@@ -31,6 +34,7 @@ export default function Tab14Other({ ws }) {
     const [isAuditingNim, setIsAuditingNim] = useState(false);
     const [isAuditingGroq, setIsAuditingGroq] = useState(false);
     const [isAuditingGemini, setIsAuditingGemini] = useState(false);
+    const [isProbingKaggle, setIsProbingKaggle] = useState(false);
 
     const [traceLogs, setTraceLogs] = useState([
         { id: 1, ts: new Date().toTimeString().split(' ')[0], text: '[SYSTEM] Tab 14 live telemetry initialized.' }
@@ -63,17 +67,56 @@ export default function Tab14Other({ ws }) {
             const res = await fetch('http://127.0.0.1:8081/api/status');
             if (res.ok) {
                 const data = await res.json();
-                setPipeline(prev => prev.map(p => p.id === 'bridge' ? { ...p, status: 'ONLINE', tag: '[ + ONLINE ]' } : p));
-                addTrace(`[RESULT] Bridge ONLINE. WS Clients: ${data.ws_clients_connected}`);
+                setComputeMode(data.compute_mode || 'STANDARD');
+                setKaggleOnline(Boolean(data.kaggle_gpu_online));
+
+                setPipeline(prev => prev.map(p => {
+                    if (p.id === 'bridge') {
+                        return { ...p, status: 'ONLINE', tag: '[ + ONLINE ]' };
+                    }
+                    if (p.id === 'kaggle') {
+                        const isOnline = Boolean(data.kaggle_gpu_online);
+                        return {
+                            ...p,
+                            status: isOnline ? 'ONLINE' : 'STANDBY',
+                            tag: isOnline ? '[ + ONLINE ]' : '[ - STANDBY ]'
+                        };
+                    }
+                    return p;
+                }));
+                addTrace(`[RESULT] Bridge ONLINE. Compute Mode: ${data.compute_mode || 'STANDARD'}. WS Clients: ${data.ws_clients_connected}`);
+                if (data.kaggle_gpu_online) {
+                    addTrace('[COMPUTE] Kaggle Dual-T4 GPU Bridge verified ONLINE.');
+                }
             } else {
                 throw new Error('Bad response');
             }
         } catch (err) {
-            setPipeline(prev => prev.map(p => p.id === 'bridge' ? { ...p, status: 'OFFLINE', tag: '[ - OFFLINE ]' } : p));
+            setPipeline(prev => prev.map(p => (p.id === 'bridge' || p.id === 'kaggle') ? { ...p, status: 'OFFLINE', tag: '[ - OFFLINE ]' } : p));
             addTrace('[WARN] Warlord Bridge (8081) offline or unreachable.');
         } finally {
             setIsRefreshing(false);
             fetchClusterStats();
+        }
+    };
+
+    const handleProbeKaggle = async () => {
+        setIsProbingKaggle(true);
+        addTrace('[PROBE] Testing Kaggle Dual-T4 Tunnel Latency...');
+        const start = Date.now();
+        try {
+            const res = await fetch('http://127.0.0.1:8081/api/status');
+            const data = await res.json();
+            const latency = Date.now() - start;
+            if (data.kaggle_gpu_online) {
+                addTrace(`[PROBE ACK] Kaggle Tunnel Reachable (${latency}ms) - COMPUTE_MODE: ${data.compute_mode}`);
+            } else {
+                addTrace(`[PROBE WARN] Kaggle reporting STANDBY or disabled in .env (${latency}ms)`);
+            }
+        } catch (err) {
+            addTrace(`[PROBE FAILED] ${err.message}`);
+        } finally {
+            setIsProbingKaggle(false);
         }
     };
 
@@ -142,7 +185,6 @@ export default function Tab14Other({ ws }) {
 
     const onlineCount = pipeline.filter(p => p.status === 'ONLINE' || p.status === 'SECURE').length;
 
-    // Helper to render the ingestion modals
     const renderModal = (type) => {
         const isNim = type === 'NIM';
         const isGroq = type === 'GROQ';
@@ -195,6 +237,10 @@ export default function Tab14Other({ ws }) {
                 </div>
                 <div className="pipe-summary-pills" style={{ margin: 0, display: 'flex', gap: '6px' }}>
                     <div className="pipe-pill" style={{ margin: 0, padding: '4px 8px' }}>
+                        <span className="lbl" style={{ fontSize: '0.6rem' }}>COMPUTE:</span>
+                        <span className="val" style={{ color: kaggleOnline ? '#10b981' : '#C88A35', fontSize: '0.65rem' }}>{computeMode}</span>
+                    </div>
+                    <div className="pipe-pill" style={{ margin: 0, padding: '4px 8px' }}>
                         <span className="lbl" style={{ fontSize: '0.6rem' }}>NIM:</span>
                         <span className="val" style={{ color: '#10b981', fontSize: '0.65rem' }}>{nimStats.active} ACT</span>
                     </div>
@@ -208,7 +254,7 @@ export default function Tab14Other({ ws }) {
                     </div>
                     <div className="pipe-pill" style={{ margin: 0, padding: '4px 8px' }}>
                         <span className="lbl" style={{ fontSize: '0.6rem' }}>SYS:</span>
-                        <span className="val" style={{ color: onlineCount >= 5 ? '#00FF66' : '#C88A35', fontSize: '0.65rem' }}>{onlineCount}/6 UP</span>
+                        <span className="val" style={{ color: onlineCount >= 6 ? '#00FF66' : '#C88A35', fontSize: '0.65rem' }}>{onlineCount}/7 UP</span>
                     </div>
                 </div>
             </div>
@@ -227,7 +273,7 @@ export default function Tab14Other({ ws }) {
                         {pipeline.map(item => (
                             <div key={item.id} className="hud-line">
                                 <span className="hud-service-name">{item.name} ({item.port}):</span>
-                                <span className={`hud-tag ${item.status === 'ONLINE' ? 'tag-online' : item.status === 'SECURE' ? 'tag-secure' : 'tag-offline'}`}>{item.tag}</span>
+                                <span className={`hud-tag ${item.status === 'ONLINE' ? 'tag-online' : item.status === 'SECURE' ? 'tag-secure' : item.status === 'STANDBY' ? 'tag-secure' : 'tag-offline'}`}>{item.tag}</span>
                             </div>
                         ))}
                         <div className="hud-actions">
@@ -242,6 +288,20 @@ export default function Tab14Other({ ws }) {
                     </div>
 
                     <div className="endpoints-grid">
+                        {/* KAGGLE DUAL-T4 FREE COMPUTE CLUSTER TILE */}
+                        <div className="endpoint-mini" style={{ border: `1px solid ${kaggleOnline ? 'rgba(234, 179, 8, 0.6)' : 'rgba(140, 98, 57, 0.3)'}`, background: 'rgba(234, 179, 8, 0.03)' }}>
+                            <div className="endpoint-mini-header">
+                                <span style={{ color: '#eab308', fontWeight: 'bold' }}>Kaggle Dual-T4 (32GB VRAM)</span>
+                                <span style={{ color: kaggleOnline ? '#00FF66' : '#FF4444' }}>{kaggleOnline ? 'ACTIVE BRIDGE' : 'STANDBY'}</span>
+                            </div>
+                            <div className="endpoint-mini-meta" style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: '#8a7e72', fontSize: '0.65rem' }}>MODE: <b style={{ color: '#eab308' }}>{computeMode}</b></span>
+                                <button onClick={handleProbeKaggle} disabled={isProbingKaggle} style={{ background: 'transparent', border: '1px solid rgba(234,179,8,0.5)', color: '#eab308', fontSize: '0.65rem', cursor: 'pointer', borderRadius: '2px', padding: '2px 8px', fontWeight: 'bold' }}>
+                                    {isProbingKaggle ? 'PROBING...' : 'PROBE BRIDGE'}
+                                </button>
+                            </div>
+                        </div>
+
                         {/* NVIDIA NIM CLUSTER TILE */}
                         <div className="endpoint-mini" style={{ border: '1px solid rgba(16, 185, 129, 0.4)' }}>
                             <div className="endpoint-mini-header">
@@ -266,18 +326,6 @@ export default function Tab14Other({ ws }) {
                             </div>
                         </div>
 
-                        {/* STATIC OPENROUTER TILE */}
-                        <div className="endpoint-mini">
-                            <div className="endpoint-mini-header">
-                                <span>OpenRouter Multi-LLM</span>
-                                <span style={{ color: '#00FF66' }}>65ms</span>
-                            </div>
-                            <div className="endpoint-mini-meta">
-                                <span>STATUS: <b>ONLINE</b></span>
-                                <button onClick={() => addTrace('[PING] Probing OpenRouter... OK')} style={{ background: 'transparent', border: '1px solid rgba(200,138,53,0.3)', color: '#C88A35', fontSize: '0.65rem', cursor: 'pointer', borderRadius: '2px', padding: '1px 5px' }}>PING</button>
-                            </div>
-                        </div>
-
                         {/* GOOGLE GEMINI CLUSTER TILE */}
                         <div className="endpoint-mini" style={{ border: '1px solid rgba(56, 189, 248, 0.4)' }}>
                             <div className="endpoint-mini-header">
@@ -289,18 +337,30 @@ export default function Tab14Other({ ws }) {
                                 <button onClick={() => handleAuditCluster('GEMINI')} disabled={isAuditingGemini} style={{ background: 'transparent', border: '1px solid rgba(56,189,248,0.5)', color: '#38bdf8', fontSize: '0.65rem', cursor: 'pointer', borderRadius: '2px', padding: '3px 8px', fontWeight: 'bold' }}>{isAuditingGemini ? 'AUDITING...' : 'AUDIT & PURGE'}</button>
                             </div>
                         </div>
+
+                        {/* STATIC OPENROUTER TILE */}
+                        <div className="endpoint-mini">
+                            <div className="endpoint-mini-header">
+                                <span>OpenRouter Multi-LLM</span>
+                                <span style={{ color: '#00FF66' }}>65ms</span>
+                            </div>
+                            <div className="endpoint-mini-meta">
+                                <span>STATUS: <b>ONLINE</b></span>
+                                <button onClick={() => addTrace('[PING] Probing OpenRouter... OK')} style={{ background: 'transparent', border: '1px solid rgba(200,138,53,0.3)', color: '#C88A35', fontSize: '0.65rem', cursor: 'pointer', borderRadius: '2px', padding: '1px 5px' }}>PING</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* RIGHT: DIAGNOSTIC LOG */}
                 <div className="pipe-card">
                     <div className="pipe-card-titlebar">
-                        <span>HOW TO RESTORE THE 3 DOWN PILLARS</span>
+                        <span>HOW TO RESTORE THE DOWN PILLARS</span>
                         <span style={{ fontSize: '0.7rem', color: '#FF4444' }}>ACTION REQUIRED</span>
                     </div>
                     <div style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(140,98,57,0.2)', padding: '12px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.72rem', color: '#E8D5B5', lineHeight: '1.6' }}>
                         <div><b style={{ color: '#C88A35' }}>1. Warlord Bridge (8081):</b></div>
-                        <div style={{ color: '#8A7E72' }}>Open terminal in <span style={{ color: '#fff' }}>C:\Warlord_Inc\Warlord_WASP\MCNC_V2</span> and run:</div>
+                        <div style={{ color: '#8A7E72' }}>Open terminal in <span style={{ color: '#fff' }}>C:\Warlord_Inc\Warlord_WASP\MCNC</span> and run:</div>
                         <div style={{ color: '#00FF66', margin: '2px 0 8px 0' }}>node server.js</div>
                         <div><b style={{ color: '#C88A35' }}>2. Paperclip Orchestrator (3100):</b></div>
                         <div style={{ color: '#8A7E72' }}>Launch Paperclip daemon on Base 1:</div>

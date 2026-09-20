@@ -18,6 +18,21 @@ export function initGlobalInterceptor() {
 
   const originalFetch = window.fetch;
   window.fetch = async (...args) => {
+    const resource = args[0];
+    const url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+
+    // Ignore read-only background polling so the spinner does not flicker
+    const isTelemetryPoll = (
+      url.includes('/api/status') ||
+      url.includes('/api/cluster/') ||
+      url.includes('11434') ||
+      url.includes('trycloudflare.com')
+    );
+
+    if (isTelemetryPoll) {
+      return await originalFetch(...args);
+    }
+
     activeOperations++;
     notify();
     try {

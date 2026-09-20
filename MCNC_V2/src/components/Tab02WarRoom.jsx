@@ -67,12 +67,44 @@ export default function Tab02WarRoom({ ws }) {
   const [streamLog, setStreamLog] = useState([]);
   const [copiedFeed, setCopiedFeed] = useState(false);
 
+  // Kaggle Live Bridge & Bank Quota Telemetry
+  const [isKaggleOnline, setIsKaggleOnline] = useState(false);
+  const [remainingQuotaHours, setRemainingQuotaHours] = useState('27.5');
+
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
   const recognitionRef = useRef(null);
   const streamBottomRef = useRef(null);
 
   useEffect(() => { streamBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [streamLog]);
+
+  // Sync remaining quota from localStorage & poll backend status
+  const updateKaggleTelemetry = async () => {
+    try {
+      const savedHours = localStorage.getItem('MCNC_KAGGLE_WEEKLY_HOURS');
+      const used = savedHours !== null ? parseFloat(savedHours) : 2.5;
+      const rem = Math.max(0, 30.0 - used).toFixed(1);
+      setRemainingQuotaHours(rem);
+
+      const res = await fetch('http://127.0.0.1:8081/api/status');
+      if (res.ok) {
+        const data = await res.json();
+        setIsKaggleOnline(Boolean(data.kaggle_gpu_online));
+      }
+    } catch (e) {
+      setIsKaggleOnline(false);
+    }
+  };
+
+  useEffect(() => {
+    updateKaggleTelemetry();
+    const interval = setInterval(updateKaggleTelemetry, 8000);
+    window.addEventListener('storage', updateKaggleTelemetry);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', updateKaggleTelemetry);
+    };
+  }, []);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -252,9 +284,10 @@ export default function Tab02WarRoom({ ws }) {
       } else {
         setIsLLMExecuting(true);
         try {
+          const modelTarget = selectedLLM === 'KAGGLE-T4' ? 'qwen2.5:7b' : selectedLLM;
           const response = await fetch('http://127.0.0.1:8081/api/chat', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: inputBuffer, model: selectedLLM, project: selectedProject })
+            body: JSON.stringify({ prompt: inputBuffer, model: modelTarget, project: selectedProject })
           });
           const data = await response.json();
           setStreamLog(prev => [...prev, { id: Date.now(), sender: `BOARDROOM // [${data.activeModelUsed || selectedLLM}]`, text: data.error ? `Daemon error: ${data.error}` : data.reply, type: data.error ? 'error' : 'agent' }]);
@@ -362,25 +395,62 @@ export default function Tab02WarRoom({ ws }) {
               <div className="p-2 space-y-1 bg-[#0a0c0e]">
                 {BOARDROOM_OPTIONS.map((model) => {
                   const isSelected = selectedLLM === model.id;
-                  let statusText = 'STANDBY'; let statusColor = 'text-[#5c6b7f] bg-[#1f242d]'; let isSpinning = false;
-                  if (isSelected) {
-                    if (analysisMode === 'BOARDROOM' && (isEliteCascading || isLLMExecuting)) { statusText = 'ACTIVE'; statusColor = 'text-black bg-[#38bdf8]'; isSpinning = true; } 
-                    else if (workflowState === 'MONTY_APPROVED' || workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED') { statusText = 'LOCKED'; statusColor = 'text-black bg-[#10b981]'; }
+                  let statusText = 'STANDBY'; 
+                  let statusColor = 'text-[#5c6b7f] bg-[#1f242d]'; 
+                  let isSpinning = false;
+
+                  if (model.id === 'KAGGLE-T4') {
+                    const remNum = parseFloat(remainingQuotaHours);
+                    if (remNum <= 0) {
+                      statusText = 'EXPIRED (0.0h)';
+                      statusColor = 'text-[#ef4444] bg-[#ef4444]/20 border border-[#ef4444]/40';
+                    } else if (isKaggleOnline) {
+                      statusText = `ACTIVE (${remainingQuotaHours}h)`;
+                      statusColor = 'text-[#10b981] bg-[#10b981]/20 border border-[#10b981]/40';
+                    } else {
+                      statusText = 'STANDBY';
+                      statusColor = 'text-[#5c6b7f] bg-[#1f242d]';
+                    }
                   }
+
+                  if (isSelected) {
+                    if (analysisMode === 'BOARDROOM' && (isEliteCascading || isLLMExecuting)) { 
+                      statusText = 'ACTIVE'; 
+                      statusColor = 'text-black bg-[#38bdf8]'; 
+                      isSpinning = true; 
+                    } else if (workflowState === 'MONTY_APPROVED' || workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED') { 
+                      statusText = 'LOCKED'; 
+                      statusColor = 'text-black bg-[#10b981]'; 
+                    }
+                  }
+
                   if (isEliteCascading && selectedLLM === 'ELITE_CASCADE' && model.id !== 'ELITE_CASCADE') {
                     const activeModelId = ELITE_CASCADE_STEPS[eliteCascadeIndex]?.id;
-                    if (activeModelId && activeModelId.includes(model.id.split('-')[0])) { statusText = 'ANALYZING'; statusColor = 'text-black bg-[#38bdf8]'; isSpinning = true; } 
-                    else { statusText = 'LOCKED'; statusColor = 'text-black bg-[#10b981]'; }
+                    if (activeModelId && activeModelId.includes(model.id.split('-')[0])) { 
+                      statusText = 'ANALYZING'; 
+                      statusColor = 'text-black bg-[#38bdf8]'; 
+                      isSpinning = true; 
+                    } else { 
+                      statusText = 'LOCKED'; 
+                      statusColor = 'text-black bg-[#10b981]'; 
+                    }
                   }
+
                   let tagColor = 'bg-[#1f242d] text-[#5c6b7f]';
-                  if (statusText === 'STANDBY') {
-                      if (model.tag === 'ELITE') tagColor = 'bg-[#1f242d] text-[#5c6b7f]';
-                      else if (model.tag === 'FREE') tagColor = 'bg-[#10b981]/20 text-[#10b981]';
+                  if (statusText === 'STANDBY' && model.id !== 'KAGGLE-T4') {
+                    if (model.tag === 'ELITE') tagColor = 'bg-[#1f242d] text-[#5c6b7f]';
+                    else if (model.tag === 'FREE') tagColor = 'bg-[#10b981]/20 text-[#10b981]';
                   }
+
                   return (
                     <button key={model.id} onClick={() => setSelectedLLM(model.id)} className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${isSelected ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold' : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'}`}>
-                      <div className="flex items-center gap-2">{isSpinning && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#38bdf8]" />}<span className="truncate pr-1">{model.name}</span></div>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${statusText === 'STANDBY' ? tagColor : statusColor}`}>{statusText === 'STANDBY' ? model.tag : statusText}</span>
+                      <div className="flex items-center gap-2">
+                        {isSpinning && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#38bdf8]" />}
+                        <span className="truncate pr-1">{model.name}</span>
+                      </div>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${model.id === 'KAGGLE-T4' && !isSelected ? statusColor : (statusText === 'STANDBY' ? tagColor : statusColor)}`}>
+                        {model.id === 'KAGGLE-T4' ? statusText : (statusText === 'STANDBY' ? model.tag : statusText)}
+                      </span>
                     </button>
                   );
                 })}
