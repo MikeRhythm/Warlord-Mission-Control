@@ -1,421 +1,318 @@
 ﻿import React, { useState } from 'react';
-import { Copy, Edit3, Trash2, Plus, Download, Upload, Check, Layers, Sparkles, X } from 'lucide-react';
-import './Tab08Palettes.css';
+import { Download, Plus, Trash2, Copy, Check, Upload } from 'lucide-react';
 
-const INITIAL_PALETTES = [
-  {
-    id: 'high-finance',
-    name: 'High Finance Master',
-    description: 'Core terminal palette: Obsidian, Jet-Black, Onyx, Gold Core, Emerald, Ruby',
-    colors: [
-      { name: 'Obsidian Black', hex: '#0a0a0c', role: 'Main Background' },
-      { name: 'Metal Onyx', hex: '#16191f', role: 'Card Surfaces' },
-      { name: 'Gold Core', hex: '#FFB800', role: 'Active Accents & Headers' },
-      { name: 'Goldenrod Sand', hex: '#EEDD82', role: 'Body Typography' },
-      { name: 'Emerald Core', hex: '#00FF66', role: 'Live State / Success' },
-      { name: 'Ruby Core', hex: '#FF3344', role: 'Standby / Error' },
-      { name: 'Wire Border', hex: 'rgba(255, 184, 0, 0.15)', role: 'Dividers' }
-    ],
-    assets: [
-      { id: 'hf-mesh', name: 'Micro-Grid Mesh', type: 'CSS Overlay', token: 'radial-gradient(rgba(255,184,0,0.05) 1px, transparent 0)', desc: 'Telemetry background texture' }
-    ]
-  },
-  {
-    id: 'african-weaves',
-    name: 'African Weaves & Earth',
-    description: 'Kente, Kasai, Mudcloth geometric motifs & Zambezi earth mineral tones',
-    colors: [
-      { name: 'Kalahari Sand', hex: '#C29B38', role: 'Primary Ochre' },
-      { name: 'Zambezi River Bed', hex: '#1F2421', role: 'Deep Sediment Black' },
-      { name: 'Kasai Terracotta', hex: '#B85D19', role: 'Earth Ceramic Accent' },
-      { name: 'Domwe Granitic', hex: '#5A6365', role: 'Island Granite Core' },
-      { name: 'Mumbo Cyan Water', hex: '#2A9D8F', role: 'Lake Malawi Mineral' },
-      { name: 'Raw Acacia Charcoal', hex: '#14120E', role: 'Dense Charcoal Border' }
-    ],
-    assets: [
-      { id: 'weave-chevron', name: 'Kasai Geometric Chevron', type: 'Weave Pattern', token: 'repeating-linear-gradient(45deg, #1f2421, #1f2421 10px, #b85d19 10px, #b85d19 20px)', desc: 'Linear chevron rhythmic lattice' },
-      { id: 'weave-basket', name: 'Zambezi Reed Lattice', type: 'Weave Pattern', token: 'repeating-linear-gradient(0deg, #14120e 0, #14120e 4px, #c29b38 4px, #c29b38 8px)', desc: 'Woven river reed crosshatch' },
-      { id: 'mudcloth-dash', name: 'Bamako Mudcloth Glyph', type: 'Motif Stamp', token: 'data-glyph="mudcloth-v1"', desc: 'Geometric tribal dash motif' }
-    ]
-  }
+const HIGH_FINANCE_MASTER = [
+  { name: "Specular Pale Champagne", hex: "#e6e5c5", token: "--metal-champagne-specular", role: "High-Value Sheen", metallic: "linear-gradient(90deg, #6e6b4e 0%, #d8d7b2 25%, #fffee4 50%, #9e9c73 75%, #59573e 100%)" },
+  { name: "Deep Milled Champagne", hex: "#b5b084", token: "--metal-champagne-milled", role: "Low-Glare Panel", metallic: "linear-gradient(90deg, #3d3b2a 0%, #87835f 30%, #dedcbd 50%, #636147 70%, #29281d 100%)" },
+  { name: "Silvery Sage Luster", hex: "#b2c2b6", token: "--metal-sage-luster", role: "Telemetry Panel", metallic: "linear-gradient(90deg, #516358 0%, #a4b7ab 25%, #e1ebe3 50%, #768a7d 75%, #425248 100%)" },
+  { name: "Tactical Deep Sage", hex: "#6c8072", token: "--metal-sage-tactical", role: "Alloy Border", metallic: "linear-gradient(90deg, #242e27 0%, #56695d 30%, #9db5a5 50%, #44544a 70%, #171f1a 100%)" },
+  { name: "Muted Olive Titanium", hex: "#8a9685", token: "--metal-olive-specular", role: "Chassis Armor", metallic: "linear-gradient(90deg, #444e40 0%, #85917f 25%, #c5d1bf 50%, #5d6958 75%, #323b2e 100%)" },
+  { name: "Shadow Olive Drab", hex: "#545d50", token: "--metal-olive-shadow", role: "Military Ground", metallic: "linear-gradient(90deg, #1e241c 0%, #485244 30%, #7e8c78 50%, #3a4237 70%, #121711 100%)" },
+  { name: "Brushed Slate Gunmetal", hex: "#687373", token: "--metal-slate-gunmetal", role: "Structural Rail", metallic: "linear-gradient(90deg, #252b2b 0%, #636f6f 25%, #9da8a8 50%, #454f4f 75%, #181d1d 100%)" },
+  { name: "Dark Milled Slate", hex: "#404949", token: "--metal-slate-milled", role: "Dark Rail", metallic: "linear-gradient(90deg, #131717 0%, #363e3e 30%, #6b7777 50%, #2a3030 70%, #0d0f0f 100%)" },
+  { name: "Antique Raw Bronze", hex: "#8c7f56", token: "--metal-bronze-sheen", role: "Commodity Accent", metallic: "linear-gradient(90deg, #2a2517 0%, #6d6342 25%, #baa97b 50%, #544c33 75%, #19160d 100%)" },
+  { name: "Cool Platinum Silver", hex: "#c5d1d6", token: "--metal-silver-cool", role: "Sovereign Badges", metallic: "linear-gradient(90deg, #3d464b 0%, #8b9ea6 25%, #edf4f7 50%, #5f6d74 75%, #252b2e 100%)" },
+  { name: "Glacier Titanium Blue", hex: "#9cb8c4", token: "--metal-glacier-blue", role: "Velocity Subtext", metallic: "linear-gradient(90deg, #2d414a 0%, #6c8d9c 25%, #d1e8f2 50%, #4a6673 75%, #1a272d 100%)" },
+  { name: "Teal Gunmetal Shadow", hex: "#304347", token: "--metal-teal-gunmetal", role: "Card Backdrops", metallic: "linear-gradient(90deg, #0e1617 0%, #29383c 25%, #5a747b 50%, #1f2b2e 75%, #080d0e 100%)" },
+  { name: "Anodized Cobalt Quant", hex: "#5d99c4", token: "--metal-cobalt-quant", role: "Quant Signal", metallic: "linear-gradient(90deg, #1e3c54 0%, #477c9f 25%, #a6d8fb 50%, #2f5975 75%, #112332 100%)" },
+  { name: "Metallic Maroon Oxblood", hex: "#783c3c", token: "--metal-maroon-oxblood", role: "Critical Fault", metallic: "linear-gradient(90deg, #311313 0%, #834040 25%, #c57d7d 50%, #5a2727 75%, #1c0808 100%)" },
+  { name: "Brushed Sepia Rose", hex: "#9c827c", token: "--metal-sepia-rose", role: "Executive Badges", metallic: "linear-gradient(90deg, #443431 0%, #997e78 25%, #dac1bc 50%, #6b5550 75%, #251b19 100%)" },
+  { name: "Deep Umber Bronze", hex: "#6e5952", token: "--metal-umber-bronze", role: "Armor Plates", metallic: "linear-gradient(90deg, #281d1a 0%, #6f5851 25%, #ab9189 50%, #4b3934 75%, #160e0c 100%)" },
+  { name: "Specular Pure Chrome", hex: "#d8dfe4", token: "--metal-chrome-specular", role: "Core Highlights", metallic: "linear-gradient(90deg, #3e484e 0%, #9cb2be 25%, #ffffff 50%, #677c87 75%, #20272b 100%)" },
+  { name: "Obsidian Steel Carbon", hex: "#30363a", token: "--metal-obsidian-carbon", role: "Contrast Base", metallic: "linear-gradient(90deg, #0d1012 0%, #2f363b 25%, #59646b 50%, #21272b 75%, #080a0b 100%)" },
+  { name: "High-Glare Mirror Chrome", hex: "#f0f2f5", token: "--metal-mirror-chrome", role: "Rim Highlight", metallic: "linear-gradient(90deg, #33393f 0%, #b8c2cc 25%, #ffffff 50%, #8a96a3 75%, #1e2226 100%)" },
+  { name: "Brushed Pure Aluminum", hex: "#c8cfd6", token: "--metal-pure-aluminum", role: "Cockpit Bezels", metallic: "linear-gradient(90deg, #475058 0%, #a2adba 25%, #e4eaf0 50%, #6d7885 75%, #2a3036 100%)" },
+  { name: "Hardened Titanium Slate", hex: "#8c97a0", token: "--metal-hardened-titanium", role: "Enclosures", metallic: "linear-gradient(90deg, #2b333a 0%, #6b7782 25%, #b4c0cb 50%, #4a545e 75%, #1b2126 100%)" },
+  { name: "Deep Anodized Cyan", hex: "#27474d", token: "--metal-anodized-cyan", role: "Tactical Sub-Panels", metallic: "linear-gradient(90deg, #09191c 0%, #224950 25%, #46828d 50%, #17363b 75%, #061113 100%)" },
+  { name: "Stealth Carbon Abyss", hex: "#151e21", token: "--metal-stealth-abyss", role: "Chassis Ground", metallic: "linear-gradient(90deg, #06090a 0%, #152226 25%, #2a3c42 50%, #0e171a 75%, #030505 100%)" }
 ];
 
-export default function Tab08Palettes({ ws }) {
-  const [palettes, setPalettes] = useState(INITIAL_PALETTES);
+export default function Tab08Palettes() {
+  const [palettes, setPalettes] = useState([
+    { id: 'high-finance', name: 'High Finance Master', swatches: HIGH_FINANCE_MASTER },
+    {
+      id: 'african-earth',
+      name: 'African Weaves & Earth',
+      swatches: [
+        { name: 'Dark Ochre', hex: '#8b4513', token: '--earth-ochre', role: 'Foundation Clay', metallic: 'linear-gradient(145deg, #a0522d, #8b4513)' },
+        { name: 'Zambezi Sand', hex: '#d2b48c', token: '--sand-zambezi', role: 'River Basins', metallic: 'linear-gradient(145deg, #f5deb3, #d2b48c)' },
+        { name: 'Raw Acacia', hex: '#4a3b32', token: '--wood-acacia', role: 'Bark / Timber', metallic: 'linear-gradient(145deg, #5c4033, #4a3b32)' },
+        { name: 'Copper Sunrise', hex: '#b87333', token: '--copper-sun', role: 'Highlands Accent', metallic: 'linear-gradient(135deg, #d48e4d, #b87333)' }
+      ]
+    }
+  ]);
+
   const [activePaletteId, setActivePaletteId] = useState('high-finance');
-  
-  // Creation & Editing states
-  const [newColorName, setNewColorName] = useState('');
-  const [newColorHex, setNewColorHex] = useState('#FFB800');
-  const [newColorRole, setNewColorRole] = useState('UI Token');
-  
-  // Modals & Overlays
-  const [editingSwatch, setEditingSwatch] = useState(null); // { index, name, hex, role }
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [bulkDumpText, setBulkDumpText] = useState('');
-  const [copiedStatus, setCopiedStatus] = useState('');
+  const [copiedHex, setCopiedHex] = useState(null);
+  const [showDumpModal, setShowDumpModal] = useState(false);
+  const [rawDumpText, setRawDumpText] = useState('');
+
+  const [newName, setNewName] = useState('');
+  const [newHex, setNewHex] = useState('#ffb800');
+  const [newToken, setNewToken] = useState('');
+  const [newRole, setNewRole] = useState('');
 
   const activePalette = palettes.find(p => p.id === activePaletteId) || palettes[0];
 
-  const copyToClipboard = (text, label) => {
+  const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
-    setCopiedStatus(`COPIED: ${label}`);
-    setTimeout(() => setCopiedStatus(''), 2000);
+    setCopiedHex(text);
+    setTimeout(() => setCopiedHex(null), 1500);
   };
 
-  const handleAddColor = () => {
-    if (!newColorName.trim()) return;
-    const updated = palettes.map(pal => {
-      if (pal.id === activePaletteId) {
-        return {
-          ...pal,
-          colors: [...pal.colors, { name: newColorName.trim(), hex: newColorHex.trim(), role: newColorRole.trim() || 'Custom Token' }]
-        };
-      }
-      return pal;
-    });
-    setPalettes(updated);
-    setNewColorName('');
-    setNewColorRole('UI Token');
-  };
-
-  const handleDeleteSwatch = (index) => {
-    const updated = palettes.map(pal => {
-      if (pal.id === activePaletteId) {
-        const filteredColors = pal.colors.filter((_, i) => i !== index);
-        return { ...pal, colors: filteredColors };
-      }
-      return pal;
-    });
-    setPalettes(updated);
-  };
-
-  const handleSaveEditedSwatch = () => {
-    if (!editingSwatch || !editingSwatch.name.trim()) return;
-    const { index, name, hex, role } = editingSwatch;
-    const updated = palettes.map(pal => {
-      if (pal.id === activePaletteId) {
-        const newColors = [...pal.colors];
-        newColors[index] = { name: name.trim(), hex: hex.trim(), role: role.trim() };
-        return { ...pal, colors: newColors };
-      }
-      return pal;
-    });
-    setPalettes(updated);
-    setEditingSwatch(null);
-  };
-
-  // Bulk Dump Parser: Supports "Name: #HEX (Role)" or just hex lists
-  const handleBulkImport = () => {
-    if (!bulkDumpText.trim()) return;
-    const lines = bulkDumpText.split('\n');
-    const parsedColors = [];
-
-    lines.forEach(line => {
-      const hexMatch = line.match(/#([A-Fa-f0-9]{3,8})/);
-      if (hexMatch) {
-        const hex = hexMatch[0];
-        let remainder = line.replace(hex, '').replace(/[:,\(\)]/g, ' ').trim();
-        let name = remainder ? remainder.split(/\s+/)[0] + (remainder.split(/\s+/)[1] ? ' ' + remainder.split(/\s+/)[1] : '') : `Token ${parsedColors.length + 1}`;
-        let role = remainder.replace(name, '').trim() || 'Imported Asset';
-        parsedColors.push({ name: name.toUpperCase(), hex, role });
-      }
-    });
-
-    if (parsedColors.length === 0) {
-      alert('No valid HEX codes found in dump. Ensure format includes #HEX values.');
-      return;
-    }
-
-    const updated = palettes.map(pal => {
-      if (pal.id === activePaletteId) {
-        return { ...pal, colors: [...pal.colors, ...parsedColors] };
-      }
-      return pal;
-    });
-
-    setPalettes(updated);
-    setBulkDumpText('');
-    setIsBulkModalOpen(false);
-    setCopiedStatus(`IMPORTED ${parsedColors.length} SWATCHES`);
-    setTimeout(() => setCopiedStatus(''), 3000);
-  };
-
-  // Export Palette to JSON
-  const exportPaletteJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activePalette, null, 2));
+  const handleExportJson = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activePalette.swatches, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `${activePalette.id}_palette.json`);
+    downloadAnchor.setAttribute("download", `${activePalette.id}_tokens.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
   };
 
+  const handleDumpImport = () => {
+    try {
+      const parsed = JSON.parse(rawDumpText);
+      if (Array.isArray(parsed)) {
+        setPalettes(prev => prev.map(p => {
+          if (p.id === activePaletteId) return { ...p, swatches: parsed };
+          return p;
+        }));
+        setShowDumpModal(false);
+        setRawDumpText('');
+      } else {
+        alert('Invalid JSON: Must be an array.');
+      }
+    } catch (e) {
+      alert('JSON Parse Error: ' + e.message);
+    }
+  };
+
+  const handleAddSwatch = (e) => {
+    e.preventDefault();
+    if (!newName.trim() || !newHex.trim()) return;
+
+    const newSwatch = {
+      name: newName.trim(),
+      hex: newHex.trim(),
+      token: newToken.trim() || `--token-${Date.now()}`,
+      role: newRole.trim() || 'Custom Spec',
+      metallic: `linear-gradient(135deg, ${newHex}, #0d0f12)`
+    };
+
+    setPalettes(prev => prev.map(p => {
+      if (p.id === activePaletteId) return { ...p, swatches: [...p.swatches, newSwatch] };
+      return p;
+    }));
+
+    setNewName('');
+    setNewToken('');
+    setNewRole('');
+  };
+
+  const handleDeleteSwatch = (index) => {
+    setPalettes(prev => prev.map(p => {
+      if (p.id === activePaletteId) {
+        const updated = [...p.swatches];
+        updated.splice(index, 1);
+        return { ...p, swatches: updated };
+      }
+      return p;
+    }));
+  };
+
   return (
-    <div className="view-section tab-08-container" style={{ position: 'relative' }}>
+    <div className="flex flex-col h-full w-full bg-[#080a0c] text-xs font-mono select-none overflow-hidden p-3 gap-2.5">
       
-      {/* HEADER */}
-      <div className="palettes-header">
-        <div className="palettes-title-group">
-          <h2>08 PALETTES // ASSET &amp; DESIGN SYSTEM CORE</h2>
-          <p>Dynamic token management, bulk ingestion &bull; 1-click clipboard injection</p>
+      {/* HEADER BAR */}
+      <div className="flex items-center justify-between px-4 py-2 bg-[#0d0f12] border border-[#1f242d] rounded flex-shrink-0">
+        <div>
+          <span className="text-[#ffb800] font-black text-xs tracking-wider">08 PALETTES // HIGH FINANCE SWATCH COCKPIT</span>
+          <span className="text-[10px] text-[#5c6b7f] ml-3">({activePalette.swatches.length} Swatches Loaded • 1-Click Copy)</span>
         </div>
 
-        <div className="palettes-stats-strip">
-          {copiedStatus && (
-            <span style={{ color: '#00FF66', fontWeight: 'bold', fontFamily: 'monospace' }}>{copiedStatus}</span>
-          )}
-          <button 
-            onClick={exportPaletteJSON}
-            style={{ background: '#14171c', border: '1px solid #232832', color: '#ffb800', padding: '4px 10px', borderRadius: '3px', fontSize: '0.7rem', cursor: 'pointer', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '5px' }}
-            title="Export active palette as JSON"
-          >
-            <Download className="w-3 h-3" /> EXPORT JSON
-          </button>
-          <span style={{ color: 'var(--text-mist)' }}>PALETTES: {palettes.length}</span>
-        </div>
+        <button 
+          onClick={handleExportJson}
+          className="flex items-center gap-1.5 px-3 py-1 bg-[#14171c] text-[#ffb800] border border-[#ffb800]/40 rounded hover:bg-[#ffb800]/10 font-bold transition-all"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>EXPORT JSON</span>
+        </button>
       </div>
 
-      <div className="palettes-workspace">
-        {/* SIDEBAR */}
-        <aside className="palettes-sidebar">
-          <span style={{ fontSize: '0.75rem', color: 'var(--gold-core)', fontFamily: 'monospace' }}>ACTIVE PALETTES</span>
+      {/* MAIN CONTAINER */}
+      <div className="flex-1 flex gap-3 min-h-0 overflow-hidden">
+        
+        {/* LEFT COMPACT SIDEBAR */}
+        <div className="w-56 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-2.5 flex-shrink-0 gap-2">
+          <div className="text-[10px] text-[#5c6b7f] font-black tracking-widest uppercase">PALETTES</div>
           
-          <div className="palette-nav-list">
-            {palettes.map(pal => (
+          <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+            {palettes.map(p => (
               <button
-                key={pal.id}
-                className={`palette-select-btn ${activePalette.id === pal.id ? 'active' : ''}`}
-                onClick={() => setActivePaletteId(pal.id)}
+                key={p.id}
+                onClick={() => setActivePaletteId(p.id)}
+                className={`w-full flex items-center justify-between px-2.5 py-2 rounded text-left transition-all ${
+                  activePaletteId === p.id 
+                    ? 'bg-[#14171c] border border-[#ffb800] text-[#ffb800] font-bold shadow-[0_0_8px_rgba(255,184,0,0.15)]' 
+                    : 'bg-[#080a0c] border border-[#1f242d] text-[#8fa0b5] hover:border-[#38bdf8]/50 hover:text-white'
+                }`}
               >
-                <span>{pal.name}</span>
-                <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>{pal.colors.length}c</span>
+                <span className="truncate text-[11px]">{p.name}</span>
+                <span className="text-[9px] px-1 py-0.5 rounded bg-[#101317] border border-[#1f242d] text-[#5c6b7f]">
+                  {p.swatches.length}c
+                </span>
               </button>
             ))}
           </div>
 
-          <div className="flex flex-col gap-2 pt-2 border-t border-[#1f242d]">
+          <div className="space-y-1.5 pt-2 border-t border-[#1f242d]">
             <button 
-              className="btn-new-palette"
               onClick={() => {
-                const name = prompt('Enter new Palette Name:');
-                if (!name) return;
-                const id = name.toLowerCase().replace(/\s+/g, '-');
-                setPalettes([...palettes, { id, name, description: 'Custom User Palette', colors: [], assets: [] }]);
-                setActivePaletteId(id);
+                const name = prompt("Enter new palette name:");
+                if (name) {
+                  const id = name.toLowerCase().replace(/\s+/g, '-');
+                  setPalettes(prev => [...prev, { id, name, swatches: [] }]);
+                  setActivePaletteId(id);
+                }
               }}
+              className="w-full py-1.5 bg-[#14171c] text-[#8fa0b5] hover:text-[#ffb800] border border-[#1f242d] rounded font-bold transition-all text-center text-[10px]"
             >
-              + CREATE NEW PALETTE
+              + NEW PALETTE
             </button>
             <button 
-              className="btn-new-palette"
-              style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
-              onClick={() => setIsBulkModalOpen(true)}
+              onClick={() => setShowDumpModal(true)}
+              className="w-full py-1.5 bg-[#101317] text-[#38bdf8] hover:bg-[#38bdf8]/10 border border-[#38bdf8]/40 rounded font-bold transition-all flex items-center justify-center gap-1.5 text-[10px]"
             >
-              <Upload className="w-3 h-3 inline mr-1" /> BULK DATA DUMP
+              <Upload className="w-3 h-3" />
+              <span>BULK JSON DUMP</span>
             </button>
-          </div>
-        </aside>
-
-        {/* MAIN DECK */}
-        <main className="palettes-main-deck">
-          <div className="deck-section">
-            <div className="deck-section-title">
-              <span>COLOR SWATCHES // {activePalette.name.toUpperCase()}</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-mist)' }}>HOVER TO EDIT / DELETE &bull; CLICK TO COPY HEX</span>
-            </div>
-
-            <div className="swatch-grid">
-              {activePalette.colors.map((color, idx) => (
-                <div 
-                  key={idx} 
-                  className="swatch-card group relative" 
-                  title="Click to copy HEX code"
-                >
-                  {/* Hover Control Overlay */}
-                  <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-1 bg-[#0d0f12]/90 border border-[#232832] p-1 rounded z-10">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); copyToClipboard(color.hex, color.name); }}
-                      className="p-1 text-[#ffb800] hover:bg-[#ffb800]/20 rounded cursor-pointer"
-                      title="Copy HEX"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setEditingSwatch({ index: idx, ...color }); }}
-                      className="p-1 text-[#38bdf8] hover:bg-[#38bdf8]/20 rounded cursor-pointer"
-                      title="Edit Swatch"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleDeleteSwatch(idx); }}
-                      className="p-1 text-[#ef4444] hover:bg-[#ef4444]/20 rounded cursor-pointer"
-                      title="Delete Swatch"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  <div 
-                    className="swatch-color-box cursor-pointer" 
-                    style={{ background: color.hex }}
-                    onClick={() => copyToClipboard(color.hex, color.name)}
-                  ></div>
-                  <div className="swatch-info cursor-pointer" onClick={() => copyToClipboard(color.hex, color.name)}>
-                    <span className="swatch-name">{color.name}</span>
-                    <span className="swatch-hex">{color.hex}</span>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--gold-core)' }}>{color.role}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ADD SWATCH BAR */}
-            <div className="add-color-bar flex gap-2 items-center mt-3 bg-[#0d0f12] p-2 border border-[#1f242d] rounded">
-              <input 
-                type="color" 
-                value={newColorHex} 
-                onChange={(e) => setNewColorHex(e.target.value)} 
-                className="w-8 h-8 bg-transparent cursor-pointer border-none"
-              />
-              <input 
-                type="text" 
-                placeholder="Swatch Name (e.g. Copper Sun)..." 
-                value={newColorName}
-                onChange={(e) => setNewColorName(e.target.value)}
-                className="flex-1 bg-[#101317] text-[#e2e8f0] border border-[#1f242d] px-3 py-1.5 rounded text-xs outline-none focus:border-[#ffb800]"
-              />
-              <input 
-                type="text" 
-                placeholder="Role / Use Case..." 
-                value={newColorRole}
-                onChange={(e) => setNewColorRole(e.target.value)}
-                className="w-44 bg-[#101317] text-[#e2e8f0] border border-[#1f242d] px-3 py-1.5 rounded text-xs outline-none focus:border-[#ffb800]"
-              />
-              <button className="btn-add-token bg-[#ffb800] text-black font-bold px-4 py-1.5 rounded text-xs hover:bg-[#e6a600] cursor-pointer flex items-center gap-1" onClick={handleAddColor}>
-                <Plus className="w-3.5 h-3.5" /> ADD SWATCH
-              </button>
-            </div>
-          </div>
-
-          {/* ASSETS SECTION */}
-          <div className="deck-section mt-4">
-            <div className="deck-section-title">
-              <span>TEXTURES, WEAVES &amp; DESIGN ASSETS</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-mist)' }}>CLICK TO COPY TOKEN</span>
-            </div>
-
-            {activePalette.assets.length === 0 ? (
-              <div style={{ color: 'var(--text-mist)', fontSize: '0.8rem', fontStyle: 'italic', padding: '10px' }}>
-                // No textures or weaves loaded in this palette yet.
-              </div>
-            ) : (
-              <div className="asset-grid">
-                {activePalette.assets.map(asset => (
-                  <div key={asset.id} className="asset-card">
-                    <div 
-                      className="asset-preview-weave" 
-                      style={{ background: asset.token.startsWith('repeating') || asset.token.startsWith('radial') ? asset.token : '#16191f' }}
-                    ></div>
-                    <div className="asset-title">{asset.name}</div>
-                    <div className="asset-desc">{asset.desc}</div>
-                    <button 
-                      className="btn-copy-token"
-                      onClick={() => copyToClipboard(asset.token, asset.name)}
-                    >
-                      COPY CSS TOKEN
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-
-      {/* EDIT SWATCH MODAL */}
-      {editingSwatch && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 font-mono">
-          <div className="bg-[#0d0f12] border border-[#1f242d] rounded p-5 w-full max-w-md space-y-4">
-            <div className="flex justify-between items-center border-b border-[#1f242d] pb-2">
-              <span className="text-[#ffb800] font-bold text-sm">EDIT SWATCH</span>
-              <button onClick={() => setEditingSwatch(null)} className="text-[#5c6b7f] hover:text-white cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="text-[#5c6b7f] uppercase font-bold block mb-1">Swatch Name</label>
-                <input 
-                  type="text" 
-                  value={editingSwatch.name} 
-                  onChange={(e) => setEditingSwatch({ ...editingSwatch, name: e.target.value })}
-                  className="w-full bg-[#101317] text-[#e2e8f0] border border-[#1f242d] p-2 rounded outline-none focus:border-[#ffb800]"
-                />
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-[#5c6b7f] uppercase font-bold block mb-1">HEX Code</label>
-                  <input 
-                    type="text" 
-                    value={editingSwatch.hex} 
-                    onChange={(e) => setEditingSwatch({ ...editingSwatch, hex: e.target.value })}
-                    className="w-full bg-[#101317] text-[#e2e8f0] border border-[#1f242d] p-2 rounded outline-none focus:border-[#ffb800]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[#5c6b7f] uppercase font-bold block mb-1">Color Preview</label>
-                  <div className="w-10 h-8 rounded border border-[#232832]" style={{ background: editingSwatch.hex }}></div>
-                </div>
-              </div>
-              <div>
-                <label className="text-[#5c6b7f] uppercase font-bold block mb-1">Role / Use Case</label>
-                <input 
-                  type="text" 
-                  value={editingSwatch.role} 
-                  onChange={(e) => setEditingSwatch({ ...editingSwatch, role: e.target.value })}
-                  className="w-full bg-[#101317] text-[#e2e8f0] border border-[#1f242d] p-2 rounded outline-none focus:border-[#ffb800]"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#1f242d]">
-              <button onClick={() => setEditingSwatch(null)} className="px-4 py-1.5 bg-[#14171c] text-[#5c6b7f] rounded hover:text-white cursor-pointer">CANCEL</button>
-              <button onClick={handleSaveEditedSwatch} className="px-4 py-1.5 bg-[#ffb800] text-black font-bold rounded hover:bg-[#e6a600] cursor-pointer">SAVE CHANGES</button>
-            </div>
           </div>
         </div>
-      )}
 
-      {/* BULK IMPORT DATA DUMP MODAL */}
-      {isBulkModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 font-mono">
-          <div className="bg-[#0d0f12] border border-[#1f242d] rounded p-5 w-full max-w-lg space-y-4">
-            <div className="flex justify-between items-center border-b border-[#1f242d] pb-2">
-              <span className="text-[#38bdf8] font-bold text-sm">BULK DATA DUMP // SWATCH INGESTION</span>
-              <button onClick={() => setIsBulkModalOpen(false)} className="text-[#5c6b7f] hover:text-white cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
+        {/* RIGHT AREA: HIGH DENSITY SWATCH CARDS WITH PROMINENT COLOR SQUARES */}
+        <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-3 min-h-0 overflow-hidden">
+          
+          {/* HIGH-DENSITY 6-COLUMN GRID */}
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 grid grid-cols-6 gap-2.5 content-start custom-scrollbar">
+            {activePalette.swatches.map((swatch, idx) => (
+              <div 
+                key={idx}
+                onClick={() => handleCopy(swatch.hex)}
+                className="bg-[#080a0c] border border-[#1f242d] hover:border-[#ffb800] rounded p-2 flex flex-col gap-2 cursor-pointer transition-all group hover:shadow-[0_0_12px_rgba(255,184,0,0.2)] select-none"
+              >
+                {/* PROMINENT DEDICATED COLOR SQUARE WITH SPECULAR METALLIC SHEEN */}
+                <div 
+                  className="w-full aspect-[4/3] rounded border border-white/10 relative overflow-hidden shadow-inner flex items-center justify-center"
+                  style={{ background: swatch.metallic || swatch.hex }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-tr from-black/30 via-transparent to-white/20 pointer-events-none" />
+                  
+                  {/* HOVER COPY OVERLAY */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-[#ffb800] font-black text-[10px] gap-1">
+                    {copiedHex === swatch.hex ? (
+                      <>
+                        <Check className="w-3 h-3 text-[#10b981]" />
+                        <span className="text-[#10b981]">COPIED</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>COPY</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* COMPACT DATA DETAILS */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#f1f5f9] truncate text-[10px]">{swatch.name}</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteSwatch(idx); }}
+                      className="text-[#5c6b7f] hover:text-[#ef4444] opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-[#ffb800] font-bold">{swatch.hex}</span>
+                  <span className="text-[8.5px] text-[#5c6b7f] truncate">{swatch.role}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* DOCK QUICK ADD */}
+          <form onSubmit={handleAddSwatch} className="pt-2.5 mt-2 border-t border-[#1f242d] flex items-center gap-2 flex-shrink-0">
+            <input 
+              type="color" 
+              value={newHex} 
+              onChange={(e) => setNewHex(e.target.value)}
+              className="w-7 h-7 rounded bg-transparent border border-[#1f242d] cursor-pointer"
+            />
+            <input 
+              type="text" 
+              placeholder="Swatch Name..." 
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="flex-1 bg-[#080a0c] border border-[#1f242d] rounded px-2 py-1 text-xs text-[#e2e8f0] focus:border-[#ffb800] focus:outline-none"
+            />
+            <input 
+              type="text" 
+              placeholder="Token (e.g. --metal-brass)..." 
+              value={newToken}
+              onChange={(e) => setNewToken(e.target.value)}
+              className="w-40 bg-[#080a0c] border border-[#1f242d] rounded px-2 py-1 text-xs text-[#e2e8f0] focus:border-[#ffb800] focus:outline-none"
+            />
+            <input 
+              type="text" 
+              placeholder="Role..." 
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              className="w-36 bg-[#080a0c] border border-[#1f242d] rounded px-2 py-1 text-xs text-[#e2e8f0] focus:border-[#ffb800] focus:outline-none"
+            />
+            <button 
+              type="submit" 
+              className="px-3 py-1 bg-[#14171c] text-[#ffb800] hover:bg-[#ffb800] hover:text-black border border-[#ffb800] font-bold rounded text-xs transition-all"
+            >
+              + ADD
+            </button>
+          </form>
+
+        </div>
+
+      </div>
+
+      {/* BULK DUMP MODAL */}
+      {showDumpModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0d0f12] border-2 border-[#ffb800] rounded p-4 w-[600px] shadow-[0_0_30px_rgba(255,184,0,0.3)] flex flex-col gap-3">
+            <div className="flex items-center justify-between border-b border-[#1f242d] pb-2">
+              <span className="text-[#ffb800] font-black text-xs tracking-wider">BULK JSON INGESTION</span>
+              <span className="text-[10px] text-[#5c6b7f]">TARGET: {activePalette.name}</span>
             </div>
-            
-            <p className="text-[11px] text-[#8fa0b5] leading-relaxed">
-              Paste your raw color declarations, Tailwind configs, CSS variables, or lists containing HEX codes below. The parser will automatically extract and map them into <b className="text-[#ffb800]">{activePalette.name}</b>.
-            </p>
 
             <textarea 
-              rows={8}
-              placeholder={`--primary-gold: #FFB800;\n--surface-onyx: #16191f;\n#00FF66 Success Green\n#FF3344 Error Red`}
-              value={bulkDumpText}
-              onChange={(e) => setBulkDumpText(e.target.value)}
-              className="w-full bg-[#101317] text-[#e2e8f0] border border-[#1f242d] p-3 rounded text-xs outline-none focus:border-[#38bdf8] font-mono resize-none custom-scrollbar"
+              rows={12}
+              value={rawDumpText}
+              onChange={(e) => setRawDumpText(e.target.value)}
+              placeholder="Paste JSON array here..."
+              className="w-full bg-[#080a0c] border border-[#1f242d] rounded p-2.5 text-xs text-[#38bdf8] font-mono focus:border-[#ffb800] focus:outline-none resize-none"
             />
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#1f242d]">
-              <button onClick={() => setIsBulkModalOpen(false)} className="px-4 py-1.5 bg-[#14171c] text-[#5c6b7f] rounded hover:text-white cursor-pointer">CANCEL</button>
-              <button onClick={handleBulkImport} className="px-4 py-1.5 bg-[#38bdf8] text-black font-bold rounded hover:bg-[#0ea5e9] cursor-pointer">PARSE &amp; INGEST</button>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1f242d]">
+              <button 
+                onClick={() => { setShowDumpModal(false); setRawDumpText(''); }}
+                className="px-3 py-1 bg-[#14171c] text-[#8fa0b5] hover:text-white rounded border border-[#1f242d] text-xs"
+              >
+                CANCEL
+              </button>
+              <button 
+                onClick={handleDumpImport}
+                className="px-4 py-1 bg-[#ffb800] text-black font-black rounded hover:bg-[#e6a600] text-xs transition-colors"
+              >
+                APPLY & INGEST
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X 
+  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy 
 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 import './Tab02WarRoom.css';
@@ -65,6 +65,7 @@ export default function Tab02WarRoom({ ws }) {
   
   const [inputBuffer, setInputBuffer] = useState('');
   const [streamLog, setStreamLog] = useState([]);
+  const [copiedFeed, setCopiedFeed] = useState(false);
 
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
@@ -100,6 +101,18 @@ export default function Tab02WarRoom({ ws }) {
     if (!speechSupported) return alert('Chrome Speech Recognition is only supported natively in Google Chrome.');
     if (isListening) { setIsListening(false); recognitionRef.current?.stop(); } 
     else { try { recognitionRef.current?.start(); setIsListening(true); } catch (err) {} }
+  };
+
+  const handleCopyDiscussion = () => {
+    if (!streamLog || streamLog.length === 0) return;
+    
+    const formattedDiscussion = streamLog
+      .map(log => `[${log.sender}]:\n${log.text}`)
+      .join('\n\n==================================================\n\n');
+
+    navigator.clipboard.writeText(formattedDiscussion);
+    setCopiedFeed(true);
+    setTimeout(() => setCopiedFeed(false), 2000);
   };
 
   useEffect(() => {
@@ -428,11 +441,23 @@ export default function Tab02WarRoom({ ws }) {
           <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2 uppercase tracking-widest font-bold">
             THE WAR ROOM // LIVE COMMS & PRD PIPELINE <span className="text-[#ffb800]">[{selectedProject}]</span>
           </div>
-          {lastAgentLog && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyDiscussion}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold tracking-wider border transition-all cursor-pointer ${
+                copiedFeed 
+                  ? 'bg-[#10b981]/20 text-[#10b981] border-[#10b981]' 
+                  : 'bg-[#14171c] hover:bg-[#ffb800]/10 text-[#ffb800] border border-[#ffb800]/40 hover:border-[#ffb800]'
+              }`}
+              title="Copy entire discussion thread to clipboard"
+            >
+              {copiedFeed ? <Check className="w-3 h-3 text-[#10b981]" /> : <Copy className="w-3 h-3 text-[#ffb800]" />}
+              <span>{copiedFeed ? 'COPIED' : 'COPY ALL'}</span>
+            </button>
+            {lastAgentLog && (
               <SpeakerBtn text={lastAgentLog.text} label="VOICE BRIEF" />
-            </div>
-          )}
+            )}
+          </div>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">

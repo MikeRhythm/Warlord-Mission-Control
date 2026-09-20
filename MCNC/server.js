@@ -222,17 +222,60 @@ function routeToOptimalModel(director, fallbackModel) {
 }
 
 // ==========================================
-// ROUTING ENGINE (IN-FLIGHT ROLLOVER)
+// ROUTING ENGINE (KAGGLE COMPUTE + IN-FLIGHT ROLLOVER)
 // ==========================================
+
+async function dispatchToKaggle(systemPrompt, userText, modelSlug) {
+    let tunnelBase = process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL;
+    if (!tunnelBase) throw new Error("KAGGLE_TUNNEL_URL missing from .env");
+
+    // Clean trailing slashes
+    tunnelBase = tunnelBase.replace(/\/+$/, '');
+    const targetUrl = tunnelBase.endsWith('/v1') ? `${tunnelBase}/chat/completions` : `${tunnelBase}/v1/chat/completions`;
+
+    console.log(`[COMPUTE] -> Dispatching to Kaggle Dual-T4 Bridge: ${targetUrl}`);
+    broadcast('TRACE', `[COMPUTE] Offloading to Kaggle Dual-T4 (${modelSlug || 'qwen2.5:7b'})...`);
+
+    const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: modelSlug || 'qwen2.5:7b',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userText }
+            ],
+            temperature: 0.3
+        })
+    });
+
+    if (!response.ok) throw new Error(`Kaggle Tunnel HTTP Error ${response.status}`);
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "Empty response from Kaggle Compute.";
+}
+
 async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
-    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
     if (!openRouterKey) throw new Error("OPENROUTER_API_KEY missing from .env");
     
     console.log(`[FALLBACK / ELITE] -> OpenRouter: ${modelSlug}`);
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openRouterKey}`, 'HTTP-Referer': 'http://localhost:5173', 'X-Title': 'Warlord MCNC Master' },
-        body: JSON.stringify({ model: modelSlug, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userText }], temperature: 0.3, max_tokens: 4096 })
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${openRouterKey}`, 
+            'HTTP-Referer': 'http://localhost:5173', 
+            'X-Title': 'Warlord MCNC Master' 
+        },
+        body: JSON.stringify({ 
+            model: modelSlug, 
+            messages: [
+                { role: 'system', content: systemPrompt }, 
+                { role: 'user', content: userText }
+            ], 
+            temperature: 0.3, 
+            max_tokens: 4096 
+        })
     });
     if (!response.ok) throw new Error(`OpenRouter Error ${response.status}`);
     const data = await response.json();
@@ -243,10 +286,25 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     const validContent = extractPromptText(rawBody);
     const requestedModel = rawBody?.model || 'meta/llama-3.3-70b-instruct';
     const reqModelLower = requestedModel.toLowerCase();
+    const computeMode = (process.env.COMPUTE_MODE || process.env.VITE_COMPUTE_MODE || '').toUpperCase();
+    const kaggleUrl = process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL;
 
     console.log(`\n========================================`);
-    console.log(`[DISPATCH] Target Model: "${requestedModel}"`);
+    console.log(`[DISPATCH] Target Model: "${requestedModel}" | Mode: "${computeMode || 'STANDARD'}"`);
 
+    // 1. TIER 0: KAGGLE FREE CLOUD COMPUTE BRIDGE
+    if (computeMode === 'KAGGLE' && kaggleUrl) {
+        try {
+            const kaggleModel = (requestedModel.includes('/') || requestedModel.includes('gemini')) ? 'qwen2.5:7b' : requestedModel;
+            const reply = await dispatchToKaggle(systemPrompt, validContent, kaggleModel);
+            return { reply: reply.trim(), modelUsed: `${kaggleModel} (Kaggle Dual-T4)` };
+        } catch (kaggleErr) {
+            console.warn(`[WARN] Kaggle Compute Failed (${kaggleErr.message}). Rolling over to Multi-Cluster...`);
+            broadcast('WARN', `[ROLLOVER] Kaggle unreachable. Engaging Multi-Cluster Vaults...`);
+        }
+    }
+
+    // 2. TIER 1: GEMINI CLUSTER
     if (reqModelLower.includes('gemini')) {
         const activeGeminiKeys = getActiveGeminiKeys();
         for (let i = 0; i < activeGeminiKeys.length; i++) {
@@ -268,6 +326,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
+    // 3. TIER 2: GROQ CLUSTER
     if (reqModelLower.includes('groq') || reqModelLower.includes('llama-3.1-70b-versatile') || reqModelLower.includes('mixtral') || reqModelLower === 'llama-3.3-70b-versatile') {
         const activeGroqKeys = getActiveGroqKeys();
         for (let i = 0; i < activeGroqKeys.length; i++) {
@@ -286,6 +345,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
+    // 4. TIER 3: NVIDIA NIM CLUSTER
     const activeNimKeys = getActiveNimKeys();
     if (activeNimKeys.length > 0 && !reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/') && !reqModelLower.includes('google/')) {
         for (let i = 0; i < activeNimKeys.length; i++) {
@@ -304,6 +364,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
+    // 5. TIER 4: OPENROUTER SHIELD (FINAL RESILIENT FALLBACK)
     console.warn(`[!] CLUSTERS EXHAUSTED OR ELITE MODEL REQUESTED. ENGAGING OPENROUTER SHIELD...`);
     let fallbackSlug = requestedModel;
     if (!reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/') && !reqModelLower.includes('google/')) {
@@ -441,6 +502,8 @@ app.get('/api/models/active', async (req, res) => {
     const activeNimKeys = getActiveNimKeys();
     const activeGroqKeys = getActiveGroqKeys();
     const activeGeminiKeys = getActiveGeminiKeys();
+    const computeMode = (process.env.COMPUTE_MODE || process.env.VITE_COMPUTE_MODE || '').toUpperCase();
+    const kaggleUrl = process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL;
     let nimModels = []; let groqModels = []; let geminiModels = [];
 
     if (activeNimKeys.length > 0) {
@@ -462,11 +525,21 @@ app.get('/api/models/active', async (req, res) => {
         } catch (e) {}
     }
 
-    const tiers = [
+    const tiers = [];
+    if (computeMode === 'KAGGLE' && kaggleUrl) {
+        tiers.push({
+            category: 'TIER 0: KAGGLE FREE CLOUD COMPUTE (DUAL T4 32GB)',
+            models: [
+                { id: 'qwen2.5:7b', name: 'Qwen 2.5 7B (Active Bridge)', tag: 'KAGGLE_GPU' }
+            ]
+        });
+    }
+
+    tiers.push(
         { category: 'TIER 1: NVIDIA NIM (ACTIVE CLUSTER)', models: nimModels.slice(0, 6) },
         { category: 'TIER 2: GOOGLE GEMINI (ACTIVE CLUSTER)', models: geminiModels.slice(0, 5) },
         { category: 'TIER 3: OPENROUTER (HEAVY LIFTING)', models: [{ id: 'anthropic/claude-3.5-sonnet', name: 'Claude Sonnet 3.5', tag: 'ELITE' }, { id: 'openai/gpt-4o', name: 'GPT-4o Frontier', tag: 'ELITE' }] }
-    ];
+    );
 
     res.json({ tiers });
 });
@@ -549,7 +622,6 @@ app.get('/api/memory', (req, res) => {
     try {
         const memoryNodes = [];
 
-        // Recursive file collector for nested Obsidian vault directories
         const getAllFiles = (dirPath, arrayOfFiles = []) => {
             if (!fs.existsSync(dirPath)) return arrayOfFiles;
             const entries = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -566,7 +638,6 @@ app.get('/api/memory', (req, res) => {
             return arrayOfFiles;
         };
 
-        // 1. DIRECTIVES & CORE (souls folder - All 16 Directors)
         if (fs.existsSync(SOULS_PATH)) {
             const soulFiles = fs.readdirSync(SOULS_PATH).filter(f => f.endsWith('.md') || f.endsWith('.txt'));
             soulFiles.forEach(file => {
@@ -583,7 +654,6 @@ app.get('/api/memory', (req, res) => {
             });
         }
 
-        // 2. SESSION CACHE (telemetry folder)
         if (fs.existsSync(TELEMETRY_DIR)) {
             const telemetryFiles = fs.readdirSync(TELEMETRY_DIR).filter(f => f.endsWith('.md') || f.endsWith('.json') || f.endsWith('.log'));
             telemetryFiles.forEach(file => {
@@ -599,7 +669,6 @@ app.get('/api/memory', (req, res) => {
             });
         }
 
-        // 3. AGENT CHECKPOINTS (System_Evolution proposals & checkpoints)
         const proposalsDir = path.join(VAULT_DIR, 'System_Evolution', 'Proposals');
         if (fs.existsSync(proposalsDir)) {
             const propFiles = fs.readdirSync(proposalsDir).filter(f => f.endsWith('.json') || f.endsWith('.md'));
@@ -616,7 +685,6 @@ app.get('/api/memory', (req, res) => {
             });
         }
 
-        // 4. VECTOR / RAG INDEX (Deep scan across MCNC_Vault root + all nested subfolders)
         if (fs.existsSync(VAULT_PATH)) {
             const vaultFiles = getAllFiles(VAULT_PATH);
             vaultFiles.forEach(fullPath => {
@@ -731,7 +799,6 @@ INSTRUCTIONS:
 3. Format the output in clean Warlord Master Markdown (### for headers, bullet points).
 4. Do not include introductory or concluding conversational text. Output ONLY the refined dossier content.`;
 
-        // EXPLICIT BYPASS OF OPENROUTER: ROUTE STRICTLY TO GEMINI FOR 1M TOKEN CONTEXT WINDOW
         const harvestPayload = { model: 'gemini-1.5-pro', prompt: sourceMaterial };
         const { reply, modelUsed } = await dispatchToBrain(systemPrompt, harvestPayload);
 
@@ -826,14 +893,24 @@ Your objective is to PRUNE and DISTILL the provided dossier file.
 app.get('/', (req, res) => res.render('layout'));
 
 app.get('/api/status', (req, res) => {
-    res.json({ status: 'ONLINE', station: 'Base 1 Command', bridge: 'ACTIVE', port: PORT, ws_clients_connected: wss.clients.size });
+    const computeMode = (process.env.COMPUTE_MODE || process.env.VITE_COMPUTE_MODE || '').toUpperCase();
+    const kaggleActive = computeMode === 'KAGGLE' && Boolean(process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL);
+    res.json({ 
+        status: 'ONLINE', 
+        station: 'Base 1 Command', 
+        bridge: 'ACTIVE', 
+        compute_mode: computeMode || 'STANDARD',
+        kaggle_gpu_online: kaggleActive,
+        port: PORT, 
+        ws_clients_connected: wss.clients.size 
+    });
 });
 
 const PORT = process.env.PORT || 8081;
 server.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
-    console.log(`[COMPUTE ARCHITECTURE]   : Multi-Cluster Vaults -> OpenRouter Shield`);
+    console.log(`[COMPUTE ARCHITECTURE]   : Kaggle Dual-T4 -> Multi-Cluster -> OpenRouter Shield`);
     console.log(`[INTELLIGENCE MATRIX]    : 16-Director Capability Matrix Active`);
     console.log(`[OBSIDIAN VAULT]         : ${VAULT_PATH}`);
     console.log(`====================================================`);

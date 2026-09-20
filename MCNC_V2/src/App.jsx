@@ -1,6 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react';
 import './index.css'; 
 import './high_finance_master.css';
+import { initGlobalInterceptor } from './utils/execBus';
+import McncSpinner from './components/McncSpinner';
 
 import Tab01Exec from './components/Tab01Exec'; 
 import Tab02WarRoom from './components/Tab02WarRoom';
@@ -17,6 +19,9 @@ import Tab12Review from './components/Tab12Review';
 import Tab13Docs from './components/Tab13Docs';
 import Tab14Other from './components/Tab14Other';
 
+// Initialize global network listener once across entire runtime
+initGlobalInterceptor();
+
 const TABS = [
   '01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD',
   '05 CALENDAR', '06 MEMORY', '07 PAPERCLIP', '08 PALETTES',
@@ -29,14 +34,29 @@ export default function App() {
   const [mcncSocket, setMcncSocket] = useState(null);
   const [wsStatus, setWsStatus] = useState('DISCONNECTED');
   
+  // Universal Busy State across all 14 Tabs
+  const [isSystemBusy, setIsSystemBusy] = useState(false);
+  const [busyCount, setBusyCount] = useState(0);
+
   // Shared state for War Room payload transfers from Tab 01
   const [warRoomPayload, setWarRoomPayload] = useState(null);
+
+  // Listen for Global Busy Events across fetch and agent dispatches
+  useEffect(() => {
+    const handleBusy = (e) => {
+      setIsSystemBusy(e.detail.isBusy);
+      setBusyCount(e.detail.count || 0);
+    };
+
+    window.addEventListener('mcnc-busy-state', handleBusy);
+    return () => window.removeEventListener('mcnc-busy-state', handleBusy);
+  }, []);
 
   // WebSocket Connection Lifecycle
   useEffect(() => {
     let ws;
     const connectWS = () => {
-      ws = new WebSocket('ws://localhost:8081');
+      ws = new WebSocket('ws://[::1]:8081');
       
       ws.onopen = () => {
         setWsStatus('ACTIVE');
@@ -68,7 +88,7 @@ export default function App() {
     const handleWarRoomPush = (e) => {
       if (e.detail) {
         setWarRoomPayload(e.detail);
-        setActiveTab('02 WAR ROOM'); // Auto-flip screen to Tab 02
+        setActiveTab('02 WAR ROOM');
       }
     };
 
@@ -80,9 +100,11 @@ export default function App() {
 
   return (
     <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      
+      {/* GLOBAL MASTER HEADER */}
       <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.85)', flexShrink: 0 }}>
-        <div className="brand-title" style={{ color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: '0.9rem' }}>
-          WARLORD MISSION CONTROL // MCNC MASTER
+        <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: '0.9rem' }}>
+          <span>WARLORD MISSION CONTROL // MCNC MASTER</span>
         </div>
 
         <div className="system-status" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--text-mist)' }}>
@@ -129,6 +151,15 @@ export default function App() {
         ))}
       </nav>
 
+      {/* SUBSTANTIAL UNIVERSAL EXECUTION SPINNER BANNER */}
+      {isSystemBusy && (
+        <McncSpinner 
+          label={`ACTIVE INFERENCE SEQUENCE // DISPATCH ACTIVE (${busyCount})`}
+          subtext="ALL 14 TABS LOCKED ON CLUSTER TELEMETRY // AWAITING STREAM COMPLETION"
+        />
+      )}
+
+      {/* MAIN CONTENT AREA */}
       <main className="tab-content-area" style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: activeTab === '01 EXEC' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
           <Tab01Exec ws={mcncSocket} />

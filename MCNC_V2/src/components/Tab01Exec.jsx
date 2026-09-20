@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Paperclip, Loader2, Check, Mic, MicOff, Send, RefreshCw, AlertOctagon } from 'lucide-react';
+import { Paperclip, Loader2, Check, Mic, MicOff, Send, RefreshCw, AlertOctagon, Wand2 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 import './Tab01Exec.css';
 
@@ -26,7 +26,13 @@ export default function Tab01Exec({ ws }) {
   const [selectedModel, setSelectedModel] = useState('meta/llama-3.3-70b-instruct');
   const [inputBuffer, setInputBuffer] = useState('');
   const [chatLog, setChatLog] = useState([
-    { id: 1, sender: 'CHIEF OF STAFF // MONTY', text: 'Mission Control Base 1 is live and standing by. Select an operational brain tier and submit instructions.', type: 'system' }
+    { 
+      id: 1, 
+      sender: 'CHIEF OF STAFF // MONTY', 
+      text: 'Mission Control Base 1 is live and standing by. Select an operational brain tier and submit instructions.', 
+      type: 'system',
+      agent: 'Monty'
+    }
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -83,6 +89,7 @@ export default function Tab01Exec({ ws }) {
   }, [isListening]);
 
   const toggleMic = () => {
+    if (isProcessing) return;
     if (!speechSupported) {
       alert('Chrome Speech Recognition is only supported natively in Google Chrome.');
       return;
@@ -100,6 +107,28 @@ export default function Tab01Exec({ ws }) {
     }
   };
 
+  const handleGenerateCleanDirective = () => {
+    const cleanPayload = `**CLASSIFIED DIRECTIVE TRANSMISSION**
+
+**TO:** War Room, Base 1, MCNC
+**FROM:** Monty, Chief of Staff
+**SUBJECT:** Project Monday Monetization Pitch & Sovereign UI Deployment
+
+**MISSION OBJECTIVE:**
+Execute production synthesis for the Monday 14:00 Executive Monetization Pitch. Enforce strict design system binding to src/assets/high-finance_tokens.json, zero-state telemetry initialization, and institutional slide deck narrative.
+
+**DIRECTOR ALLOCATIONS & DELIVERABLES:**
+1. ROXY (Creative / UI): Apply High Finance specular palette (Champagne, Silvery Sage, Titanium Gunmetal, Oxblood tripwires). Eliminate all plastic fills.
+2. AMBER (Copywriting): Finalize the 5-slide executive investor narrative (Inefficiency -> WASP Solution -> High Finance Engine -> Risk -> Economics).
+3. CHARLIE (Code): Verify MCNC telemetry feeds, zero-latency WebSocket stream integrity, and atomic compile verification.
+4. TESS (Quant): Package live volatility scanner metrics and hedging verification logic for the pitch appendix.
+
+**EXECUTION MANDATE:**
+All code and specifications must be 100% complete with full file integrity. Zero hallucinated tokens. Zero partial diffs.`;
+
+    setInputBuffer(cleanPayload);
+  };
+
   const handleSend = async () => {
     if (!inputBuffer.trim() || isProcessing) return;
 
@@ -108,9 +137,22 @@ export default function Tab01Exec({ ws }) {
     setIsListening(false);
     recognitionRef.current?.stop();
 
+    // Detect agent being addressed
+    const lower = userText.toLowerCase();
+    let targetedAgent = 'Monty';
+    if (lower.includes('roxy')) targetedAgent = 'Roxy';
+    else if (lower.includes('valery') || lower.includes('valerie')) targetedAgent = 'Valerie';
+    else if (lower.includes('jaz') || lower.includes('jasmine')) targetedAgent = 'Jaz';
+    else if (lower.includes('tess')) targetedAgent = 'Tess';
+    else if (lower.includes('amber')) targetedAgent = 'Amber';
+    else if (lower.includes('charlie')) targetedAgent = 'Charlie';
+    else if (lower.includes('jack')) targetedAgent = 'Jack';
+    else if (lower.includes('silas')) targetedAgent = 'Silas';
+    else if (lower.includes('atlas')) targetedAgent = 'Atlas';
+
     setChatLog(prev => [
       ...prev,
-      { id: Date.now(), sender: 'COMMANDER // MIKE', text: userText, type: 'user' }
+      { id: Date.now(), sender: 'COMMANDER // MIKE', text: userText, type: 'user', agent: 'Mike' }
     ]);
 
     setIsProcessing(true);
@@ -132,15 +174,16 @@ export default function Tab01Exec({ ws }) {
         ...prev,
         { 
           id: Date.now() + 1, 
-          sender: `MONTY // ${data.activeModelUsed || selectedModel}`, 
+          sender: `${targetedAgent.toUpperCase()} // ${data.activeModelUsed || selectedModel}`, 
           text: data.reply || data.error || 'No response returned from daemon.', 
-          type: 'system' 
+          type: 'system',
+          agent: targetedAgent
         }
       ]);
     } catch (err) {
       setChatLog(prev => [
         ...prev,
-        { id: Date.now() + 1, sender: 'DAEMON // ERROR', text: `Failed to reach Base 1 Master Daemon: ${err.message}`, type: 'error' }
+        { id: Date.now() + 1, sender: 'DAEMON // ERROR', text: `Failed to reach Base 1 Master Daemon: ${err.message}`, type: 'error', agent: 'Daemon' }
       ]);
     } finally {
       setIsProcessing(false);
@@ -148,10 +191,24 @@ export default function Tab01Exec({ ws }) {
   };
 
   const handlePushToWarRoom = () => {
-    if (!chatLog.length) return;
-    const lastUserMsg = [...chatLog].reverse().find(m => m.type === 'user');
-    const payload = lastUserMsg ? lastUserMsg.text : inputBuffer.trim();
-    if (!payload) return;
+    if (isProcessing) return;
+
+    // Prefer active input buffer (if loaded/refined), else fall back to last system message, else last user message
+    let payload = inputBuffer.trim();
+    if (!payload) {
+      const lastSysMsg = [...chatLog].reverse().find(m => m.type === 'system' && m.agent !== 'System');
+      if (lastSysMsg) {
+        payload = lastSysMsg.text;
+      } else {
+        const lastUserMsg = [...chatLog].reverse().find(m => m.type === 'user');
+        payload = lastUserMsg ? lastUserMsg.text : '';
+      }
+    }
+
+    if (!payload) {
+      alert('No prompt or message available to push to War Room.');
+      return;
+    }
 
     window.dispatchEvent(new CustomEvent('push-to-warroom', {
       detail: { payload, project: 'MCNC REACT VITE' }
@@ -159,20 +216,21 @@ export default function Tab01Exec({ ws }) {
 
     setChatLog(prev => [
       ...prev,
-      { id: Date.now(), sender: 'SYSTEM // ROUTER', text: 'Payload successfully dispatched to Tab 02 War Room.', type: 'system' }
+      { id: Date.now(), sender: 'SYSTEM // ROUTER', text: 'Clean directive payload successfully dispatched to Tab 02 War Room.', type: 'system', agent: 'System' }
     ]);
   };
 
   const handleCls = () => {
+    if (isProcessing) return;
     setInputBuffer('');
     setIsListening(false);
     recognitionRef.current?.stop();
     setChatLog([
-      { id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal cleared. Exec pipeline re-initialized.', type: 'system' }
+      { id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal cleared. Exec pipeline re-initialized.', type: 'system', agent: 'System' }
     ]);
   };
 
-  const lastMontyMsg = [...chatLog].reverse().find(m => m.type === 'system');
+  const lastSystemMsg = [...chatLog].reverse().find(m => m.type === 'system');
 
   return (
     <div className="flex h-full w-full bg-[#080a0c] text-xs gap-2 select-none">
@@ -193,7 +251,10 @@ export default function Tab01Exec({ ws }) {
               <button
                 key={m.id}
                 onClick={() => setSelectedModel(m.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${
+                disabled={isProcessing}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all ${
+                  isProcessing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                } ${
                   selectedModel === m.id
                     ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold'
                     : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'
@@ -212,7 +273,10 @@ export default function Tab01Exec({ ws }) {
               <button
                 key={m.id}
                 onClick={() => setSelectedModel(m.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${
+                disabled={isProcessing}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all ${
+                  isProcessing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                } ${
                   selectedModel === m.id
                     ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold'
                     : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'
@@ -231,7 +295,10 @@ export default function Tab01Exec({ ws }) {
               <button
                 key={m.id}
                 onClick={() => setSelectedModel(m.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${
+                disabled={isProcessing}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all ${
+                  isProcessing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                } ${
                   selectedModel === m.id
                     ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold'
                     : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'
@@ -254,8 +321,8 @@ export default function Tab01Exec({ ws }) {
           </div>
           
           <div className="flex items-center gap-2">
-            {lastMontyMsg && (
-              <SpeakerBtn text={lastMontyMsg.text} label="VOICE BRIEF" />
+            {lastSystemMsg && (
+              <SpeakerBtn text={lastSystemMsg.text} agent={lastSystemMsg.agent || 'Monty'} label="VOICE BRIEF" />
             )}
             <button 
               onClick={() => {
@@ -284,7 +351,7 @@ export default function Tab01Exec({ ws }) {
                 </span>
 
                 {log.type === 'system' && (
-                  <SpeakerBtn text={log.text} label="LISTEN" />
+                  <SpeakerBtn text={log.text} agent={log.agent || 'Monty'} label="LISTEN" />
                 )}
               </div>
               <div className={`text-xs leading-relaxed pl-3 py-2 rounded border select-text whitespace-pre-wrap ${
@@ -297,26 +364,60 @@ export default function Tab01Exec({ ws }) {
             </div>
           ))}
           {isProcessing && (
-            <div className="flex items-center gap-2 text-[#ffb800] py-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-xs font-mono">Monty is processing directive across neural cluster...</span>
+            <div className="flex items-center gap-2 text-[#ffb800] py-2 border border-[#ffb800]/20 bg-[#14171c]/60 px-3 rounded">
+              <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
+              <span className="text-xs font-mono font-bold tracking-wide">
+                Cluster executing directive sequence... awaiting telemetry sync...
+              </span>
             </div>
           )}
           <div ref={streamBottomRef} />
         </div>
 
         {/* Input Dock */}
-        <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none">
+        <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none relative">
+          
+          {/* Universal Execution Lock Banner */}
+          {isProcessing && (
+            <div className="flex items-center justify-between bg-[#14171c] border border-[#ffb800] px-3 py-1.5 rounded text-[11px] font-mono text-[#ffb800] shadow-[0_0_12px_rgba(255,184,0,0.15)]">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
+                <span className="font-bold tracking-wider">SEQUENCE ACTIVE // INFERENCE IN PROGRESS</span>
+              </div>
+              <span className="text-[10px] text-[#ffb800]/70 font-bold bg-[#ffb800]/10 px-1.5 py-0.5 rounded border border-[#ffb800]/30">BUSY_LOCK</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-[11px] bg-[#14171c] px-3 py-1.5 rounded border border-[#232832]">
-            <label className="text-[#ffb800] hover:text-[#fef08a] flex items-center gap-2 font-bold tracking-wider transition-colors cursor-pointer select-none">
-              <Paperclip className="w-4 h-4 text-[#ffb800]" />
-              <span>+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</span>
-            </label>
+            <div className="flex items-center gap-2">
+              <label className={`flex items-center gap-2 font-bold tracking-wider transition-colors select-none ${
+                isProcessing ? 'text-[#5c6b7f] cursor-not-allowed' : 'text-[#ffb800] hover:text-[#fef08a] cursor-pointer'
+              }`}>
+                <Paperclip className={`w-4 h-4 ${isProcessing ? 'text-[#5c6b7f]' : 'text-[#ffb800]'}`} />
+                <span>+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</span>
+              </label>
+
+              {/* Dedicated Zero-Fluff Directive Generator Button */}
+              <button
+                type="button"
+                onClick={handleGenerateCleanDirective}
+                disabled={isProcessing}
+                title="Populate input dock with clean, unpadded institutional directive"
+                className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-[#080a0c] hover:bg-[#ffb800]/20 text-[#ffb800] border border-[#ffb800]/40 rounded text-[10px] font-mono font-bold transition-all cursor-pointer"
+              >
+                <Wand2 className="w-3 h-3 text-[#ffb800]" />
+                <span>GENERATE DIRECTIVE</span>
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={toggleMic}
+              disabled={isProcessing}
               title={isListening ? "Stop Chrome Mic" : "Dictate via Chrome Web Speech"}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+                isProcessing ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+              } ${
                 isListening 
                   ? 'bg-[#ffb800] text-black border border-[#ffb800] shadow-[0_0_8px_rgba(255,184,0,0.4)]' 
                   : 'bg-[#0d0f12] text-[#ffb800] border border-[#ffb800]/40 hover:bg-[#ffb800]/10'
@@ -331,8 +432,11 @@ export default function Tab01Exec({ ws }) {
             <textarea
               value={inputBuffer}
               onChange={(e) => setInputBuffer(e.target.value)}
+              disabled={isProcessing}
               placeholder={
-                isListening 
+                isProcessing
+                  ? "Directive sequence executing... input locked..."
+                  : isListening 
                   ? "Streaming voice via Chrome... speak naturally..." 
                   : `Enter command for Monty dispatch via [${selectedModel}]...`
               }
@@ -343,7 +447,11 @@ export default function Tab01Exec({ ws }) {
                 }
               }}
               className={`w-full bg-[#0d0f12] text-[#e2e8f0] border rounded p-2.5 text-xs font-mono focus:outline-none resize-none select-text transition-colors ${
-                isListening ? 'border-[#ffb800] ring-1 ring-[#ffb800]' : 'border-[#1f242d] focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800]'
+                isProcessing
+                  ? 'opacity-60 border-[#ffb800]/40 bg-[#080a0c] cursor-not-allowed'
+                  : isListening
+                  ? 'border-[#ffb800] ring-1 ring-[#ffb800]' 
+                  : 'border-[#1f242d] focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800]'
               }`}
             />
           </div>
@@ -354,30 +462,48 @@ export default function Tab01Exec({ ws }) {
               <button
                 onClick={handleSend}
                 disabled={isProcessing || !inputBuffer.trim()}
-                className={`px-4 py-1.5 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-1.5 font-bold rounded text-[11px] transition-colors flex items-center gap-1.5 ${
                   isProcessing || !inputBuffer.trim()
                     ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'
-                    : 'bg-[#ffb800] text-black hover:bg-[#e6a600]'
+                    : 'bg-[#ffb800] text-black hover:bg-[#e6a600] cursor-pointer'
                 }`}
               >
-                {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                <span>SUBMIT</span>
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#ffb800]" />
+                    <span className="text-[#ffb800]">EXECUTING...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>SUBMIT</span>
+                  </>
+                )}
               </button>
               <button
                 onClick={handlePushToWarRoom}
-                className="px-3.5 py-1.5 bg-[#14171c] text-[#38bdf8] border border-[#232832] hover:border-[#38bdf8]/50 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
+                disabled={isProcessing}
+                className={`px-3.5 py-1.5 bg-[#14171c] text-[#38bdf8] border border-[#232832] font-bold rounded text-[11px] transition-colors flex items-center gap-1.5 ${
+                  isProcessing ? 'opacity-40 cursor-not-allowed' : 'hover:border-[#38bdf8]/50 cursor-pointer'
+                }`}
               >
                 PUSH TO WAR ROOM
               </button>
               <button
                 onClick={() => alert('Refinement constraints injected.')}
-                className="px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] hover:bg-[#1c2129] hover:text-white cursor-pointer"
+                disabled={isProcessing}
+                className={`px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] ${
+                  isProcessing ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#1c2129] hover:text-white cursor-pointer'
+                }`}
               >
                 REFINE
               </button>
               <button
                 onClick={handleCls}
-                className="px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] hover:bg-[#592525] cursor-pointer"
+                disabled={isProcessing}
+                className={`px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] ${
+                  isProcessing ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#592525] cursor-pointer'
+                }`}
               >
                 CLS
               </button>

@@ -1,13 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Tab04TaskBoard.css';
 
 const ACTIVE_PROJECTS = ['ALL PROJECTS', 'MCNC REACT VITE', 'RHYTHM WASP V8.5', 'PAPERCLIP DAEMON'];
 
 export default function Tab04TaskBoard({ ws }) {
     const [activeProject, setActiveProject] = useState('ALL PROJECTS');
-
-    // Clean Zero-State: Tasks populate dynamically from backend / orchestration stream
     const [tasks, setTasks] = useState([]);
+    const [daemonsCount, setDaemonsCount] = useState(0);
+    const [hermesLog, setHermesLog] = useState({
+        agent: 'Monty (Chief of Staff)',
+        text: 'Zero-state initialized. Standing by for telemetry dispatch.'
+    });
+
+    useEffect(() => {
+        if (!ws) return;
+
+        const handleMessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                
+                // Handle Hermes state broadcast
+                if (data.hermes_state) {
+                    if (Array.isArray(data.hermes_state.agents)) {
+                        const activeWorkers = data.hermes_state.agents.filter(
+                            a => a.status === 'online' || a.status === 'active'
+                        ).length;
+                        setDaemonsCount(activeWorkers);
+                    }
+
+                    if (Array.isArray(data.hermes_state.tasks)) {
+                        const mappedTasks = data.hermes_state.tasks.map(t => ({
+                            id: t.id,
+                            title: t.description,
+                            project: t.project || 'MCNC REACT VITE',
+                            agent: t.agent || 'SYSTEM',
+                            column: t.status === 'in_progress' ? 'BUILD' : (t.status === 'pending' ? 'CAPTURE' : 'SHIPPED'),
+                            meta: t.meta || 'Live Stream'
+                        }));
+                        setTasks(mappedTasks);
+                    }
+
+                    setHermesLog({
+                        agent: 'Hermes Master Telemetry',
+                        text: `Sync confirmed at ${new Date().toLocaleTimeString()} - ${data.hermes_state.agents?.length || 0} agents online.`
+                    });
+                }
+
+                // Handle direct task board updates
+                if (data.type === 'TASK_BOARD_UPDATE') {
+                    if (data.tasks) setTasks(data.tasks);
+                    if (typeof data.daemonsCount === 'number') setDaemonsCount(data.daemonsCount);
+                    if (data.log) setHermesLog(data.log);
+                }
+            } catch (err) {
+                console.error("Telemetry parse error:", err);
+            }
+        };
+
+        ws.addEventListener('message', handleMessage);
+        return () => ws.removeEventListener('message', handleMessage);
+    }, [ws]);
 
     const deleteTask = (taskId) => {
         setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
@@ -19,7 +71,6 @@ export default function Tab04TaskBoard({ ws }) {
         ));
     };
 
-    // Filter logic based purely on Project Scope
     const filteredTasks = activeProject === 'ALL PROJECTS'
         ? tasks
         : tasks.filter(t => t.project === activeProject);
@@ -34,7 +85,7 @@ export default function Tab04TaskBoard({ ws }) {
 
                     {/* STATS HEADER */}
                     <div className="task-stats glass-panel">
-                        <div className="stat-group"><span className="stat-num hf-green">0</span><span className="stat-label">Active Daemons</span></div>
+                        <div className="stat-group"><span className="stat-num hf-green">{daemonsCount}</span><span className="stat-label">Active Daemons</span></div>
                         <div className="stat-group"><span className="stat-num hf-blue">{getColumnTasks('BUILD').length}</span><span className="stat-label">Building</span></div>
                         <div className="stat-group"><span className="stat-num hf-gold">{getColumnTasks('GATE').length}</span><span className="stat-label">Human Gate</span></div>
                         <div className="stat-group"><span className="stat-num hf-text">{getColumnTasks('SHIPPED').length}</span><span className="stat-label">Total Shipped</span></div>
@@ -77,7 +128,7 @@ export default function Tab04TaskBoard({ ws }) {
                                     <div style={{ fontSize: '0.65rem', color: 'var(--gold-core)', marginBottom: '5px' }}>[{task.project}]</div>
                                     <div className="k-card-desc">{task.title}</div>
                                     <div className="k-card-footer">
-                                        <span className={`agent-badge badge-${task.agent.toLowerCase().replace(' ', '-')}`}>{task.agent.charAt(0)} {task.agent}</span>
+                                        <span className={`agent-badge badge-${(task.agent || 'system').toLowerCase().replace(' ', '-')}`}>{(task.agent || 'S').charAt(0)} {task.agent}</span>
                                         <span className="time-meta">{task.meta}</span>
                                     </div>
                                 </div>
@@ -99,7 +150,7 @@ export default function Tab04TaskBoard({ ws }) {
                                     <div style={{ fontSize: '0.65rem', color: 'var(--gold-core)', marginBottom: '5px' }}>[{task.project}]</div>
                                     <div className="k-card-desc">{task.title}</div>
                                     <div className="k-card-footer">
-                                        <span className={`agent-badge badge-${task.agent.toLowerCase().replace(' ', '-')}`}>{task.agent.charAt(0)} {task.agent}</span>
+                                        <span className={`agent-badge badge-${(task.agent || 'system').toLowerCase().replace(' ', '-')}`}>{(task.agent || 'S').charAt(0)} {task.agent}</span>
                                         {task.tag && <span className="status-tag tag-active">{task.tag}</span>}
                                     </div>
                                 </div>
@@ -119,9 +170,9 @@ export default function Tab04TaskBoard({ ws }) {
                                         <button className="task-del-btn" onClick={() => deleteTask(task.id)}>x</button>
                                     </div>
                                     <div style={{ fontSize: '0.65rem', color: 'var(--gold-core)', marginBottom: '5px' }}>[{task.project}]</div>
-                                    <div className="k-card-desc">{task.desc}</div>
+                                    <div className="k-card-desc">{task.title || task.desc}</div>
                                     <div className="k-card-footer">
-                                        <span className={`agent-badge badge-${task.agent.toLowerCase().replace(' ', '-')}`}>{task.agent.charAt(0)} {task.agent}</span>
+                                        <span className={`agent-badge badge-${(task.agent || 'system').toLowerCase().replace(' ', '-')}`}>{(task.agent || 'S').charAt(0)} {task.agent}</span>
                                         {task.isReview && <button className="approve-btn" onClick={() => approveTask(task.id)}>APPROVE</button>}
                                     </div>
                                 </div>
@@ -143,7 +194,7 @@ export default function Tab04TaskBoard({ ws }) {
                                     <div style={{ fontSize: '0.65rem', color: 'var(--gold-core)', marginBottom: '5px' }}>[{task.project}]</div>
                                     <div className="k-card-desc">{task.title}</div>
                                     <div className="k-card-footer">
-                                        <span className={`agent-badge badge-${task.agent.toLowerCase().replace(' ', '-')}`}>{task.agent.charAt(0)} {task.agent}</span>
+                                        <span className={`agent-badge badge-${(task.agent || 'system').toLowerCase().replace(' ', '-')}`}>{(task.agent || 'S').charAt(0)} {task.agent}</span>
                                         <span className="time-meta">{task.meta}</span>
                                     </div>
                                 </div>
@@ -157,8 +208,8 @@ export default function Tab04TaskBoard({ ws }) {
                 <div className="live-sidebar glass-panel">
                     <h4 className="sidebar-header">Live Hermes Orchestration</h4>
                     <div className="activity-item">
-                        <span className="activity-agent hf-blue">Monty (Chief of Staff)</span>
-                        <span className="activity-log">Zero-state initialized. Standing by for telemetry dispatch.</span>
+                        <span className="activity-agent hf-blue">{hermesLog.agent}</span>
+                        <span className="activity-log">{hermesLog.text}</span>
                     </div>
                 </div>
             </div>

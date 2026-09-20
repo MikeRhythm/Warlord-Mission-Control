@@ -21,3 +21,69 @@ body {
   font-family: 'Consolas', 'Courier New', monospace;
   overflow: hidden;
 }
+
+/* ========================================================
+   UNIVERSAL TACTICAL SPINNER & SEQUENCE LOCK (WARLORD MCNC)
+   ======================================================== */
+
+@keyframes mcnc-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes mcnc-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* Inline Spinner for Buttons and Headers */
+.mcnc-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--color-gold-muted);
+  border-top: 2px solid var(--color-gold-core);
+  border-radius: 50%;
+  animation: mcnc-spin 0.75s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+/* Larger Variant for Card / Overlay Views */
+.mcnc-spinner-lg {
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--color-gold-muted);
+  border-top: 2.5px solid var(--color-gold-core);
+  border-radius: 50%;
+  animation: mcnc-spin 0.75s linear infinite;
+  display: inline-block;
+  box-sizing: border-box;
+}
+
+/* Sequence Execution Banner */
+.sequence-lock-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--color-frame);
+  border: 1px solid var(--color-gold-core);
+  padding: 6px 12px;
+  border-radius: 2px;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  color: var(--color-gold-core);
+  letter-spacing: 0.05em;
+  box-sizing: border-box;
+}
+
+.sequence-pulse {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background-color: #00e676;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #00e676;
+  margin-right: 8px;
+  animation: mcnc-pulse 1.2s infinite ease-in-out;
+}
