@@ -26,7 +26,7 @@ const BOARDROOM_OPTIONS = [
   { id: 'GPT-4O', name: 'GPT-4o Frontier', tag: 'ELITE' },
   { id: 'GEMINI-1.5-PRO', name: 'Gemini 1.5 Pro (Studio)', tag: 'ELITE' },
   { id: 'DEEPSEEK-R1', name: 'DeepSeek-R1 (Paid)', tag: 'ELITE' },
-  { id: 'KAGGLE-T4', name: 'Kaggle Dual-T4 (32GB)', tag: 'FREE' }
+  { id: 'KAGGLE-T4', name: 'Kaggle Dual-T4 (32GB)', tag: 'STANDBY' }
 ];
 
 const DIRECTOR_BOARD_CONFIG = [
@@ -419,7 +419,7 @@ export default function Tab02WarRoom({ ws }) {
                       statusColor = 'text-[#10b981] bg-[#10b981]/20 border border-[#10b981]/40';
                     } else {
                       statusText = 'STANDBY';
-                      statusColor = 'text-[#5c6b7f] bg-[#1f242d]';
+                      statusColor = 'text-[#9cb8c4] bg-[#9cb8c4]/10 border border-[#9cb8c4]/40';
                     }
                   }
 

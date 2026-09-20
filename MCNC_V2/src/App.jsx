@@ -17,7 +17,7 @@ import Tab10Tokens from './components/Tab10Tokens';
 import Tab11Galaxy from './components/Tab11Galaxy';
 import Tab12Review from './components/Tab12Review';
 import Tab13Docs from './components/Tab13Docs';
-import Tab14Other from './components/Tab14Other';
+import Tab14PipeLine from './components/Tab14PipeLine';
 
 // Initialize global network listener once across entire runtime
 initGlobalInterceptor();
@@ -214,7 +214,7 @@ export default function App() {
         </div>
 
         <div style={{ display: activeTab === '14 PIPE-LINE' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
-          <Tab14Other ws={mcncSocket} />
+          <Tab14PipeLine ws={mcncSocket} />
         </div>
       </main>
     </div>
