@@ -29,11 +29,23 @@ const BOARDROOM_OPTIONS = [
   { id: 'KAGGLE-T4', name: 'Kaggle Dual-T4 (32GB)', tag: 'FREE' }
 ];
 
-const DIRECTOR_BOARD = [
-  'TESS // QUANT', 'SILAS // DATABASE', 'AMBER // COPYWRITER', 'ARES // EXECUTION',
-  'ATLAS // INFRASTRUCTURE', 'VALERIE // RELATIONS', 'JACK // MARKETING', 'MAVERICK // SEO',
-  'SKYLA // FRONTEND WEB', 'JAX // ARTWORK OMEGA', 'ROXY // ARTWORK ALPHA', 'CHARLIE // CODE',
-  'THE ASKARI // SECURITY', 'VANCE // FINANCE', 'JUSTIN // RISK LEGAL', 'ORION // STRATEGIC INTEL'
+const DIRECTOR_BOARD_CONFIG = [
+  { name: 'TESS // QUANT', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' },
+  { name: 'SILAS // DATABASE', modelBadge: 'GEMINI-PRO', roleType: 'CONTEXT', color: 'text-[#ffb800] bg-[#ffb800]/10 border-[#ffb800]/30' },
+  { name: 'AMBER // COPYWRITER', modelBadge: 'LLAMA-3.3', roleType: 'CREATIVE', color: 'text-[#10b981] bg-[#10b981]/10 border-[#10b981]/30' },
+  { name: 'ARES // EXECUTION', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' },
+  { name: 'ATLAS // INFRASTRUCTURE', modelBadge: 'LLAMA-70B', roleType: 'CODE', color: 'text-[#a78bfa] bg-[#a78bfa]/10 border-[#a78bfa]/30' },
+  { name: 'VALERIE // RELATIONS', modelBadge: 'LLAMA-3.3', roleType: 'CREATIVE', color: 'text-[#10b981] bg-[#10b981]/10 border-[#10b981]/30' },
+  { name: 'JACK // MARKETING', modelBadge: 'LLAMA-3.3', roleType: 'CREATIVE', color: 'text-[#10b981] bg-[#10b981]/10 border-[#10b981]/30' },
+  { name: 'MAVERICK // SEO', modelBadge: 'GEMINI-PRO', roleType: 'CONTEXT', color: 'text-[#ffb800] bg-[#ffb800]/10 border-[#ffb800]/30' },
+  { name: 'SKYLA // FRONTEND WEB', modelBadge: 'LLAMA-70B', roleType: 'CODE', color: 'text-[#a78bfa] bg-[#a78bfa]/10 border-[#a78bfa]/30' },
+  { name: 'JAX // ARTWORK OMEGA', modelBadge: 'LLAMA-3.3', roleType: 'CREATIVE', color: 'text-[#10b981] bg-[#10b981]/10 border-[#10b981]/30' },
+  { name: 'ROXY // ARTWORK ALPHA', modelBadge: 'LLAMA-3.3', roleType: 'CREATIVE', color: 'text-[#10b981] bg-[#10b981]/10 border-[#10b981]/30' },
+  { name: 'CHARLIE // CODE', modelBadge: 'LLAMA-70B', roleType: 'CODE', color: 'text-[#a78bfa] bg-[#a78bfa]/10 border-[#a78bfa]/30' },
+  { name: 'THE ASKARI // SECURITY', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' },
+  { name: 'VANCE // FINANCE', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' },
+  { name: 'JUSTIN // RISK LEGAL', modelBadge: 'GEMINI-PRO', roleType: 'CONTEXT', color: 'text-[#ffb800] bg-[#ffb800]/10 border-[#ffb800]/30' },
+  { name: 'ORION // STRATEGIC INTEL', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' }
 ];
 
 const INITIAL_PROJECTS = ['MCNC REACT VITE', 'RHYTHM WASP V8.5', 'PAPERCLIP DAEMON'];
@@ -54,7 +66,7 @@ export default function Tab02WarRoom({ ws }) {
   const [workflowState, setWorkflowState] = useState('IDLE'); 
   
   const [isBoardroomOpen, setIsBoardroomOpen] = useState(true);
-  const [isDirectorsOpen, setIsDirectorsOpen] = useState(false);
+  const [isDirectorsOpen, setIsDirectorsOpen] = useState(true);
 
   const [selectedLLM, setSelectedLLM] = useState('ELITE_CASCADE');
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
@@ -69,7 +81,7 @@ export default function Tab02WarRoom({ ws }) {
 
   // Kaggle Live Bridge & Bank Quota Telemetry
   const [isKaggleOnline, setIsKaggleOnline] = useState(false);
-  const [remainingQuotaHours, setRemainingQuotaHours] = useState('27.5');
+  const [remainingQuotaHours, setRemainingQuotaHours] = useState('28.5');
 
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
@@ -78,11 +90,10 @@ export default function Tab02WarRoom({ ws }) {
 
   useEffect(() => { streamBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [streamLog]);
 
-  // Sync remaining quota from localStorage & poll backend status
   const updateKaggleTelemetry = async () => {
     try {
       const savedHours = localStorage.getItem('MCNC_KAGGLE_WEEKLY_HOURS');
-      const used = savedHours !== null ? parseFloat(savedHours) : 2.5;
+      const used = savedHours !== null ? parseFloat(savedHours) : 1.5;
       const rem = Math.max(0, 30.0 - used).toFixed(1);
       setRemainingQuotaHours(rem);
 
@@ -137,7 +148,6 @@ export default function Tab02WarRoom({ ws }) {
 
   const handleCopyDiscussion = () => {
     if (!streamLog || streamLog.length === 0) return;
-    
     const formattedDiscussion = streamLog
       .map(log => `[${log.sender}]:\n${log.text}`)
       .join('\n\n==================================================\n\n');
@@ -467,7 +477,7 @@ export default function Tab02WarRoom({ ws }) {
               </div>
             </button>
             {isDirectorsOpen && (
-              <div className="p-2 space-y-1 bg-[#0a0c0e] max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+              <div className="p-2 space-y-1 bg-[#0a0c0e] max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
                 
                 <button
                   onClick={() => setSelectedAgentDropdown('5-TURN ROUND-ROBIN CASCADE')}
@@ -486,17 +496,46 @@ export default function Tab02WarRoom({ ws }) {
                   </span>
                 </button>
 
-                {DIRECTOR_BOARD.map(agent => {
-                  const isSpecificTarget = assignedDirectors.includes(agent) || selectedAgentDropdown === agent;
-                  const isSpinning = isMultiAgentExecuting && assignedDirectors.includes(agent); 
+                {DIRECTOR_BOARD_CONFIG.map(agentObj => {
+                  const agentName = agentObj.name;
+                  const isSelectedTarget = selectedAgentDropdown === agentName;
+                  const isAssigned = assignedDirectors.includes(agentName);
+                  const isSpinning = isMultiAgentExecuting && isAssigned;
                   
-                  let statusText = 'STANDBY'; let statusColor = 'text-[#5c6b7f] bg-[#1f242d]';
-                  if (isSpinning) { statusText = 'SCANNED'; statusColor = 'text-black bg-[#38bdf8]'; } 
-                  else if (assignedDirectors.includes(agent)) { statusText = 'LOCKED'; statusColor = 'text-black bg-[#10b981]'; }
+                  let badgeLabel = 'STANDBY';
+                  let badgeStyle = 'text-[#5c6b7f] bg-[#1f242d]';
+
+                  if (isSpinning) {
+                    badgeLabel = 'SCANNED';
+                    badgeStyle = 'text-black bg-[#38bdf8] font-bold';
+                  } else if (isAssigned) {
+                    badgeLabel = 'LOCKED';
+                    badgeStyle = 'text-black bg-[#10b981] font-bold';
+                  } else if (isSelectedTarget) {
+                    badgeLabel = agentObj.modelBadge;
+                    badgeStyle = agentObj.color + ' font-bold border';
+                  }
+
                   return (
-                    <button key={agent} onClick={() => setSelectedAgentDropdown(agent)} className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${isSpecificTarget ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold' : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'}`}>
-                      <div className="flex items-center gap-2">{isSpinning && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#38bdf8]" />}<span className="truncate pr-1">{agent}</span></div>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${statusColor}`}>{statusText}</span>
+                    <button 
+                      key={agentName} 
+                      onClick={() => {
+                        setSelectedAgentDropdown(agentName);
+                        setAnalysisMode('DIRECTORS');
+                      }} 
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${
+                        isSelectedTarget 
+                          ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold' 
+                          : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isSpinning && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#38bdf8]" />}
+                        <span className="truncate pr-1">{agentName}</span>
+                      </div>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-mono tracking-wider ${badgeStyle}`}>
+                        {badgeLabel}
+                      </span>
                     </button>
                   );
                 })}
@@ -612,7 +651,7 @@ export default function Tab02WarRoom({ ws }) {
                 }} className="bg-transparent text-[#ffb800] font-bold text-[11px] px-2 py-1.5 focus:outline-none cursor-pointer">
                   <option value="5-TURN ROUND-ROBIN CASCADE">[ ASSIGN: 5-TURN ROUND-ROBIN ]</option>
                   <option value="ALL DIRECTORS // AUTO-ROUTING">[ ASSIGN: ALL DIRECTORS // AUTO-ROUTING ]</option>
-                  {DIRECTOR_BOARD.map(agent => <option key={agent} value={agent} className="bg-[#0d0f12] text-[#e2e8f0]">[ TARGET: {agent} ]</option>)}
+                  {DIRECTOR_BOARD_CONFIG.map(a => <option key={a.name} value={a.name} className="bg-[#0d0f12] text-[#e2e8f0]">[ TARGET: {a.name} ]</option>)}
                 </select>
                 {assignedDirectors.length > 0 && (
                   <div className="flex items-center gap-1 px-2 border-l border-[#232832] text-[#10b981] font-bold text-[10px]">

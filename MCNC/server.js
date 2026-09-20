@@ -340,26 +340,12 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     console.log(`\n========================================`);
     console.log(`[DISPATCH] Target Model: "${requestedModel}" | Mode: "${computeMode}"`);
 
-    // 1. TIER 0: KAGGLE FREE CLOUD COMPUTE BRIDGE (Only if toggled ON and responding)
-    if (computeMode === 'KAGGLE' && kaggleUrl) {
-        const isTunnelLive = await verifyKaggleTunnel();
-        if (isTunnelLive) {
-            try {
-                const kaggleModel = (requestedModel.includes('/') || requestedModel.includes('gemini')) ? 'qwen2.5:7b' : requestedModel;
-                const reply = await dispatchToKaggle(systemPrompt, validContent, kaggleModel);
-                return { reply: reply.trim(), modelUsed: `${kaggleModel} (Kaggle Dual-T4)` };
-            } catch (kaggleErr) {
-                console.warn(`[WARN] Kaggle Compute Failed (${kaggleErr.message}). Rolling over to Multi-Cluster...`);
-                broadcast('WARN', `[ROLLOVER] Kaggle unreachable. Engaging Multi-Cluster Vaults...`);
-            }
-        } else {
-            console.warn(`[WARN] Kaggle Mode is KAGGLE but Tunnel is DEAD. Rolling over...`);
-        }
-    }
-
-    // 2. TIER 1: GEMINI CLUSTER
-    if (reqModelLower.includes('gemini')) {
-        const activeGeminiKeys = getActiveGeminiKeys();
+    // ----------------------------------------------------
+    // TIER 1: GOOGLE GEMINI CLUSTER
+    // ----------------------------------------------------
+    const activeGeminiKeys = getActiveGeminiKeys();
+    if (activeGeminiKeys.length > 0) {
+        console.log(`[TIER 1] Attempting Gemini Cluster (${activeGeminiKeys.length} keys active)...`);
         for (let i = 0; i < activeGeminiKeys.length; i++) {
             const mask = `...${activeGeminiKeys[i].slice(-6)}`;
             try {
@@ -373,58 +359,104 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    return { reply: data.candidates?.[0]?.content?.parts?.[0]?.text?.trim(), modelUsed: `${requestedModel} (Gemini [${mask}])` };
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                    if (text) return { reply: text, modelUsed: `gemini-1.5-pro (Tier 1: Gemini [${mask}])` };
                 }
+                console.warn(`[TIER 1 WARN] Gemini key [${mask}] returned HTTP ${response.status}. Rolling over...`);
             } catch (err) {}
         }
+        console.warn("[TIER 1 EXHAUSTED] All Gemini keys rate-limited or unavailable.");
     }
 
-    // 3. TIER 2: GROQ CLUSTER
-    if (reqModelLower.includes('groq') || reqModelLower.includes('llama-3.1-70b-versatile') || reqModelLower.includes('mixtral') || reqModelLower === 'llama-3.3-70b-versatile') {
-        const activeGroqKeys = getActiveGroqKeys();
-        for (let i = 0; i < activeGroqKeys.length; i++) {
-            const mask = `...${activeGroqKeys[i].slice(-6)}`;
-            try {
-                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${activeGroqKeys[i]}` },
-                    body: JSON.stringify({ model: requestedModel, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }], temperature: 0.3, max_tokens: 4096 })
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    return { reply: data.choices?.[0]?.message?.content?.trim(), modelUsed: `${requestedModel} (Groq [${mask}])` };
-                }
-            } catch (err) {}
-        }
-    }
-
-    // 4. TIER 3: NVIDIA NIM CLUSTER
+    // ----------------------------------------------------
+    // TIER 2: NVIDIA NIM CLUSTER
+    // ----------------------------------------------------
     const activeNimKeys = getActiveNimKeys();
-    if (activeNimKeys.length > 0 && !reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/') && !reqModelLower.includes('google/')) {
+    if (activeNimKeys.length > 0) {
+        console.log(`[TIER 2] Attempting NVIDIA NIM Cluster (${activeNimKeys.length} keys active)...`);
+        const targetNimModel = reqModelLower.includes("nemotron") ? "nvidia/nemotron-70b-ultra" : "meta/llama-3.3-70b-instruct";
         for (let i = 0; i < activeNimKeys.length; i++) {
             const mask = `...${activeNimKeys[i].slice(-6)}`;
             try {
-                const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${activeNimKeys[i]}` },
-                    body: JSON.stringify({ model: requestedModel, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }], temperature: 0.3, max_tokens: 2048 })
+                    body: JSON.stringify({ 
+                        model: targetNimModel, 
+                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }], 
+                        temperature: 0.3, 
+                        max_tokens: 2048 
+                    })
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    return { reply: data.choices?.[0]?.message?.content?.trim(), modelUsed: `${requestedModel} (NIM [${mask}])` };
+                    const text = data.choices?.[0]?.message?.content?.trim();
+                    if (text) return { reply: text, modelUsed: `${targetNimModel} (Tier 2: NIM [${mask}])` };
                 }
+                console.warn(`[TIER 2 WARN] NIM key [${mask}] returned HTTP ${response.status}. Rolling over...`);
             } catch (fetchErr) {}
         }
+        console.warn("[TIER 2 EXHAUSTED] All NVIDIA NIM keys rate-limited or unavailable.");
     }
 
-    // 5. TIER 4: OPENROUTER SHIELD (FINAL RESILIENT FALLBACK)
-    console.warn(`[!] CLUSTERS EXHAUSTED OR ELITE MODEL REQUESTED. ENGAGING OPENROUTER SHIELD...`);
-    let fallbackSlug = requestedModel;
-    if (!reqModelLower.includes('anthropic/') && !reqModelLower.includes('openai/') && !reqModelLower.includes('google/')) {
-        fallbackSlug = 'meta-llama/llama-3.3-70b-instruct';
+    // ----------------------------------------------------
+    // TIER 3: GROQ CLUSTER
+    // ----------------------------------------------------
+    const activeGroqKeys = getActiveGroqKeys();
+    if (activeGroqKeys.length > 0) {
+        console.log(`[TIER 3] Attempting Groq LPU Cluster (${activeGroqKeys.length} keys active)...`);
+        const targetGroqModel = "llama-3.3-70b-versatile";
+        for (let i = 0; i < activeGroqKeys.length; i++) {
+            const mask = `...${activeGroqKeys[i].slice(-6)}`;
+            try {
+                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${activeGroqKeys[i]}` },
+                    body: JSON.stringify({ 
+                        model: targetGroqModel, 
+                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }], 
+                        temperature: 0.3, 
+                        max_tokens: 4096 
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const text = data.choices?.[0]?.message?.content?.trim();
+                    if (text) return { reply: text, modelUsed: `${targetGroqModel} (Tier 3: Groq [${mask}])` };
+                }
+                console.warn(`[TIER 3 WARN] Groq key [${mask}] returned HTTP ${response.status}. Rolling over...`);
+            } catch (err) {}
+        }
+        console.warn("[TIER 3 EXHAUSTED] All Groq keys rate-limited or unavailable.");
     }
+
+    // ----------------------------------------------------
+    // TIER 4: KAGGLE DUAL-T4 FREE CLOUD BRIDGE
+    // ----------------------------------------------------
+    if (computeMode === 'KAGGLE' && kaggleUrl) {
+        const isTunnelLive = await verifyKaggleTunnel();
+        if (isTunnelLive) {
+            try {
+                console.log("[TIER 4] Offloading execution to Kaggle Dual-T4 bridge...");
+                const reply = await dispatchToKaggle(systemPrompt, validContent, "qwen2.5:7b");
+                return { reply: reply.trim(), modelUsed: "qwen2.5:7b (Tier 4: Kaggle Dual-T4)" };
+            } catch (kaggleErr) {
+                console.warn(`[TIER 4 WARN] Kaggle compute failed: ${kaggleErr.message}. Falling through...`);
+            }
+        }
+    } else {
+        console.warn("[TIER 4 STANDBY] Kaggle is in STANDBY. Notifying Commander Mike...");
+        broadcast('WARN', 'Mike, please activate Kaggle. (Free tiers exhausted, awaiting GPU bridge or rolling to OpenRouter).');
+    }
+
+    // ----------------------------------------------------
+    // TIER 5: OPENROUTER SHIELD (FINAL RESILIENT FALLBACK)
+    // ----------------------------------------------------
+    console.warn("[!] TIERS 1-4 EXHAUSTED OR IN STANDBY. ENGAGING OPENROUTER SHIELD...");
+    broadcast('TRACE', '[SHIELD] Free tiers & Kaggle passed. Dispatched to OpenRouter paid shield.');
+    const fallbackSlug = "meta-llama/llama-3.3-70b-instruct";
     const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, fallbackSlug);
-    return { reply: fallbackReply.trim(), modelUsed: `${fallbackSlug} (OpenRouter Shield)` };
+    return { reply: fallbackReply.trim(), modelUsed: `${fallbackSlug} (Tier 5: OpenRouter Shield)` };
 }
 
 // ==========================================
