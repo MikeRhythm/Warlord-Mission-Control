@@ -57,7 +57,7 @@ const DIRECTOR_BOARD_CONFIG = [
   { name: 'ORION // STRATEGIC INTEL', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' }
 ];
 
-const DEFAULT_PROJECTS = ['ZAMBEZI SAFARI', 'WAR ROOM - DIRECTOR BOARD KAGGLE TEST', 'MCNC REACT VITE', 'RHYTHM WASP V8.5'];
+const DEFAULT_PROJECTS = ['MAKING MONEY IDEAS', 'ZAMBEZI SAFARI', 'WAR ROOM - DIRECTOR BOARD KAGGLE TEST', 'MCNC REACT VITE', 'RHYTHM WASP V8.5'];
 
 export default function Tab02WarRoom({ ws }) {
   const [assignedDirectors, setAssignedDirectors] = useState([]);
@@ -89,7 +89,7 @@ export default function Tab02WarRoom({ ws }) {
   });
 
   const [selectedProject, setSelectedProject] = useState(() => {
-    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'ZAMBEZI SAFARI';
+    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'MAKING MONEY IDEAS';
   });
 
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -111,7 +111,6 @@ export default function Tab02WarRoom({ ws }) {
   const [copiedFeed, setCopiedFeed] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   
-  // Strict boolean check for rendering the timer UI
   const isAnyExecuting = Boolean(isCascading || isMultiAgentExecuting || isLLMExecuting);
 
   useEffect(() => {
@@ -122,6 +121,7 @@ export default function Tab02WarRoom({ ws }) {
     } catch (e) {}
   }, [streamLog, workflowState, selectedLLM]);
 
+  // Elapsed Timer Hook
   useEffect(() => {
     let timer;
     if (isAnyExecuting) {
@@ -147,7 +147,7 @@ export default function Tab02WarRoom({ ws }) {
     return `${m}:${s}`;
   };
 
-  useEffect(() => { streamBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [streamLog]);
+  useEffect(() => { streamBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [streamLog, isAnyExecuting]);
 
   const handleSelectProject = (proj) => {
     setSelectedProject(proj);
@@ -287,7 +287,7 @@ export default function Tab02WarRoom({ ws }) {
       { 
         id: Date.now(), 
         sender: 'WARLORD // OVERRIDE', 
-        text: `[!] BATCH JOB TERMINATED. ALL INFERENCE SEQUENCES ABORTED AT [${formatElapsed(elapsedSeconds)}]. CPU RESTORED TO IDLE.`, 
+        text: `[!] BATCH JOB TERMINATED. ACTIVE CASCADE ABORTED AT [${formatElapsed(elapsedSeconds)}]. SYSTEM RESTORED TO IDLE.`, 
         type: 'error' 
       }
     ]);
@@ -602,7 +602,6 @@ Format strictly as:
         detail: { project: selectedProject, tasks: parsedTasks }
       }));
 
-      // Ping backend (optional redundancy)
       try {
         fetch('http://127.0.0.1:8081/api/projects/dispatch', {
           method: 'POST',
@@ -713,7 +712,10 @@ Format strictly as:
             {isDirectorsOpen && (
               <div className="p-2 space-y-1 bg-[#0a0c0e] max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
                 <button
-                  onClick={() => setSelectedAgentDropdown('5-TURN ROUND-ROBIN CASCADE')}
+                  onClick={() => {
+                    setSelectedAgentDropdown('5-TURN ROUND-ROBIN CASCADE');
+                    setAssignedDirectors([]);
+                  }}
                   className={`w-full flex items-center justify-between px-2.5 py-2 mb-2 rounded text-[11px] font-mono transition-all cursor-pointer ${
                     selectedAgentDropdown === '5-TURN ROUND-ROBIN CASCADE'
                       ? 'bg-[#ffb800]/20 text-[#ffb800] border border-[#ffb800]/50 font-bold shadow-[0_0_8px_rgba(255,184,0,0.2)]'
@@ -792,20 +794,20 @@ Format strictly as:
             )}
           </div>
         </div>
-        
-        {/* EXPLICIT TIMER & STOP BANNER (PINNED TO TOP WHEN ACTIVE) */}
+
+        {/* STATIC STICKY BANNER INSIDE CHAT (NEVER CLIPPED) */}
         {isAnyExecuting && (
-          <div className="absolute top-10 left-0 right-0 z-20 mx-4 mt-3 flex items-center justify-between py-2.5 px-3 border border-[#ffb800] bg-[#14171c]/95 backdrop-blur-sm rounded shadow-[0_4px_16px_rgba(0,0,0,0.5)] font-mono">
+          <div className="mx-3 mt-2 py-2 px-3 border border-[#ffb800] bg-[#14171c] rounded shadow-[0_0_12px_rgba(255,184,0,0.2)] font-mono flex items-center justify-between select-none z-10">
             <div className="flex items-center gap-2.5 text-[#ffb800]">
               <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
-              <span className="text-[11px] font-bold tracking-wider uppercase">
-                {selectedLLM === 'KAGGLE-T4' ? 'Kaggle Dual-T4' : 'Boardroom'} Active Cascade executing... [ELAPSED: {formatElapsed(elapsedSeconds)}]
+              <span className="text-xs font-bold tracking-wide uppercase">
+                {selectedLLM === 'KAGGLE-T4' ? 'Kaggle Dual-T4' : 'Boardroom'} Active Cascade Running... [ELAPSED: {formatElapsed(elapsedSeconds)}]
               </span>
             </div>
             <button
               type="button"
               onClick={handleAllStop}
-              className="px-3 py-1.5 bg-[#ef4444]/20 hover:bg-[#ef4444] text-[#fca5a5] hover:text-white border border-[#ef4444]/50 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(239,68,68,0.3)]"
+              className="px-2.5 py-1 bg-[#ef4444]/20 hover:bg-[#ef4444] text-[#fca5a5] hover:text-white border border-[#ef4444]/50 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(239,68,68,0.2)]"
             >
               <Square className="w-3 h-3 fill-current" />
               <span>TERMINATE BATCH JOB</span>
@@ -813,7 +815,7 @@ Format strictly as:
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar pt-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
           {streamLog.map(log => (
             <div key={log.id} className="space-y-1">
               <div className="flex items-center justify-between select-none">
@@ -832,7 +834,29 @@ Format strictly as:
           <div ref={streamBottomRef} />
         </div>
 
+        {/* Input Dock */}
         <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none relative z-10">
+          
+          {/* Universal Execution Lock Banner above textarea */}
+          {isAnyExecuting && (
+            <div className="flex items-center justify-between bg-[#14171c] border border-[#ffb800] px-3 py-1.5 rounded text-[11px] font-mono text-[#ffb800]">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
+                <span className="font-bold tracking-wider">
+                  SEQUENCE ACTIVE // INFERENCE RUNNING [{formatElapsed(elapsedSeconds)}]
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAllStop}
+                className="px-2 py-0.5 bg-[#450a0a] hover:bg-[#7f1d1d] text-[#fca5a5] hover:text-white border border-[#7f1d1d] rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+              >
+                <Square className="w-2.5 h-2.5 fill-current text-[#ef4444]" />
+                <span>TERMINATE</span>
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-[11px] bg-[#14171c] px-3 py-1.5 rounded border border-[#232832]">
             <label className={`flex items-center gap-2 font-bold tracking-wider transition-colors select-none ${isAnyExecuting ? 'text-[#5c6b7f] cursor-not-allowed' : 'text-[#ffb800] hover:text-[#fef08a] cursor-pointer'}`}>
               <Paperclip className={`w-4 h-4 ${isAnyExecuting ? 'text-[#5c6b7f]' : 'text-[#ffb800]'}`} />

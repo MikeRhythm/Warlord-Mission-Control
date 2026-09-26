@@ -6,17 +6,19 @@ export default function Tab04TaskBoard() {
   const [selectedScope, setSelectedScope] = useState('ALL PROJECTS');
   const [projectList, setProjectList] = useState(['ALL PROJECTS']);
 
-  // 1. Load active tasks from Base 1 Storage
+  // 1. Load active tasks safely from Base 1 Storage
   const loadTasks = () => {
     try {
       const storedTasks = localStorage.getItem('MCNC_ACTIVE_TASKS');
       if (storedTasks) {
         const parsedTasks = JSON.parse(storedTasks);
-        setTasks(parsedTasks);
-        
-        // Extract unique project names for the scope filter
-        const uniqueProjects = [...new Set(parsedTasks.map(t => t.project))];
-        setProjectList(['ALL PROJECTS', ...uniqueProjects]);
+        if (Array.isArray(parsedTasks)) {
+          setTasks(parsedTasks);
+          
+          // Extract unique project names for the scope filter
+          const uniqueProjects = [...new Set(parsedTasks.map(t => t?.project).filter(Boolean))];
+          setProjectList(['ALL PROJECTS', ...uniqueProjects]);
+        }
       }
     } catch (e) {
       console.error("Failed to parse active tasks", e);
@@ -37,16 +39,19 @@ export default function Tab04TaskBoard() {
   // Filter tasks by selected project scope
   const filteredTasks = selectedScope === 'ALL PROJECTS' 
     ? tasks 
-    : tasks.filter(t => t.project === selectedScope);
+    : tasks.filter(t => t?.project === selectedScope);
 
   // Kanban Swimlane Categories
-  const captureTasks = filteredTasks.filter(t => t.stage === 'CAPTURE & PLAN');
-  const buildTasks = filteredTasks.filter(t => t.stage === 'AGENT BUILD');
-  const gateTasks = filteredTasks.filter(t => t.stage === 'HUMAN GATE');
-  const shippedTasks = filteredTasks.filter(t => t.stage === 'SHIPPED' || t.status === 'COMPLETED');
+  const captureTasks = filteredTasks.filter(t => t?.stage === 'CAPTURE & PLAN');
+  const buildTasks = filteredTasks.filter(t => t?.stage === 'AGENT BUILD' || (!t?.stage && t?.status === 'BUILDING'));
+  const gateTasks = filteredTasks.filter(t => t?.stage === 'HUMAN GATE');
+  const shippedTasks = filteredTasks.filter(t => t?.stage === 'SHIPPED' || t?.status === 'COMPLETED');
 
-  // Telemetry Stats
-  const activeDaemons = new Set(buildTasks.map(t => t.assignedDirector)).size;
+  // Safe Extraction of Active Daemons as an Array
+  const uniqueDaemonsList = Array.from(new Set(
+    buildTasks.map(t => (t && t.assignedDirector ? t.assignedDirector : 'MONTY // COMMAND'))
+  ));
+  const activeDaemonsCount = uniqueDaemonsList.length;
 
   return (
     <div className="flex h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none overflow-hidden">
@@ -57,7 +62,7 @@ export default function Tab04TaskBoard() {
         {/* TOP STATS PANEL */}
         <div className="bg-[#0d0f12] border border-[#1f242d] rounded flex items-center justify-around py-4">
           <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-[#10b981]">{activeDaemons}</span>
+            <span className="text-2xl font-bold text-[#10b981]">{activeDaemonsCount}</span>
             <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">ACTIVE DAEMONS</span>
           </div>
           <div className="w-px h-8 bg-[#1f242d]"></div>
@@ -108,7 +113,7 @@ export default function Tab04TaskBoard() {
             <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
               <span className="text-[10px] text-[#5c6b7f] font-bold tracking-widest flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#5c6b7f]"></div>
-                CAPTURE & PLAN
+                CAPTURE &amp; PLAN
               </span>
               <span className="text-[#8fa0b5] font-bold">{captureTasks.length}</span>
             </div>
@@ -184,7 +189,7 @@ export default function Tab04TaskBoard() {
           {tasks.length > 0 && (
             <div className="pt-4 border-t border-[#1f242d] space-y-3">
               <span className="text-[10px] text-[#5c6b7f] font-bold uppercase tracking-widest">Active Daemon Sub-Routines</span>
-              {[...activeDaemons].map(daemon => (
+              {uniqueDaemonsList.map(daemon => (
                 <div key={daemon} className="flex items-center justify-between bg-[#14171c] p-2 rounded border border-[#232832]">
                   <span className="text-[10px] font-bold text-[#e2e8f0] truncate pr-2">{daemon}</span>
                   <span className="flex h-2 w-2 relative">
@@ -202,11 +207,11 @@ export default function Tab04TaskBoard() {
   );
 }
 
-// Sub-component for rendering individual task cards
+// Sub-component for rendering individual task cards with robust zero-state fallbacks
 function TaskCard({ task, accent }) {
-  // Extract a clean name for the badge (e.g., "CHARLIE // CODE" -> "C CHARLIE")
-  const agentName = task.assignedDirector.split(' // ')[0] || 'UNASSIGNED';
-  const badgeChar = agentName.charAt(0).toUpperCase();
+  const rawDirector = task?.assignedDirector || 'MONTY // COMMAND';
+  const agentName = rawDirector.includes('//') ? rawDirector.split('//')[0].trim() : rawDirector;
+  const badgeChar = agentName ? agentName.charAt(0).toUpperCase() : 'M';
 
   return (
     <div 
@@ -214,13 +219,13 @@ function TaskCard({ task, accent }) {
       style={{ borderLeftColor: accent ? accent : undefined, borderLeftWidth: accent ? '2px' : '1px' }}
     >
       <div className="font-bold text-[11px] text-[#e2e8f0] leading-tight pr-4">
-        {task.title}
+        {task?.title || 'Untitled Execution Unit'}
       </div>
       
       <div className="flex items-center justify-between mt-1">
         <span className="text-[9px] bg-[#1a1f26] text-[#8fa0b5] px-1.5 py-0.5 rounded flex items-center gap-1 border border-[#2d3748]">
           <Server className="w-2.5 h-2.5" />
-          {task.toolId}
+          {task?.toolId || 'system_node'}
         </span>
       </div>
 
@@ -234,9 +239,15 @@ function TaskCard({ task, accent }) {
           </span>
         </div>
         
-        {task.stage === 'AGENT BUILD' && <Cpu className="w-3.5 h-3.5 text-[#38bdf8]" />}
-        {task.stage === 'HUMAN GATE' && <ShieldAlert className="w-3.5 h-3.5 text-[#ffb800]" />}
-        {task.stage === 'SHIPPED' && <CheckCircle className="w-3.5 h-3.5 text-[#10b981]" />}
+        {(task?.stage === 'AGENT BUILD' || (!task?.stage && task?.status === 'BUILDING')) && (
+          <Cpu className="w-3.5 h-3.5 text-[#38bdf8]" />
+        )}
+        {task?.stage === 'HUMAN GATE' && (
+          <ShieldAlert className="w-3.5 h-3.5 text-[#ffb800]" />
+        )}
+        {(task?.stage === 'SHIPPED' || task?.status === 'COMPLETED') && (
+          <CheckCircle className="w-3.5 h-3.5 text-[#10b981]" />
+        )}
       </div>
     </div>
   );
