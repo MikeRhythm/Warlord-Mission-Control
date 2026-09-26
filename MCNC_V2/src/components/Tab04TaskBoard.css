@@ -38,7 +38,7 @@
 .stat-label { font-size: 0.75rem; color: var(--text-mist, #94A3B8); text-transform: uppercase; margin-top: 5px; }
 
 .hf-green { color: var(--emerald-core, #10B981); }
-.hf-blue { color: var(--dodger-blue, #1E90FF); }
+.hf-blue { color: #38bdf8; } /* Corrected from DodgerBlue */
 .hf-gold { color: var(--gold-core, #D4AF37); }
 .hf-text { color: var(--text-glint, #E2E8F0); }
 
@@ -59,8 +59,8 @@
     border: none;
     padding: 8px 16px;
     border-radius: 4px;
-    background: var(--dodger-blue, #1E90FF);
-    color: #fff;
+    background: #38bdf8; /* Corrected from DodgerBlue */
+    color: #000; /* Dark text on bright accent */
     font-family: 'JetBrains Mono', monospace;
     font-weight: bold;
     cursor: pointer;
@@ -68,7 +68,7 @@
     text-transform: uppercase;
 }
 
-.capture-btn:hover { background: #187bcd; }
+.capture-btn:hover { background: #0ea5e9; }
 
 .filter-pill-container {
     display: flex;
@@ -122,7 +122,7 @@
 
 .col-dot { margin-right: 6px; }
 .col-dot.muted { color: var(--text-mist, #94A3B8); }
-.col-dot.blue { color: var(--dodger-blue, #1E90FF); }
+.col-dot.blue { color: #38bdf8; } /* Corrected from DodgerBlue */
 .col-dot.gold { color: var(--gold-core, #D4AF37); }
 .col-dot.green { color: var(--emerald-core, #10B981); }
 
@@ -140,7 +140,7 @@
 
 .k-card:hover { border-color: rgba(255,255,255,0.2); }
 
-.k-card.task-active { border-color: rgba(30, 144, 255, 0.3); }
+.k-card.task-active { border-color: rgba(56, 189, 248, 0.3); } /* Corrected from DodgerBlue */
 .k-card.task-review { background: rgba(218,165,32,0.05); border-color: rgba(212, 175, 55, 0.3); }
 
 .k-card-header-row {
@@ -192,7 +192,7 @@
 
 .time-meta { font-size: 0.6rem; color: var(--text-mist, #94A3B8); }
 .status-tag { font-size: 0.6rem; padding: 2px 6px; border-radius: 2px; font-weight: bold; }
-.tag-active { background: rgba(30, 144, 255, 0.1); color: var(--dodger-blue, #1E90FF); border: 1px solid var(--dodger-blue, #1E90FF); }
+.tag-active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid #38bdf8; } /* Corrected from DodgerBlue */
 
 .approve-btn {
     background: transparent;

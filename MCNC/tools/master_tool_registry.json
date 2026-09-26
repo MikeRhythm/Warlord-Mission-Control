@@ -1,0 +1,58 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "architecture": "WASP_ZERO_BLOAT_MCP",
+    "updated": "2026-09-26",
+    "tools_root": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\tools\\"
+  },
+  "tools": {
+    "booking_sync": {
+      "type": "ephemeral_mcp",
+      "command": "npx -y @modelcontextprotocol/server-google-calendar",
+      "description": "Calendar scheduling for safari & island excursions",
+      "authorized": ["VALERIE // RELATIONS", "JACK // MARKETING"]
+    },
+    "donor_crm": {
+      "type": "ephemeral_mcp",
+      "command": "npx -y @modelcontextprotocol/server-postgres",
+      "description": "Philanthropic donor database tracking for school/feeding funds",
+      "authorized": ["SILAS // DATABASE", "AMBER // COPYWRITER", "VANCE // FINANCE"]
+    },
+    "payment_gateway": {
+      "type": "ephemeral_mcp",
+      "command": "npx -y @modelcontextprotocol/server-stripe",
+      "description": "Online payment links, checkouts, and transactional auditing",
+      "authorized": ["VANCE // FINANCE", "THE ASKARI // SECURITY"]
+    },
+    "seo_radar": {
+      "type": "ephemeral_mcp",
+      "command": "npx -y @modelcontextprotocol/server-brave-search",
+      "description": "Search engine SERP scraping, competitor intelligence, keyword ranking",
+      "authorized": ["MAVERICK // SEO", "ORION // STRATEGIC INTEL"]
+    },
+    "github_deploy": {
+      "type": "ephemeral_mcp",
+      "command": "npx -y @modelcontextprotocol/server-github",
+      "description": "Commit code, create repositories, and deploy web artifacts",
+      "authorized": ["CHARLIE // CODE", "ATLAS // INFRASTRUCTURE"]
+    },
+    "ui_inspector": {
+      "type": "ephemeral_mcp",
+      "command": "npx -y @modelcontextprotocol/server-figma",
+      "description": "Inspect design assets and enforce High Finance metallic palettes",
+      "authorized": ["ROXY // ARTWORK ALPHA", "JAX // ARTWORK OMEGA", "SKYLA // FRONTEND WEB"]
+    },
+    "smtp_dispatcher": {
+      "type": "local_native",
+      "command": "node C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\tools\\smtp_dispatcher.js",
+      "description": "Local verified SMTP outbound campaign sender",
+      "authorized": ["JACK // MARKETING", "AMBER // COPYWRITER"]
+    },
+    "email_osint_probe": {
+      "type": "local_native",
+      "command": "node C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\tools\\email_osint_probe.js",
+      "description": "Lead list hygiene, mailbox reachability, and domain reputation verification",
+      "authorized": ["ORION // STRATEGIC INTEL", "MAVERICK // SEO"]
+    }
+  }
+}

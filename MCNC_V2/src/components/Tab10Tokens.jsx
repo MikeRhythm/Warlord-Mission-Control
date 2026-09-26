@@ -1,5 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Activity, Terminal, Zap, Lock, Server, Cpu, Database, Clock, RefreshCw, Power, Link } from 'lucide-react';
+import { 
+  ShieldCheck, Activity, Terminal, Zap, Lock, Server, Cpu, Database, Clock, RefreshCw, Power, Link, Flame 
+} from 'lucide-react';
 
 const INITIAL_PROVIDERS = [
   {
@@ -74,6 +76,13 @@ export default function Tab10Tokens({ ws }) {
   const [burnRate, setBurnRate] = useState(2.08);
   const hardCap = 50.00;
   
+  // NVIDIA NIM Trial Credits State (Default 1000 allocation)
+  const NIM_STARTING_CREDITS = 1000;
+  const [nimCredits, setNimCredits] = useState(() => {
+    const saved = localStorage.getItem('MCNC_NIM_CREDITS');
+    return saved !== null ? parseInt(saved, 10) : 982;
+  });
+
   const KAGGLE_WEEKLY_MAX = 30.0;
   const [weeklyKaggleHours, setWeeklyKaggleHours] = useState(() => {
     const saved = localStorage.getItem('MCNC_KAGGLE_WEEKLY_HOURS');
@@ -88,6 +97,11 @@ export default function Tab10Tokens({ ws }) {
   
   const [showTunnelInput, setShowTunnelInput] = useState(false);
   const [tunnelUrlInput, setTunnelUrlInput] = useState('');
+
+  // Persist credits and hours to local storage
+  useEffect(() => {
+    localStorage.setItem('MCNC_NIM_CREDITS', nimCredits.toString());
+  }, [nimCredits]);
 
   useEffect(() => {
     localStorage.setItem('MCNC_KAGGLE_WEEKLY_HOURS', weeklyKaggleHours.toString());
@@ -121,6 +135,9 @@ export default function Tab10Tokens({ ws }) {
         setComputeMode(data.compute_mode || 'STANDBY');
         setIsTunnelLive(Boolean(data.kaggle_gpu_online));
         setTunnelLatency(data.kaggle_latency || 'OFFLINE');
+        if (data.nim_remaining_credits !== undefined) {
+          setNimCredits(data.nim_remaining_credits);
+        }
       }
     } catch (e) {
       setIsTunnelLive(false);
@@ -177,6 +194,7 @@ export default function Tab10Tokens({ ws }) {
   const remainingQuota = Math.max(KAGGLE_WEEKLY_MAX - weeklyKaggleHours, 0).toFixed(1);
   const kaggleBurnPercent = Math.min((weeklyKaggleHours / KAGGLE_WEEKLY_MAX) * 100, 100);
   const burnPercentage = Math.min((burnRate / hardCap) * 100, 100);
+  const nimPercentRemaining = Math.max(0, Math.min(100, (nimCredits / NIM_STARTING_CREDITS) * 100));
 
   return (
     <div className="flex flex-col h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none">
@@ -193,11 +211,15 @@ export default function Tab10Tokens({ ws }) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 min-w-[340px]">
+        <div className="flex flex-col gap-2 min-w-[420px]">
           <div className="flex gap-2">
             <div className="flex-1 bg-[#14171c] border border-[#1f242d] rounded px-3 py-1.5 flex flex-col items-center justify-center">
               <span className="text-[9px] text-[#5c6b7f] uppercase font-bold tracking-wider mb-0.5">Kaggle Bank</span>
               <span className="text-[#38bdf8] font-bold text-sm">{weeklyKaggleHours.toFixed(1)}/30h</span>
+            </div>
+            <div className="flex-1 bg-[#14171c] border border-[#1f242d] rounded px-3 py-1.5 flex flex-col items-center justify-center">
+              <span className="text-[9px] text-[#5c6b7f] uppercase font-bold tracking-wider mb-0.5">NIM Trial Bal</span>
+              <span className="text-[#10b981] font-bold text-sm">{nimCredits}/1000</span>
             </div>
             <div className="flex-1 bg-[#14171c] border border-[#1f242d] rounded px-3 py-1.5 flex flex-col items-center justify-center">
               <span className="text-[9px] text-[#5c6b7f] uppercase font-bold tracking-wider mb-0.5">OpenRouter Bal</span>
@@ -221,6 +243,7 @@ export default function Tab10Tokens({ ws }) {
       <div className="grid grid-cols-5 gap-3">
         {INITIAL_PROVIDERS.map((provider) => {
           const isKaggle = provider.id === 'kaggle';
+          const isNim = provider.id === 'nim';
           const isOnline = isKaggle && computeMode === 'KAGGLE' && isTunnelLive;
 
           return (
@@ -230,6 +253,7 @@ export default function Tab10Tokens({ ws }) {
                 <div className="flex items-center gap-1.5 font-bold text-[#e2e8f0]">
                   {provider.id === 'openrouter' ? <Server className="w-3.5 h-3.5 text-[#ffb800]" /> : 
                    provider.id === 'kaggle' ? <Database className="w-3.5 h-3.5 text-[#38bdf8]" /> :
+                   provider.id === 'nim' ? <Zap className="w-3.5 h-3.5 text-[#10b981]" /> :
                    <Cpu className="w-3.5 h-3.5 text-[#5c6b7f]" />}
                   {provider.name}
                 </div>
@@ -285,6 +309,7 @@ export default function Tab10Tokens({ ws }) {
                 </span>
               </div>
 
+              {/* KAGGLE COMPUTE BODY */}
               {isKaggle ? (
                 <div className="space-y-2 text-[10px] flex-1 flex flex-col justify-end">
                   <div className="flex flex-col gap-1 border-t border-[#1f242d]/50 pt-1.5">
@@ -322,7 +347,45 @@ export default function Tab10Tokens({ ws }) {
                     </div>
                   </div>
                 </div>
+              ) : isNim ? (
+                /* NVIDIA NIM DEDICATED BODY WITH TOKEN / CREDIT TELEMETRY */
+                <div className="space-y-2 text-[10px] flex-1 flex flex-col justify-end">
+                  <div className="flex flex-col gap-1 border-t border-[#1f242d]/50 pt-1.5">
+                    <div className="flex justify-between text-[#8fa0b5]">
+                      <span>Trial Credits:</span>
+                      <span className={`font-bold ${nimCredits < 150 ? 'text-[#ef4444]' : nimCredits < 400 ? 'text-[#ffb800]' : 'text-[#10b981]'}`}>
+                        {nimCredits} / {NIM_STARTING_CREDITS}
+                      </span>
+                    </div>
+                    <div className="w-full bg-[#080a0c] border border-[#1f242d] rounded h-1.5 overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${nimCredits < 150 ? 'bg-[#ef4444]' : nimCredits < 400 ? 'bg-[#ffb800]' : 'bg-[#10b981]'}`}
+                        style={{ width: `${nimPercentRemaining}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[9px] text-[#5c6b7f] mt-0.5">
+                      <span>Est. ~{nimCredits} calls left</span>
+                      <span>{nimPercentRemaining.toFixed(0)}% available</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-start gap-2 border-t border-[#1f242d]/50 pt-1.5">
+                    <span className="text-[#5c6b7f] whitespace-nowrap">Engine:</span>
+                    <span className="text-[#d1d5db] font-medium text-right leading-tight max-w-[140px]">{provider.engine}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center border-t border-[#1f242d]/50 pt-1.5">
+                    <span className="text-[9px] text-[#5c6b7f]">Calibrate NIM:</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => setNimCredits(c => Math.max(0, c - 10))} title="Subtract 10 credits" className="px-1 py-0.5 bg-[#14171c] hover:bg-[#1f242d] border border-[#2d3748] rounded text-[8px] text-[#8fa0b5]">-10</button>
+                      <button onClick={() => setNimCredits(c => Math.min(1000, c + 10))} title="Add 10 credits" className="px-1 py-0.5 bg-[#14171c] hover:bg-[#1f242d] border border-[#2d3748] rounded text-[8px] text-[#8fa0b5]">+10</button>
+                      <button onClick={() => setNimCredits(c => Math.max(0, c - 100))} title="Subtract 100 credits" className="px-1 py-0.5 bg-[#14171c] hover:bg-[#1f242d] border border-[#2d3748] rounded text-[8px] text-[#8fa0b5]">-100</button>
+                      <button onClick={() => setNimCredits(NIM_STARTING_CREDITS)} title="Reset to 1000 Credits" className="px-1 py-0.5 bg-[#14171c] hover:bg-[#1f242d] border border-[#2d3748] rounded text-[8px] text-[#ffb800]"><RefreshCw className="w-2.5 h-2.5" /></button>
+                    </div>
+                  </div>
+                </div>
               ) : (
+                /* OTHER PROVIDERS STANDARD BODY */
                 <div className="space-y-2 text-[10px] flex-1 flex flex-col justify-end">
                   <div className="flex justify-between items-start gap-2">
                     <span className="text-[#5c6b7f] whitespace-nowrap">Usage Burn:</span>

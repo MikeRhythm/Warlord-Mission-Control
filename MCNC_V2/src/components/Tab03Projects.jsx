@@ -1,9 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Tab03Projects.css';
 
 export default function Tab03Projects() {
     // Clean Zero-State: Projects populate dynamically from active state / telemetry
     const [projects, setProjects] = useState([]);
+
+    // 1. Loader function to read dispatched manifests from Base 1 Storage
+    const loadProjects = () => {
+        try {
+            const stored = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
+            if (stored) {
+                const parsedManifests = JSON.parse(stored);
+                
+                // Map the raw manifest data into the UI card structure
+                const formattedProjects = parsedManifests.map(manifest => {
+                    const completed = manifest.tasks ? manifest.tasks.filter(t => t.status === 'COMPLETED').length : 0;
+                    const total = manifest.totalTasks || 0;
+                    const progressRatio = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+                    return {
+                        id: manifest.name,
+                        title: manifest.name,
+                        status: manifest.status || 'ACTIVE',
+                        desc: `Warlord PRD Executed. Task sequence handed off to Paperclip daemon.`,
+                        progress: progressRatio,
+                        completedTasks: completed,
+                        totalTasks: total,
+                        lead: 'MONTY // COMMAND',
+                        priority: 'HIGH'
+                    };
+                });
+                
+                setProjects(formattedProjects);
+            }
+        } catch (e) {
+            console.error("Failed to parse project manifests", e);
+        }
+    };
+
+    // 2. Listeners: Trigger load on mount, on cross-tab dispatch, or on storage change
+    useEffect(() => {
+        loadProjects();
+
+        window.addEventListener('warlord-project-dispatched', loadProjects);
+        window.addEventListener('storage', loadProjects);
+
+        return () => {
+            window.removeEventListener('warlord-project-dispatched', loadProjects);
+            window.removeEventListener('storage', loadProjects);
+        };
+    }, []);
 
     const activeCount = projects.filter(p => p.status?.toLowerCase() === 'active').length;
     const planningCount = projects.filter(p => p.status?.toLowerCase() === 'planning').length;
@@ -53,7 +99,7 @@ export default function Tab03Projects() {
                             </div>
 
                             <div className="proj-footer">
-                                <span className={`agent-badge badge-${proj.lead?.toLowerCase().replace(' ', '-')}`}>
+                                <span className={`agent-badge badge-${proj.lead?.toLowerCase().split(' ')[0]}`}>
                                     {proj.lead ? `${proj.lead.charAt(0)} ${proj.lead}` : 'UNASSIGNED'}
                                 </span>
                                 <span className={`proj-priority priority-${proj.priority?.toLowerCase() || 'normal'}`}>

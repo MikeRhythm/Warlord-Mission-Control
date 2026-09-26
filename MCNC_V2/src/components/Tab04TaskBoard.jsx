@@ -1,218 +1,243 @@
 import React, { useState, useEffect } from 'react';
-import './Tab04TaskBoard.css';
+import { LayoutGrid, Cpu, CheckCircle, ShieldAlert, Zap, Server } from 'lucide-react';
 
-const ACTIVE_PROJECTS = ['ALL PROJECTS', 'MCNC REACT VITE', 'RHYTHM WASP V8.5', 'PAPERCLIP DAEMON'];
+export default function Tab04TaskBoard() {
+  const [tasks, setTasks] = useState([]);
+  const [selectedScope, setSelectedScope] = useState('ALL PROJECTS');
+  const [projectList, setProjectList] = useState(['ALL PROJECTS']);
 
-export default function Tab04TaskBoard({ ws }) {
-    const [activeProject, setActiveProject] = useState('ALL PROJECTS');
-    const [tasks, setTasks] = useState([]);
-    const [daemonsCount, setDaemonsCount] = useState(0);
-    const [hermesLog, setHermesLog] = useState({
-        agent: 'Monty (Chief of Staff)',
-        text: 'Zero-state initialized. Standing by for telemetry dispatch.'
-    });
+  // 1. Load active tasks from Base 1 Storage
+  const loadTasks = () => {
+    try {
+      const storedTasks = localStorage.getItem('MCNC_ACTIVE_TASKS');
+      if (storedTasks) {
+        const parsedTasks = JSON.parse(storedTasks);
+        setTasks(parsedTasks);
+        
+        // Extract unique project names for the scope filter
+        const uniqueProjects = [...new Set(parsedTasks.map(t => t.project))];
+        setProjectList(['ALL PROJECTS', ...uniqueProjects]);
+      }
+    } catch (e) {
+      console.error("Failed to parse active tasks", e);
+    }
+  };
 
-    useEffect(() => {
-        if (!ws) return;
-
-        const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                
-                // Handle Hermes state broadcast
-                if (data.hermes_state) {
-                    if (Array.isArray(data.hermes_state.agents)) {
-                        const activeWorkers = data.hermes_state.agents.filter(
-                            a => a.status === 'online' || a.status === 'active'
-                        ).length;
-                        setDaemonsCount(activeWorkers);
-                    }
-
-                    if (Array.isArray(data.hermes_state.tasks)) {
-                        const mappedTasks = data.hermes_state.tasks.map(t => ({
-                            id: t.id,
-                            title: t.description,
-                            project: t.project || 'MCNC REACT VITE',
-                            agent: t.agent || 'SYSTEM',
-                            column: t.status === 'in_progress' ? 'BUILD' : (t.status === 'pending' ? 'CAPTURE' : 'SHIPPED'),
-                            meta: t.meta || 'Live Stream'
-                        }));
-                        setTasks(mappedTasks);
-                    }
-
-                    setHermesLog({
-                        agent: 'Hermes Master Telemetry',
-                        text: `Sync confirmed at ${new Date().toLocaleTimeString()} - ${data.hermes_state.agents?.length || 0} agents online.`
-                    });
-                }
-
-                // Handle direct task board updates
-                if (data.type === 'TASK_BOARD_UPDATE') {
-                    if (data.tasks) setTasks(data.tasks);
-                    if (typeof data.daemonsCount === 'number') setDaemonsCount(data.daemonsCount);
-                    if (data.log) setHermesLog(data.log);
-                }
-            } catch (err) {
-                console.error("Telemetry parse error:", err);
-            }
-        };
-
-        ws.addEventListener('message', handleMessage);
-        return () => ws.removeEventListener('message', handleMessage);
-    }, [ws]);
-
-    const deleteTask = (taskId) => {
-        setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
+  // 2. Listeners for real-time War Room dispatch syncing
+  useEffect(() => {
+    loadTasks();
+    window.addEventListener('warlord-project-dispatched', loadTasks);
+    window.addEventListener('storage', loadTasks);
+    return () => {
+      window.removeEventListener('warlord-project-dispatched', loadTasks);
+      window.removeEventListener('storage', loadTasks);
     };
+  }, []);
 
-    const approveTask = (taskId) => {
-        setTasks(prevTasks => prevTasks.map(t =>
-            t.id === taskId ? { ...t, column: 'SHIPPED', isReview: false, meta: 'Just Shipped' } : t
-        ));
-    };
+  // Filter tasks by selected project scope
+  const filteredTasks = selectedScope === 'ALL PROJECTS' 
+    ? tasks 
+    : tasks.filter(t => t.project === selectedScope);
 
-    const filteredTasks = activeProject === 'ALL PROJECTS'
-        ? tasks
-        : tasks.filter(t => t.project === activeProject);
+  // Kanban Swimlane Categories
+  const captureTasks = filteredTasks.filter(t => t.stage === 'CAPTURE & PLAN');
+  const buildTasks = filteredTasks.filter(t => t.stage === 'AGENT BUILD');
+  const gateTasks = filteredTasks.filter(t => t.stage === 'HUMAN GATE');
+  const shippedTasks = filteredTasks.filter(t => t.stage === 'SHIPPED' || t.status === 'COMPLETED');
 
-    const getColumnTasks = (colId) => filteredTasks.filter(t => t.column === colId);
+  // Telemetry Stats
+  const activeDaemons = new Set(buildTasks.map(t => t.assignedDirector)).size;
 
-    return (
-        <div className="view-section tab-04-container">
-            <div className="task-grid-layout">
-                {/* LEFT: MAIN KANBAN AREA */}
-                <div className="task-main-area">
-
-                    {/* STATS HEADER */}
-                    <div className="task-stats glass-panel">
-                        <div className="stat-group"><span className="stat-num hf-green">{daemonsCount}</span><span className="stat-label">Active Daemons</span></div>
-                        <div className="stat-group"><span className="stat-num hf-blue">{getColumnTasks('BUILD').length}</span><span className="stat-label">Building</span></div>
-                        <div className="stat-group"><span className="stat-num hf-gold">{getColumnTasks('GATE').length}</span><span className="stat-label">Human Gate</span></div>
-                        <div className="stat-group"><span className="stat-num hf-text">{getColumnTasks('SHIPPED').length}</span><span className="stat-label">Total Shipped</span></div>
-                    </div>
-
-                    {/* FILTERS: PROJECT SCOPE ONLY */}
-                    <div className="task-filters" style={{ justifyContent: 'space-between' }}>
-                        <div style={{ color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', fontSize: '0.9rem' }}>
-                            WARLORD PROJECT SCOPE:
-                        </div>
-                        <div className="filter-pill-container">
-                            {ACTIVE_PROJECTS.map(project => (
-                                <span
-                                    key={project}
-                                    className={`filter-pill ${activeProject === project ? 'active' : ''}`}
-                                    onClick={() => setActiveProject(project)}
-                                    style={{ textTransform: 'uppercase', padding: '6px 16px', fontWeight: activeProject === project ? 'bold' : 'normal' }}
-                                >
-                                    {project}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* KANBAN BOARD */}
-                    <div className="kanban-board">
-
-                        {/* COL 1: CAPTURE & PLAN */}
-                        <div className="k-col">
-                            <div className="k-col-header">
-                                <span><span className="col-dot muted">&bull;</span> Capture &amp; Plan</span>
-                                <span className="col-count">{getColumnTasks('CAPTURE').length}</span>
-                            </div>
-                            {getColumnTasks('CAPTURE').map(task => (
-                                <div key={task.id} className="k-card">
-                                    <div className="k-card-header-row">
-                                        <div className="k-card-title">{task.id}</div>
-                                        <button className="task-del-btn" onClick={() => deleteTask(task.id)}>x</button>
-                                    </div>
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--gold-core)', marginBottom: '5px' }}>[{task.project}]</div>
-                                    <div className="k-card-desc">{task.title}</div>
-                                    <div className="k-card-footer">
-                                        <span className={`agent-badge badge-${(task.agent || 'system').toLowerCase().replace(' ', '-')}`}>{(task.agent || 'S').charAt(0)} {task.agent}</span>
-                                        <span className="time-meta">{task.meta}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* COL 2: AGENT BUILD */}
-                        <div className="k-col">
-                            <div className="k-col-header">
-                                <span><span className="col-dot blue">&bull;</span> Agent Build</span>
-                                <span className="col-count">{getColumnTasks('BUILD').length}</span>
-                            </div>
-                            {getColumnTasks('BUILD').map(task => (
-                                <div key={task.id} className="k-card task-active">
-                                    <div className="k-card-header-row">
-                                        <div className="k-card-title">{task.id}</div>
-                                        <button className="task-del-btn" onClick={() => deleteTask(task.id)}>x</button>
-                                    </div>
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--gold-core)', marginBottom: '5px' }}>[{task.project}]</div>
-                                    <div className="k-card-desc">{task.title}</div>
-                                    <div className="k-card-footer">
-                                        <span className={`agent-badge badge-${(task.agent || 'system').toLowerCase().replace(' ', '-')}`}>{(task.agent || 'S').charAt(0)} {task.agent}</span>
-                                        {task.tag && <span className="status-tag tag-active">{task.tag}</span>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* COL 3: HUMAN GATE */}
-                        <div className="k-col">
-                            <div className="k-col-header">
-                                <span><span className="col-dot gold">&bull;</span> Human Gate</span>
-                                <span className="col-count">{getColumnTasks('GATE').length}</span>
-                            </div>
-                            {getColumnTasks('GATE').map(task => (
-                                <div key={task.id} className="k-card task-review">
-                                    <div className="k-card-header-row">
-                                        <div className="k-card-title">{task.id}</div>
-                                        <button className="task-del-btn" onClick={() => deleteTask(task.id)}>x</button>
-                                    </div>
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--gold-core)', marginBottom: '5px' }}>[{task.project}]</div>
-                                    <div className="k-card-desc">{task.title || task.desc}</div>
-                                    <div className="k-card-footer">
-                                        <span className={`agent-badge badge-${(task.agent || 'system').toLowerCase().replace(' ', '-')}`}>{(task.agent || 'S').charAt(0)} {task.agent}</span>
-                                        {task.isReview && <button className="approve-btn" onClick={() => approveTask(task.id)}>APPROVE</button>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* COL 4: SHIPPED */}
-                        <div className="k-col">
-                            <div className="k-col-header">
-                                <span><span className="col-dot green">&bull;</span> Shipped</span>
-                                <span className="col-count">{getColumnTasks('SHIPPED').length}</span>
-                            </div>
-                            {getColumnTasks('SHIPPED').map(task => (
-                                <div key={task.id} className="k-card task-done">
-                                    <div className="k-card-header-row">
-                                        <div className="k-card-title">{task.id}</div>
-                                        <button className="task-del-btn" onClick={() => deleteTask(task.id)}>x</button>
-                                    </div>
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--gold-core)', marginBottom: '5px' }}>[{task.project}]</div>
-                                    <div className="k-card-desc">{task.title}</div>
-                                    <div className="k-card-footer">
-                                        <span className={`agent-badge badge-${(task.agent || 'system').toLowerCase().replace(' ', '-')}`}>{(task.agent || 'S').charAt(0)} {task.agent}</span>
-                                        <span className="time-meta">{task.meta}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                    </div>
-                </div>
-
-                {/* RIGHT: LIVE ACTIVITY FEED */}
-                <div className="live-sidebar glass-panel">
-                    <h4 className="sidebar-header">Live Hermes Orchestration</h4>
-                    <div className="activity-item">
-                        <span className="activity-agent hf-blue">{hermesLog.agent}</span>
-                        <span className="activity-log">{hermesLog.text}</span>
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="flex h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none overflow-hidden">
+      
+      {/* MAIN LEFT AREA */}
+      <div className="flex-1 flex flex-col gap-3 min-w-0">
+        
+        {/* TOP STATS PANEL */}
+        <div className="bg-[#0d0f12] border border-[#1f242d] rounded flex items-center justify-around py-4">
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl font-bold text-[#10b981]">{activeDaemons}</span>
+            <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">ACTIVE DAEMONS</span>
+          </div>
+          <div className="w-px h-8 bg-[#1f242d]"></div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl font-bold text-[#38bdf8]">{buildTasks.length}</span>
+            <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">BUILDING</span>
+          </div>
+          <div className="w-px h-8 bg-[#1f242d]"></div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl font-bold text-[#ffb800]">{gateTasks.length}</span>
+            <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">HUMAN GATE</span>
+          </div>
+          <div className="w-px h-8 bg-[#1f242d]"></div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl font-bold text-[#e2e8f0]">{shippedTasks.length}</span>
+            <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">TOTAL SHIPPED</span>
+          </div>
         </div>
-    );
+
+        {/* PROJECT SCOPE FILTER */}
+        <div className="flex items-center gap-3">
+          <span className="text-[#ffb800] font-bold text-[11px] tracking-wider flex items-center gap-1.5">
+            <LayoutGrid className="w-3.5 h-3.5" />
+            WARLORD PROJECT SCOPE:
+          </span>
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
+            {projectList.map(proj => (
+              <button 
+                key={proj}
+                onClick={() => setSelectedScope(proj)}
+                className={`px-3 py-1.5 rounded-full border text-[10px] font-bold tracking-wider transition-colors whitespace-nowrap cursor-pointer ${
+                  selectedScope === proj 
+                    ? 'border-[#ffb800] text-[#ffb800] bg-[#ffb800]/10' 
+                    : 'border-[#1f242d] text-[#8fa0b5] bg-[#0d0f12] hover:border-[#5c6b7f]'
+                }`}
+              >
+                {proj}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* KANBAN SWIMLANES */}
+        <div className="flex-1 grid grid-cols-4 gap-3 min-h-0">
+          
+          {/* COLUMN 1: CAPTURE & PLAN */}
+          <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
+            <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
+              <span className="text-[10px] text-[#5c6b7f] font-bold tracking-widest flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#5c6b7f]"></div>
+                CAPTURE & PLAN
+              </span>
+              <span className="text-[#8fa0b5] font-bold">{captureTasks.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+              {captureTasks.map(task => <TaskCard key={task.id} task={task} />)}
+            </div>
+          </div>
+
+          {/* COLUMN 2: AGENT BUILD */}
+          <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
+            <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
+              <span className="text-[10px] text-[#38bdf8] font-bold tracking-widest flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] animate-pulse"></div>
+                AGENT BUILD
+              </span>
+              <span className="text-[#38bdf8] font-bold">{buildTasks.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+              {buildTasks.map(task => <TaskCard key={task.id} task={task} accent="#38bdf8" />)}
+            </div>
+          </div>
+
+          {/* COLUMN 3: HUMAN GATE */}
+          <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
+            <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
+              <span className="text-[10px] text-[#ffb800] font-bold tracking-widest flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#ffb800]"></div>
+                HUMAN GATE
+              </span>
+              <span className="text-[#ffb800] font-bold">{gateTasks.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+              {gateTasks.map(task => <TaskCard key={task.id} task={task} accent="#ffb800" />)}
+            </div>
+          </div>
+
+          {/* COLUMN 4: SHIPPED */}
+          <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
+            <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
+              <span className="text-[10px] text-[#10b981] font-bold tracking-widest flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]"></div>
+                SHIPPED
+              </span>
+              <span className="text-[#10b981] font-bold">{shippedTasks.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+              {shippedTasks.map(task => <TaskCard key={task.id} task={task} accent="#10b981" />)}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* RIGHT SIDEBAR: LIVE ORCHESTRATION */}
+      <div className="w-72 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden flex-shrink-0">
+        <div className="px-3 py-3 bg-[#14171c] border-b border-[#1f242d]">
+          <span className="text-[11px] text-[#e2e8f0] font-bold tracking-wider">LIVE HERMES ORCHESTRATION</span>
+        </div>
+        <div className="p-4 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+          
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[#38bdf8] font-bold text-xs">
+              <Zap className="w-3.5 h-3.5" />
+              <span>Monty (Chief of Staff)</span>
+            </div>
+            <p className="text-[#8fa0b5] text-[10px] leading-relaxed">
+              {tasks.length > 0 
+                ? `Active PRD ingested. Dispatched ${tasks.length} execution unit(s) to Paperclip daemon. Monitoring director telemetry...` 
+                : 'Zero-state initialized. Standing by for telemetry dispatch.'}
+            </p>
+          </div>
+
+          {tasks.length > 0 && (
+            <div className="pt-4 border-t border-[#1f242d] space-y-3">
+              <span className="text-[10px] text-[#5c6b7f] font-bold uppercase tracking-widest">Active Daemon Sub-Routines</span>
+              {[...activeDaemons].map(daemon => (
+                <div key={daemon} className="flex items-center justify-between bg-[#14171c] p-2 rounded border border-[#232832]">
+                  <span className="text-[10px] font-bold text-[#e2e8f0] truncate pr-2">{daemon}</span>
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Sub-component for rendering individual task cards
+function TaskCard({ task, accent }) {
+  // Extract a clean name for the badge (e.g., "CHARLIE // CODE" -> "C CHARLIE")
+  const agentName = task.assignedDirector.split(' // ')[0] || 'UNASSIGNED';
+  const badgeChar = agentName.charAt(0).toUpperCase();
+
+  return (
+    <div 
+      className="bg-[#101317] border border-[#232832] p-2.5 rounded hover:border-[#5c6b7f] transition-colors flex flex-col gap-2 relative overflow-hidden"
+      style={{ borderLeftColor: accent ? accent : undefined, borderLeftWidth: accent ? '2px' : '1px' }}
+    >
+      <div className="font-bold text-[11px] text-[#e2e8f0] leading-tight pr-4">
+        {task.title}
+      </div>
+      
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-[9px] bg-[#1a1f26] text-[#8fa0b5] px-1.5 py-0.5 rounded flex items-center gap-1 border border-[#2d3748]">
+          <Server className="w-2.5 h-2.5" />
+          {task.toolId}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-[#1f242d] pt-2 mt-1">
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-[#1f242d] flex items-center justify-center text-[9px] font-bold text-[#ffb800]">
+            {badgeChar}
+          </div>
+          <span className="text-[9px] text-[#8fa0b5] font-bold truncate max-w-[100px]">
+            {agentName}
+          </span>
+        </div>
+        
+        {task.stage === 'AGENT BUILD' && <Cpu className="w-3.5 h-3.5 text-[#38bdf8]" />}
+        {task.stage === 'HUMAN GATE' && <ShieldAlert className="w-3.5 h-3.5 text-[#ffb800]" />}
+        {task.stage === 'SHIPPED' && <CheckCircle className="w-3.5 h-3.5 text-[#10b981]" />}
+      </div>
+    </div>
+  );
 }

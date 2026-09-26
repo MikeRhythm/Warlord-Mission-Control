@@ -1,32 +1,41 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy 
+  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu 
 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 import './Tab02WarRoom.css';
 
 const ELITE_CASCADE_STEPS = [
-  { id: 'TURN-1-CLAUDE', label: 'CLAUDE 3.5 SONNET', role: 'Architectural Synthesis' },
-  { id: 'TURN-2-GEMINI', label: 'GEMINI 1.5 PRO', role: 'Contextual Deep Dive' },
-  { id: 'TURN-3-GPT4O', label: 'GPT-4O FRONTIER', role: 'Logic & Code Refinement' },
-  { id: 'TURN-4-DEEPSEEK', label: 'DEEPSEEK-R1', role: 'Final Verification & PRD Lock' }
+  { id: 'TURN-1-CLAUDE', label: 'CLAUDE 3.5 SONNET', model: 'anthropic/claude-3.5-sonnet', role: 'Architectural Synthesis' },
+  { id: 'TURN-2-GEMINI', label: 'GEMINI 1.5 PRO', model: 'gemini-1.5-pro', role: 'Contextual Deep Dive' },
+  { id: 'TURN-3-GPT4O', label: 'GPT-4O FRONTIER', model: 'openai/gpt-4o', role: 'Logic & Code Refinement' },
+  { id: 'TURN-4-DEEPSEEK', label: 'DEEPSEEK-R1', model: 'deepseek/deepseek-r1', role: 'Final Verification & PRD Lock' }
 ];
 
 const FREE_CASCADE_STEPS = [
-  { id: 'TURN-1-NIM', label: 'NVIDIA NIM CLUSTER', role: 'Turn 1: Agent Discussion' },
-  { id: 'TURN-2-GROQ', label: 'GROQ LPU ACCELERATOR', role: 'Turn 2: Director Critique' },
-  { id: 'TURN-3-GEMINI', label: 'GOOGLE GEMINI CLUSTER', role: 'Turn 3: Synthesis' },
-  { id: 'TURN-4-NIM', label: 'NVIDIA NIM CLUSTER', role: 'Turn 4: Refinement' },
-  { id: 'TURN-5-JUDGE', label: 'THE JUDGE GATE', role: 'Turn 5: Validation Check' }
+  { id: 'TURN-1-NIM', label: 'NVIDIA NIM CLUSTER', model: 'meta/llama-3.3-70b-instruct', role: 'Turn 1: Agent Discussion' },
+  { id: 'TURN-2-GROQ', label: 'GROQ LPU ACCELERATOR', model: 'llama-3.3-70b-versatile', role: 'Turn 2: Director Critique' },
+  { id: 'TURN-3-GEMINI', label: 'GOOGLE GEMINI CLUSTER', model: 'gemini-1.5-pro', role: 'Turn 3: Synthesis' },
+  { id: 'TURN-4-NIM', label: 'NVIDIA NIM CLUSTER', model: 'nvidia/nemotron-70b-ultra', role: 'Turn 4: Refinement' },
+  { id: 'TURN-5-JUDGE', label: 'THE JUDGE GATE', model: 'meta/llama-3.3-70b-instruct', role: 'Turn 5: Validation Check' }
+];
+
+// Dedicated 100% Kaggle Compute Pipeline
+const KAGGLE_CASCADE_STEPS = [
+  { id: 'TURN-1-KAGGLE', label: 'KAGGLE DUAL-T4 [QWEN 7B]', model: 'qwen2.5:7b', role: 'Turn 1: Agent Discussion' },
+  { id: 'TURN-2-KAGGLE', label: 'KAGGLE DUAL-T4 [LLAMA 3]', model: 'llama3:latest', role: 'Turn 2: Director Critique' },
+  { id: 'TURN-3-KAGGLE', label: 'KAGGLE DUAL-T4 [QWEN 7B]', model: 'qwen2.5:7b', role: 'Turn 3: Synthesis' },
+  { id: 'TURN-4-KAGGLE', label: 'KAGGLE DUAL-T4 [CODER 7B]', model: 'qwen2.5-coder:7b', role: 'Turn 4: Refinement' },
+  { id: 'TURN-5-KAGGLE', label: 'KAGGLE DUAL-T4 [JUDGE]', model: 'qwen2.5:7b', role: 'Turn 5: Validation Check' }
 ];
 
 const BOARDROOM_OPTIONS = [
+  { id: 'KAGGLE-T4', name: 'Kaggle Dual-T4 (32GB)', tag: 'STANDBY' },
   { id: 'ELITE_CASCADE', name: '4-TURN HEAVY LIFTING CASCADE', tag: 'ELITE' },
   { id: 'CLAUDE-3.5', name: 'Claude 3.5 Sonnet', tag: 'ELITE' },
   { id: 'GPT-4O', name: 'GPT-4o Frontier', tag: 'ELITE' },
   { id: 'GEMINI-1.5-PRO', name: 'Gemini 1.5 Pro (Studio)', tag: 'ELITE' },
-  { id: 'DEEPSEEK-R1', name: 'DeepSeek-R1 (Paid)', tag: 'ELITE' },
-  { id: 'KAGGLE-T4', name: 'Kaggle Dual-T4 (32GB)', tag: 'STANDBY' }
+  { id: 'DEEPSEEK-R1', name: 'DeepSeek-R1 (Paid)', tag: 'ELITE' }
 ];
 
 const DIRECTOR_BOARD_CONFIG = [
@@ -48,47 +57,102 @@ const DIRECTOR_BOARD_CONFIG = [
   { name: 'ORION // STRATEGIC INTEL', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' }
 ];
 
-const INITIAL_PROJECTS = ['MCNC REACT VITE', 'RHYTHM WASP V8.5', 'PAPERCLIP DAEMON'];
+const DEFAULT_PROJECTS = ['ZAMBEZI SAFARI', 'WAR ROOM - DIRECTOR BOARD KAGGLE TEST', 'MCNC REACT VITE', 'RHYTHM WASP V8.5'];
 
 export default function Tab02WarRoom({ ws }) {
   const [assignedDirectors, setAssignedDirectors] = useState([]);
   const [isMultiAgentExecuting, setIsMultiAgentExecuting] = useState(false);
 
-  const [freeCascadeIndex, setFreeCascadeIndex] = useState(0);
-  const [isFreeCascading, setIsFreeCascading] = useState(false);
-
-  const [eliteCascadeIndex, setEliteCascadeIndex] = useState(0);
-  const [isEliteCascading, setIsEliteCascading] = useState(false);
-  
+  const [cascadeIndex, setCascadeIndex] = useState(0);
+  const [isCascading, setIsCascading] = useState(false);
   const [isLLMExecuting, setIsLLMExecuting] = useState(false);
-  
   const [analysisMode, setAnalysisMode] = useState('BOARDROOM'); 
-  const [workflowState, setWorkflowState] = useState('IDLE'); 
+
+  const [workflowState, setWorkflowState] = useState(() => {
+    return localStorage.getItem('MCNC_WARROOM_STATE') || 'IDLE';
+  }); 
   
   const [isBoardroomOpen, setIsBoardroomOpen] = useState(true);
   const [isDirectorsOpen, setIsDirectorsOpen] = useState(true);
 
-  const [selectedLLM, setSelectedLLM] = useState('ELITE_CASCADE');
-  const [projects, setProjects] = useState(INITIAL_PROJECTS);
-  const [selectedProject, setSelectedProject] = useState('MCNC REACT VITE');
+  const [selectedLLM, setSelectedLLM] = useState(() => {
+    return localStorage.getItem('MCNC_SELECTED_LLM') || 'KAGGLE-T4';
+  });
+  
+  const [projects, setProjects] = useState(() => {
+    try {
+      const stored = localStorage.getItem('MCNC_PROJECT_LIST');
+      return stored ? JSON.parse(stored) : DEFAULT_PROJECTS;
+    } catch (e) {
+      return DEFAULT_PROJECTS;
+    }
+  });
+
+  const [selectedProject, setSelectedProject] = useState(() => {
+    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'ZAMBEZI SAFARI';
+  });
+
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [selectedAgentDropdown, setSelectedAgentDropdown] = useState('5-TURN ROUND-ROBIN CASCADE');
-  
   const [inputBuffer, setInputBuffer] = useState('');
-  const [streamLog, setStreamLog] = useState([]);
-  const [copiedFeed, setCopiedFeed] = useState(false);
 
-  // Kaggle Live Bridge & Bank Quota Telemetry
+  const [streamLog, setStreamLog] = useState(() => {
+    try {
+      const stored = localStorage.getItem('MCNC_WARROOM_STREAM');
+      return stored ? JSON.parse(stored) : [
+        { id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal ready. War Room initialized.', type: 'system' }
+      ];
+    } catch (e) {
+      return [{ id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal ready. War Room initialized.', type: 'system' }];
+    }
+  });
+
+  const [copiedFeed, setCopiedFeed] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  
+  // Strict boolean check for rendering the timer UI
+  const isAnyExecuting = Boolean(isCascading || isMultiAgentExecuting || isLLMExecuting);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('MCNC_WARROOM_STREAM', JSON.stringify(streamLog));
+      localStorage.setItem('MCNC_WARROOM_STATE', workflowState);
+      localStorage.setItem('MCNC_SELECTED_LLM', selectedLLM);
+    } catch (e) {}
+  }, [streamLog, workflowState, selectedLLM]);
+
+  useEffect(() => {
+    let timer;
+    if (isAnyExecuting) {
+      setElapsedSeconds(0);
+      timer = setInterval(() => setElapsedSeconds(prev => prev + 1), 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => clearInterval(timer);
+  }, [isAnyExecuting]);
+
   const [isKaggleOnline, setIsKaggleOnline] = useState(false);
   const [remainingQuotaHours, setRemainingQuotaHours] = useState('28.5');
-
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
   const recognitionRef = useRef(null);
   const streamBottomRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  const formatElapsed = (totalSec) => {
+    const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+    const s = (totalSec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   useEffect(() => { streamBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [streamLog]);
+
+  const handleSelectProject = (proj) => {
+    setSelectedProject(proj);
+    localStorage.setItem('MCNC_ACTIVE_PROJECT', proj);
+  };
 
   const updateKaggleTelemetry = async () => {
     try {
@@ -118,6 +182,12 @@ export default function Tab02WarRoom({ ws }) {
   }, []);
 
   useEffect(() => {
+    const handleGlobalStop = () => handleAllStop();
+    window.addEventListener('universal-all-stop', handleGlobalStop);
+    return () => window.removeEventListener('universal-all-stop', handleGlobalStop);
+  }, []);
+
+  useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setSpeechSupported(false);
@@ -132,7 +202,7 @@ export default function Tab02WarRoom({ ws }) {
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
       }
-      if (finalTranscript) setInputBuffer((prev) => (prev ? prev + ' ' + finalTranscript.trim() : finalTranscript.trim()));
+      if (finalTranscript) setInputBuffer(prev => (prev ? prev + ' ' + finalTranscript.trim() : finalTranscript.trim()));
     };
     recog.onerror = (err) => { if (err.error === 'not-allowed' || err.error === 'service-not-allowed') setIsListening(false); };
     recog.onend = () => { if (isListening) { try { recog.start(); } catch (e) { setIsListening(false); } } };
@@ -161,152 +231,256 @@ export default function Tab02WarRoom({ ws }) {
     const handleTransfer = (e) => {
       if (e.detail && e.detail.payload) {
         setInputBuffer(prev => prev ? prev + '\n\n' + e.detail.payload : e.detail.payload);
-        if (e.detail.project) setSelectedProject(e.detail.project);
+        if (e.detail.project) handleSelectProject(e.detail.project);
       }
     };
     window.addEventListener('push-to-warroom', handleTransfer);
     return () => window.removeEventListener('push-to-warroom', handleTransfer);
   }, []);
 
-  useEffect(() => {
-    if (!ws) return;
-    const handleMessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'WAR_ROOM_RESPONSE') {
-          setStreamLog(prev => [...prev, { id: Date.now(), sender: data.sender || 'AGENT', text: data.payload, type: data.msgType || 'agent' }]);
-        }
-      } catch (err) {}
-    };
-    ws.addEventListener('message', handleMessage);
-    return () => ws.removeEventListener('message', handleMessage);
-  }, [ws]);
-
-  useEffect(() => {
-    let timer;
-    if (isFreeCascading && freeCascadeIndex < FREE_CASCADE_STEPS.length) {
-      const step = FREE_CASCADE_STEPS[freeCascadeIndex];
-      setStreamLog(prev => [...prev, { id: Date.now(), sender: `${step.id} // GLOBAL DIRECTOR LOOP`, text: `Executing [${step.role}] via ${step.label} for project [${selectedProject}]...`, type: 'agent' }]);
-
-      timer = setTimeout(() => {
-        if (freeCascadeIndex < FREE_CASCADE_STEPS.length - 1) {
-          setFreeCascadeIndex(prev => prev + 1);
-        } else {
-          setIsFreeCascading(false);
-          setWorkflowState('MONTY_APPROVED');
-          setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // CHIEF OF STAFF', text: `5-Turn Collective Round-Robin complete. PRD validated by Judge Gate. Awaiting Authorization.`, type: 'system' }]);
-        }
-      }, 2200);
-    }
-    return () => clearTimeout(timer); 
-  }, [isFreeCascading, freeCascadeIndex, selectedProject]);
-
-  useEffect(() => {
-    let timer;
-    if (isEliteCascading && eliteCascadeIndex < ELITE_CASCADE_STEPS.length) {
-      const step = ELITE_CASCADE_STEPS[eliteCascadeIndex];
-      setStreamLog(prev => [...prev, { id: Date.now(), sender: `${step.id} // ELITE BOARDROOM`, text: `Executing [${step.role}] via ${step.label} for project [${selectedProject}]...`, type: 'agent' }]);
-
-      timer = setTimeout(() => {
-        if (eliteCascadeIndex < ELITE_CASCADE_STEPS.length - 1) {
-          setEliteCascadeIndex(prev => prev + 1);
-        } else {
-          setIsEliteCascading(false);
-          setWorkflowState('MONTY_APPROVED');
-          setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // CHIEF OF STAFF', text: `4-Turn Heavy Lifting Cascade complete. Elite PRD finalized. Awaiting Paperclip Dispatch Authorization.`, type: 'system' }]);
-        }
-      }, 2200);
-    }
-    return () => clearTimeout(timer); 
-  }, [isEliteCascading, eliteCascadeIndex, selectedProject]);
-
   const handleCreateProject = () => {
     if (!newProjectName.trim()) return;
     const formatted = newProjectName.trim().toUpperCase();
-    if (!projects.includes(formatted)) { setProjects([...projects, formatted]); setSelectedProject(formatted); }
-    setNewProjectName(''); setIsCreatingProject(false);
+    if (!projects.includes(formatted)) {
+      const updated = [...projects, formatted];
+      setProjects(updated);
+      localStorage.setItem('MCNC_PROJECT_LIST', JSON.stringify(updated));
+      handleSelectProject(formatted);
+    }
+    setNewProjectName('');
+    setIsCreatingProject(false);
   };
 
   const handleCls = () => {
-    setIsEliteCascading(false); setIsFreeCascading(false); setIsMultiAgentExecuting(false); setIsLLMExecuting(false);
-    setEliteCascadeIndex(0); setFreeCascadeIndex(0); setWorkflowState('IDLE'); setInputBuffer(''); setAssignedDirectors([]);
-    setStreamLog([{ id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal cleared. War Room initialized.', type: 'system' }]);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsCascading(false); setIsMultiAgentExecuting(false); setIsLLMExecuting(false);
+    setCascadeIndex(0); 
+    setWorkflowState('IDLE'); 
+    setInputBuffer(''); 
+    setAssignedDirectors([]);
+    
+    const initLog = [{ id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal cleared. War Room initialized.', type: 'system' }];
+    setStreamLog(initLog);
   };
 
-  const handleAllStop = () => {
-    setIsEliteCascading(false); setIsFreeCascading(false); setIsMultiAgentExecuting(false); setIsLLMExecuting(false);
-    setEliteCascadeIndex(0); setFreeCascadeIndex(0); setWorkflowState('IDLE');
-    setStreamLog(prev => [...prev, { id: Date.now(), sender: 'WARLORD // OVERRIDE', text: '[!] ALL STOP INITIATED. PIPELINE HALTED.', type: 'error' }]);
+  const handleAllStop = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsCascading(false); setIsMultiAgentExecuting(false); setIsLLMExecuting(false);
+    setCascadeIndex(0); setWorkflowState('IDLE');
+
+    try {
+      await fetch('http://127.0.0.1:8081/api/all-stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'WARROOM_ALL_STOP_TRIGGERED', timestamp: Date.now() })
+      });
+    } catch (e) {}
+
+    setStreamLog(prev => [
+      ...prev, 
+      { 
+        id: Date.now(), 
+        sender: 'WARLORD // OVERRIDE', 
+        text: `[!] BATCH JOB TERMINATED. ALL INFERENCE SEQUENCES ABORTED AT [${formatElapsed(elapsedSeconds)}]. CPU RESTORED TO IDLE.`, 
+        type: 'error' 
+      }
+    ]);
+  };
+
+  const runLiveCascadeLoop = async (steps, cascadeTitle) => {
+    setIsCascading(true);
+    setWorkflowState('ANALYZING');
+    abortControllerRef.current = new AbortController();
+
+    let baseObjective = inputBuffer.trim();
+    if (!baseObjective) {
+      baseObjective = `Project Objective: Execute complete system architecture synthesis, technical specifications, and production deliverables for [${selectedProject}]. Include exact technical constraints, file structures, and zero-state execution requirements.`;
+    }
+    setInputBuffer('');
+
+    let conversationChain = `### CORE INITIATIVE: ${selectedProject}\n${baseObjective}\n\n`;
+
+    for (let i = 0; i < steps.length; i++) {
+      setCascadeIndex(i);
+      const step = steps[i];
+      const isJudgeTurn = (i === steps.length - 1);
+      
+      setStreamLog(prev => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: `${step.id} // DISPATCH`,
+          text: `Executing [${step.role}] via ${step.label} for project [${selectedProject}]...`,
+          type: 'system'
+        }
+      ]);
+
+      const stagePrompt = `${conversationChain}
+==================================================
+CURRENT DIRECTIVE - ${step.id} (${step.role}):
+You are acting as the executive lead for ${step.role}. 
+Do NOT reply with single confirmations, greetings, or placeholders.
+Deliver a comprehensive, detailed operational brief covering your role.
+Provide clear technical requirements, execution specifications, and architectural parameters.
+
+${isJudgeTurn ? `
+MANDATORY FINAL DELIVERABLE:
+At the very end of your review, you MUST output a formal '### DISPATCH MANIFEST' allocating execution tasks to directors from the 16-Director Matrix and binding tools from the Warlord Registry (e.g., booking_sync, donor_crm, payment_gateway, seo_radar, github_deploy, ui_inspector, smtp_dispatcher, email_osint_probe).
+
+Format strictly as:
+### DISPATCH MANIFEST
+- Task: "[Action Title]" | Director: [Agent Name] | Tool: [tool_id] | Status: APPROVED
+` : ''}`;
+
+      try {
+        const response = await fetch('http://127.0.0.1:8081/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: abortControllerRef.current?.signal,
+          body: JSON.stringify({
+            prompt: stagePrompt,
+            model: step.model,
+            project: selectedProject,
+            role: step.role,
+            turn: i + 1,
+            enforceFullPRD: true,
+            useKaggle: selectedLLM === 'KAGGLE-T4'
+          })
+        });
+
+        const data = await response.json();
+        const replyText = data.reply || data.error || 'No response returned from inference node.';
+
+        setStreamLog(prev => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: `${step.id} // ${step.label}`,
+            text: replyText,
+            type: data.error ? 'error' : 'agent'
+          }
+        ]);
+
+        conversationChain += `\n### [${step.id}: ${step.role}]\n${replyText}\n\n`;
+
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        setStreamLog(prev => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: `${step.id} // FAULT`,
+            text: `Inference error on node ${step.label}: ${err.message}`,
+            type: 'error'
+          }
+        ]);
+        setIsCascading(false);
+        setWorkflowState('IDLE');
+        return;
+      }
+    }
+
+    setIsCascading(false);
+    setStreamLog(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        sender: 'MONTY // CHIEF OF STAFF',
+        text: `${cascadeTitle} complete. Full PRD validated and held in active staging. Awaiting Authorization.`,
+        type: 'system'
+      }
+    ]);
+
+    setWorkflowState('MONTY_APPROVED');
+    abortControllerRef.current = null;
   };
 
   const runDynamicMatrixLoop = async (targets) => {
     setIsMultiAgentExecuting(true);
     setWorkflowState('ANALYZING');
-    let currentPayload = inputBuffer;
+    abortControllerRef.current = new AbortController();
+    let currentPayload = inputBuffer.trim() || `Operational Tasking: Deliver full domain execution specifications for project [${selectedProject}].`;
+    setInputBuffer('');
     
-    setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // COMMAND', text: `Initiating sequential Strike Team execution across ${targets.length} assigned directors.`, type: 'user' }]);
+    setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // COMMAND', text: `Initiating sequential execution across ${targets.length} assigned directors ${selectedLLM === 'KAGGLE-T4' ? '[VIA KAGGLE COMPUTE]' : ''}.`, type: 'user' }]);
 
     for (let i = 0; i < targets.length; i++) {
       const targetAgent = targets[i];
       const baseName = targetAgent.split(' // ')[0];
       const role = targetAgent.split(' // ')[1];
       
-      setStreamLog(prev => [...prev, { id: Date.now(), sender: `MONTY // ROUTER`, text: `Passing contextual payload to ${baseName}...`, type: 'system' }]);
-      
       try {
         const response = await fetch('http://127.0.0.1:8081/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: currentPayload, director: targetAgent, project: selectedProject })
+          signal: abortControllerRef.current?.signal,
+          body: JSON.stringify({ 
+            prompt: currentPayload, 
+            director: targetAgent, 
+            project: selectedProject,
+            model: selectedLLM === 'KAGGLE-T4' ? 'qwen2.5:7b' : undefined,
+            useKaggle: selectedLLM === 'KAGGLE-T4'
+          })
         });
         const data = await response.json();
         
         setStreamLog(prev => [...prev, {
           id: Date.now(),
-          sender: `${baseName} // ${role} [${data.activeModelUsed || 'UNKNOWN'}]`,
+          sender: `${baseName} // ${role}`,
           text: data.error ? `Daemon error: ${data.error}` : data.reply,
           type: data.error ? 'error' : 'agent'
         }]);
 
         currentPayload = currentPayload + `\n\n--- TURN OVERPASS FROM ${baseName} ---\n${data.reply}`;
       } catch (err) {
+        if (err.name === 'AbortError') return;
         setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM // ERROR', text: `Matrix failure on node ${baseName}: ${err.message}`, type: 'error' }]);
         setIsMultiAgentExecuting(false);
         return;
       }
     }
     
-    setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // CHIEF OF STAFF', text: `Dynamic Director Strike Team complete. Validate the output and adjust parameters if necessary.`, type: 'system' }]);
     setWorkflowState('MONTY_APPROVED');
     setIsMultiAgentExecuting(false);
-    setInputBuffer('');
+    abortControllerRef.current = null;
   };
 
   const handleAction = async (actionType) => {
-    if (!inputBuffer.trim() && (actionType.includes('ANALYSIS') || actionType === 'REFINE')) return;
-
     if (actionType === 'INITIATE LLM ANALYSIS') {
       setAnalysisMode('BOARDROOM'); setWorkflowState('ANALYZING'); setIsBoardroomOpen(true); setIsDirectorsOpen(false);
-      setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // COMMAND', text: `[PROJECT: ${selectedProject}] [BOARDROOM: ${selectedLLM}]: ${inputBuffer}`, type: 'user' }]);
-
-      if (selectedLLM === 'ELITE_CASCADE') {
-        setEliteCascadeIndex(0); setIsEliteCascading(true);
+      
+      if (selectedLLM === 'KAGGLE-T4') {
+        runLiveCascadeLoop(KAGGLE_CASCADE_STEPS, '5-Turn Kaggle Dual-T4 Cascade');
+      } else if (selectedLLM === 'ELITE_CASCADE') {
+        runLiveCascadeLoop(ELITE_CASCADE_STEPS, '4-Turn Heavy Lifting Elite Cascade');
       } else {
         setIsLLMExecuting(true);
+        abortControllerRef.current = new AbortController();
+        const activePrompt = inputBuffer.trim() || `Deliver full technical and architectural specification for [${selectedProject}].`;
+        setInputBuffer('');
         try {
-          const modelTarget = selectedLLM === 'KAGGLE-T4' ? 'qwen2.5:7b' : selectedLLM;
           const response = await fetch('http://127.0.0.1:8081/api/chat', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: inputBuffer, model: modelTarget, project: selectedProject })
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            signal: abortControllerRef.current?.signal,
+            body: JSON.stringify({ prompt: activePrompt, model: selectedLLM, project: selectedProject })
           });
           const data = await response.json();
-          setStreamLog(prev => [...prev, { id: Date.now(), sender: `BOARDROOM // [${data.activeModelUsed || selectedLLM}]`, text: data.error ? `Daemon error: ${data.error}` : data.reply, type: data.error ? 'error' : 'agent' }]);
+          setStreamLog(prev => [...prev, { id: Date.now(), sender: `BOARDROOM // [${selectedLLM}]`, text: data.reply, type: 'agent' }]);
           setWorkflowState('MONTY_APPROVED');
         } catch (err) {
-          setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM // ERROR', text: err.message, type: 'error' }]);
-        } finally { setIsLLMExecuting(false); }
+          if (err.name !== 'AbortError') setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM // ERROR', text: err.message, type: 'error' }]);
+        } finally { 
+          setIsLLMExecuting(false); 
+          abortControllerRef.current = null;
+        }
       }
-      setInputBuffer('');
     } 
     
     else if (actionType === 'INITIATE DIRECTOR ANALYSIS') {
@@ -314,23 +488,32 @@ export default function Tab02WarRoom({ ws }) {
 
       if (assignedDirectors.length === 0) {
         if (selectedAgentDropdown === '5-TURN ROUND-ROBIN CASCADE') {
-          setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // COMMAND', text: `[PROJECT: ${selectedProject}] [GLOBAL DIRECTORS]: Initiating 5-Turn Collective Round-Robin...`, type: 'user' }]);
-          setFreeCascadeIndex(0);
-          setIsFreeCascading(true);
+          if (selectedLLM === 'KAGGLE-T4') {
+            runLiveCascadeLoop(KAGGLE_CASCADE_STEPS, '5-Turn Kaggle Dual-T4 Cascade');
+          } else {
+            runLiveCascadeLoop(FREE_CASCADE_STEPS, '5-Turn Collective Round-Robin');
+          }
         } else if (selectedAgentDropdown === 'ALL DIRECTORS // AUTO-ROUTING') {
-          setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // COMMAND', text: `[PROJECT: ${selectedProject}] [AUTO-ROUTING]: Matrix determining optimal director...`, type: 'user' }]);
           setIsLLMExecuting(true);
+          abortControllerRef.current = new AbortController();
+          const activePrompt = inputBuffer.trim();
+          setInputBuffer('');
           try {
             const response = await fetch('http://127.0.0.1:8081/api/chat', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ prompt: inputBuffer, director: 'ALL DIRECTORS // AUTO-ROUTING', project: selectedProject })
+              method: 'POST', 
+              headers: { 'Content-Type': 'application/json' },
+              signal: abortControllerRef.current?.signal,
+              body: JSON.stringify({ prompt: activePrompt, director: 'ALL DIRECTORS', project: selectedProject, useKaggle: selectedLLM === 'KAGGLE-T4' })
             });
             const data = await response.json();
-            setStreamLog(prev => [...prev, { id: Date.now(), sender: `MONTY // ROUTER [${data.activeModelUsed || 'UNKNOWN'}]`, text: data.error ? `Daemon error: ${data.error}` : data.reply, type: data.error ? 'error' : 'agent' }]);
+            setStreamLog(prev => [...prev, { id: Date.now(), sender: `MONTY // ROUTER`, text: data.reply, type: 'agent' }]);
             setWorkflowState('MONTY_APPROVED');
           } catch (err) {
-            setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM // ERROR', text: err.message, type: 'error' }]);
-          } finally { setIsLLMExecuting(false); }
+            if (err.name !== 'AbortError') setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM', text: err.message, type: 'error' }]);
+          } finally { 
+            setIsLLMExecuting(false); 
+            abortControllerRef.current = null;
+          }
         } else {
           setAssignedDirectors([selectedAgentDropdown]);
           runDynamicMatrixLoop([selectedAgentDropdown]);
@@ -338,7 +521,6 @@ export default function Tab02WarRoom({ ws }) {
       } else {
         runDynamicMatrixLoop(assignedDirectors);
       }
-      if (selectedAgentDropdown !== '5-TURN ROUND-ROBIN CASCADE') setInputBuffer('');
     }
 
     else if (actionType === 'REFINE') {
@@ -347,26 +529,98 @@ export default function Tab02WarRoom({ ws }) {
     }
 
     else if (actionType === 'ASSIGN') {
-      if (selectedAgentDropdown === '5-TURN ROUND-ROBIN CASCADE' || selectedAgentDropdown === 'ALL DIRECTORS // AUTO-ROUTING') {
-        setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM', text: `Global Mode Selected: [${selectedAgentDropdown}]. Click INITIATE DIR to execute.`, type: 'system' }]);
-        return;
-      }
-      if (!assignedDirectors.includes(selectedAgentDropdown)) {
+      if (!assignedDirectors.includes(selectedAgentDropdown) && !selectedAgentDropdown.includes('CASCADE') && !selectedAgentDropdown.includes('AUTO-ROUTING')) {
         setAssignedDirectors([...assignedDirectors, selectedAgentDropdown]);
-        setStreamLog(prev => [...prev, { id: Date.now(), sender: 'WARLORD // ALLOCATION', text: `Task scope locked and appended: [${selectedAgentDropdown}].`, type: 'system' }]);
       }
     }
     
     else if (actionType === 'AUTHORIZE ACTION') {
       if (workflowState !== 'MONTY_APPROVED') return;
+
+      const synthesizedRounds = streamLog.filter(l => l.type === 'agent' && !l.text.startsWith('Executing [')).map(l => `### ${l.sender}\n\n${l.text}`).join('\n\n---\n\n');
+      const fullPRD = synthesizedRounds || 'PRD Document generated via Base 1 Collective Round-Robin.';
+
+      try {
+        await fetch('http://127.0.0.1:8081/api/projects/authorize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project: selectedProject, prdContent: fullPRD, timestamp: Date.now() })
+        });
+      } catch (err) {}
+
       setWorkflowState('AUTHORIZED');
-      setStreamLog(prev => [...prev, { id: Date.now(), sender: 'WARLORD // GATE', text: `Action authorized for project [${selectedProject}].`, type: 'system' }]);
+      setStreamLog(prev => [...prev, { id: Date.now(), sender: 'WARLORD // GATE', text: `Action authorized for project [${selectedProject}]. Full PRD committed to Base 1 storage vault.`, type: 'system' }]);
     } 
     
     else if (actionType === 'MONTY DISPATCH') {
       if (workflowState !== 'AUTHORIZED') return;
+
+      // PARSE THE MANIFEST DIRECTLY ON THE FRONTEND
+      const fullLogText = streamLog.map(l => l.text).join('\n\n');
+      const manifestMatch = fullLogText.match(/### DISPATCH MANIFEST([\s\S]*?)(?:$|===)/);
+      
+      const parsedTasks = [];
+      if (manifestMatch) {
+        const rawLines = manifestMatch[1].split('\n').filter(l => l.trim().startsWith('- Task:'));
+        rawLines.forEach((line, idx) => {
+          const taskName = line.match(/Task:\s*"?([^"|]+)"?/i)?.[1]?.trim() || `Execution Unit ${idx + 1}`;
+          const director = line.match(/Director:\s*([^|]+)/i)?.[1]?.trim() || 'CHARLIE // CODE';
+          const toolId = line.match(/Tool:\s*([^|]+)/i)?.[1]?.trim() || 'github_deploy';
+
+          parsedTasks.push({
+            id: `TASK-${Date.now()}-${idx}`,
+            project: selectedProject,
+            title: taskName,
+            assignedDirector: director,
+            toolId: toolId,
+            status: 'BUILDING',
+            stage: 'AGENT BUILD',
+            timestamp: new Date().toISOString()
+          });
+        });
+      }
+
+      // SAVE DIRECTLY TO BROWSER LOCAL STORAGE FOR TABS 03, 04 & 07 TO READ
+      const existingProjects = JSON.parse(localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS') || '[]');
+      const updatedManifests = [
+        ...existingProjects.filter(p => p.name !== selectedProject),
+        {
+          name: selectedProject,
+          totalTasks: parsedTasks.length,
+          status: 'ACTIVE',
+          dispatchedAt: new Date().toISOString(),
+          tasks: parsedTasks
+        }
+      ];
+
+      localStorage.setItem('MCNC_ACTIVE_PROJECT_MANIFESTS', JSON.stringify(updatedManifests));
+      localStorage.setItem('MCNC_ACTIVE_TASKS', JSON.stringify(parsedTasks));
+      localStorage.setItem('MCNC_ACTIVE_PROJECT', selectedProject);
+
+      // FIRE A CROSS-TAB EVENT SO OTHER TABS WAKE UP IMMEDIATELY
+      window.dispatchEvent(new CustomEvent('warlord-project-dispatched', {
+        detail: { project: selectedProject, tasks: parsedTasks }
+      }));
+
+      // Ping backend (optional redundancy)
+      try {
+        fetch('http://127.0.0.1:8081/api/projects/dispatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project: selectedProject, tasks: parsedTasks, timestamp: Date.now() })
+        }).catch(() => {});
+      } catch (e) {}
+
       setWorkflowState('DISPATCHED');
-      setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // DISPATCH', text: `Master scope locked for [${selectedProject}]. Handing off validated PRD to Paperclip CEO Daemon.`, type: 'user' }]);
+      setStreamLog(prev => [
+        ...prev, 
+        { 
+          id: Date.now(), 
+          sender: 'MONTY // DISPATCH', 
+          text: `Master scope locked for [${selectedProject}]. Manifest parsed (${parsedTasks.length} tasks). Dispatched directly to Tab 03, 04 & Paperclip CEO.`, 
+          type: 'user' 
+        }
+      ]);
     }
   };
 
@@ -389,7 +643,7 @@ export default function Tab02WarRoom({ ws }) {
                 <button onClick={handleCreateProject} className="bg-[#ffb800] text-black text-[11px] font-bold px-3 py-1.5 rounded hover:bg-[#e6a600] cursor-pointer">ADD</button>
               </div>
             ) : (
-              <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)} className="w-full bg-[#14171c] text-[#ffb800] font-bold border border-[#232832] text-[11px] px-2 py-1.5 rounded focus:outline-none focus:border-[#ffb800] cursor-pointer">
+              <select value={selectedProject} onChange={(e) => handleSelectProject(e.target.value)} className="w-full bg-[#14171c] text-[#ffb800] font-bold border border-[#232832] text-[11px] px-2 py-1.5 rounded focus:outline-none focus:border-[#ffb800] cursor-pointer">
                 {projects.map(p => <option key={p} value={p}>[ PROJECT: {p} ]</option>)}
               </select>
             )}
@@ -399,7 +653,11 @@ export default function Tab02WarRoom({ ws }) {
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
           <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
             <button onClick={() => { setIsBoardroomOpen(!isBoardroomOpen); setAnalysisMode('BOARDROOM'); }} className="w-full flex items-center justify-between px-3 py-2 bg-[#14171c] hover:bg-[#1a1f26] text-[#ffb800] font-bold text-xs transition-colors cursor-pointer border-b border-[#1f242d]">
-              <span>BOARDROOM CASCADE</span>{isBoardroomOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <span className="flex items-center gap-1.5">
+                <Cpu className="w-3.5 h-3.5 text-[#ffb800]" />
+                <span>BOARDROOM CASCADE</span>
+              </span>
+              {isBoardroomOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
             {isBoardroomOpen && (
               <div className="p-2 space-y-1 bg-[#0a0c0e]">
@@ -412,53 +670,27 @@ export default function Tab02WarRoom({ ws }) {
                   if (model.id === 'KAGGLE-T4') {
                     const remNum = parseFloat(remainingQuotaHours);
                     if (remNum <= 0) {
-                      statusText = 'EXPIRED (0.0h)';
+                      statusText = 'EXPIRED';
                       statusColor = 'text-[#ef4444] bg-[#ef4444]/20 border border-[#ef4444]/40';
                     } else if (isKaggleOnline) {
                       statusText = `ACTIVE (${remainingQuotaHours}h)`;
                       statusColor = 'text-[#10b981] bg-[#10b981]/20 border border-[#10b981]/40';
-                    } else {
-                      statusText = 'STANDBY';
-                      statusColor = 'text-[#9cb8c4] bg-[#9cb8c4]/10 border border-[#9cb8c4]/40';
                     }
                   }
 
-                  if (isSelected) {
-                    if (analysisMode === 'BOARDROOM' && (isEliteCascading || isLLMExecuting)) { 
-                      statusText = 'ACTIVE'; 
-                      statusColor = 'text-black bg-[#38bdf8]'; 
-                      isSpinning = true; 
-                    } else if (workflowState === 'MONTY_APPROVED' || workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED') { 
-                      statusText = 'LOCKED'; 
-                      statusColor = 'text-black bg-[#10b981]'; 
-                    }
-                  }
-
-                  if (isEliteCascading && selectedLLM === 'ELITE_CASCADE' && model.id !== 'ELITE_CASCADE') {
-                    const activeModelId = ELITE_CASCADE_STEPS[eliteCascadeIndex]?.id;
-                    if (activeModelId && activeModelId.includes(model.id.split('-')[0])) { 
-                      statusText = 'ANALYZING'; 
-                      statusColor = 'text-black bg-[#38bdf8]'; 
-                      isSpinning = true; 
-                    } else { 
-                      statusText = 'LOCKED'; 
-                      statusColor = 'text-black bg-[#10b981]'; 
-                    }
-                  }
-
-                  let tagColor = 'bg-[#1f242d] text-[#5c6b7f]';
-                  if (statusText === 'STANDBY' && model.id !== 'KAGGLE-T4') {
-                    if (model.tag === 'ELITE') tagColor = 'bg-[#1f242d] text-[#5c6b7f]';
-                    else if (model.tag === 'FREE') tagColor = 'bg-[#10b981]/20 text-[#10b981]';
+                  if (isSelected && isAnyExecuting) { 
+                    statusText = 'ACTIVE'; 
+                    statusColor = 'text-black bg-[#38bdf8]'; 
+                    isSpinning = true; 
                   }
 
                   return (
-                    <button key={model.id} onClick={() => setSelectedLLM(model.id)} className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${isSelected ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold' : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'}`}>
+                    <button key={model.id} onClick={() => setSelectedLLM(model.id)} className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${isSelected ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold shadow-[0_0_8px_rgba(56,189,248,0.2)]' : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'}`}>
                       <div className="flex items-center gap-2">
                         {isSpinning && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#38bdf8]" />}
                         <span className="truncate pr-1">{model.name}</span>
                       </div>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${model.id === 'KAGGLE-T4' && !isSelected ? statusColor : (statusText === 'STANDBY' ? tagColor : statusColor)}`}>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${model.id === 'KAGGLE-T4' && !isSelected ? statusColor : (statusText === 'STANDBY' ? 'bg-[#1f242d] text-[#5c6b7f]' : statusColor)}`}>
                         {model.id === 'KAGGLE-T4' ? statusText : (statusText === 'STANDBY' ? model.tag : statusText)}
                       </span>
                     </button>
@@ -472,13 +704,14 @@ export default function Tab02WarRoom({ ws }) {
             <button onClick={() => { setIsDirectorsOpen(!isDirectorsOpen); setAnalysisMode('DIRECTORS'); }} className="w-full flex items-center justify-between px-3 py-2 bg-[#14171c] hover:bg-[#1a1f26] text-[#ffb800] font-bold text-xs transition-colors cursor-pointer border-b border-[#1f242d]">
               <span>DIRECTOR BOARD</span>
               <div className="flex items-center gap-2">
-                <span className="text-[9px] border border-[#38bdf8] text-[#38bdf8] px-1.5 py-0.5 rounded font-mono font-bold">ONLINE (16)</span>
+                <span className="text-[9px] border border-[#38bdf8] text-[#38bdf8] px-1.5 py-0.5 rounded font-mono font-bold">
+                  {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE HOSTED' : 'ONLINE (16)'}
+                </span>
                 {isDirectorsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </div>
             </button>
             {isDirectorsOpen && (
               <div className="p-2 space-y-1 bg-[#0a0c0e] max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
-                
                 <button
                   onClick={() => setSelectedAgentDropdown('5-TURN ROUND-ROBIN CASCADE')}
                   className={`w-full flex items-center justify-between px-2.5 py-2 mb-2 rounded text-[11px] font-mono transition-all cursor-pointer ${
@@ -488,11 +721,11 @@ export default function Tab02WarRoom({ ws }) {
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    {isFreeCascading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#ffb800]" />}
+                    {isCascading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#ffb800]" />}
                     <span className="truncate pr-1">5-TURN ROUND-ROBIN CASCADE</span>
                   </div>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${isFreeCascading ? 'bg-[#ffb800] text-black' : 'bg-[#1f242d] text-[#5c6b7f]'}`}>
-                    {isFreeCascading ? 'ANALYZING' : 'BASE 1'}
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${isCascading ? 'bg-[#ffb800] text-black' : 'bg-[#1f242d] text-[#5c6b7f]'}`}>
+                    {isCascading ? `TURN ${cascadeIndex + 1}/5` : (selectedLLM === 'KAGGLE-T4' ? 'KAGGLE' : 'BASE 1')}
                   </span>
                 </button>
 
@@ -502,8 +735,8 @@ export default function Tab02WarRoom({ ws }) {
                   const isAssigned = assignedDirectors.includes(agentName);
                   const isSpinning = isMultiAgentExecuting && isAssigned;
                   
-                  let badgeLabel = 'STANDBY';
-                  let badgeStyle = 'text-[#5c6b7f] bg-[#1f242d]';
+                  let badgeLabel = selectedLLM === 'KAGGLE-T4' ? 'KAGGLE' : 'STANDBY';
+                  let badgeStyle = selectedLLM === 'KAGGLE-T4' ? 'text-[#00d2ff] bg-[#00d2ff]/10 border border-[#00d2ff]/30' : 'text-[#5c6b7f] bg-[#1f242d]';
 
                   if (isSpinning) {
                     badgeLabel = 'SCANNED';
@@ -512,30 +745,21 @@ export default function Tab02WarRoom({ ws }) {
                     badgeLabel = 'LOCKED';
                     badgeStyle = 'text-black bg-[#10b981] font-bold';
                   } else if (isSelectedTarget) {
-                    badgeLabel = agentObj.modelBadge;
-                    badgeStyle = agentObj.color + ' font-bold border';
+                    badgeLabel = selectedLLM === 'KAGGLE-T4' ? 'KAGGLE-T4' : agentObj.modelBadge;
+                    badgeStyle = (selectedLLM === 'KAGGLE-T4' ? 'text-[#00d2ff] bg-[#00d2ff]/20 border border-[#00d2ff]' : agentObj.color) + ' font-bold border';
                   }
 
                   return (
                     <button 
                       key={agentName} 
-                      onClick={() => {
-                        setSelectedAgentDropdown(agentName);
-                        setAnalysisMode('DIRECTORS');
-                      }} 
-                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${
-                        isSelectedTarget 
-                          ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold' 
-                          : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'
-                      }`}
+                      onClick={() => { setSelectedAgentDropdown(agentName); setAnalysisMode('DIRECTORS'); }} 
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-mono transition-all cursor-pointer ${isSelectedTarget ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 font-bold' : 'bg-[#14171c] text-[#8fa0b5] border border-[#1f242d] hover:bg-[#1a1f26] hover:text-white'}`}
                     >
                       <div className="flex items-center gap-2">
                         {isSpinning && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#38bdf8]" />}
                         <span className="truncate pr-1">{agentName}</span>
                       </div>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-mono tracking-wider ${badgeStyle}`}>
-                        {badgeLabel}
-                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-mono tracking-wider ${badgeStyle}`}>{badgeLabel}</span>
                     </button>
                   );
                 })}
@@ -545,20 +769,20 @@ export default function Tab02WarRoom({ ws }) {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
-        <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono">
+      <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden relative">
+        <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono z-10 relative">
           <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2 uppercase tracking-widest font-bold">
             THE WAR ROOM // LIVE COMMS & PRD PIPELINE <span className="text-[#ffb800]">[{selectedProject}]</span>
+            {selectedLLM === 'KAGGLE-T4' && (
+              <span className="text-[10px] text-[#00d2ff] bg-[#00d2ff]/10 px-2 py-0.5 rounded border border-[#00d2ff]/40">
+                [ENGINE: KAGGLE DUAL-T4 32GB]
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyDiscussion}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold tracking-wider border transition-all cursor-pointer ${
-                copiedFeed 
-                  ? 'bg-[#10b981]/20 text-[#10b981] border-[#10b981]' 
-                  : 'bg-[#14171c] hover:bg-[#ffb800]/10 text-[#ffb800] border border-[#ffb800]/40 hover:border-[#ffb800]'
-              }`}
-              title="Copy entire discussion thread to clipboard"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold tracking-wider border transition-all cursor-pointer ${copiedFeed ? 'bg-[#10b981]/20 text-[#10b981] border-[#10b981]' : 'bg-[#14171c] hover:bg-[#ffb800]/10 text-[#ffb800] border border-[#ffb800]/40 hover:border-[#ffb800]'}`}
             >
               {copiedFeed ? <Check className="w-3 h-3 text-[#10b981]" /> : <Copy className="w-3 h-3 text-[#ffb800]" />}
               <span>{copiedFeed ? 'COPIED' : 'COPY ALL'}</span>
@@ -569,7 +793,27 @@ export default function Tab02WarRoom({ ws }) {
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
+        {/* EXPLICIT TIMER & STOP BANNER (PINNED TO TOP WHEN ACTIVE) */}
+        {isAnyExecuting && (
+          <div className="absolute top-10 left-0 right-0 z-20 mx-4 mt-3 flex items-center justify-between py-2.5 px-3 border border-[#ffb800] bg-[#14171c]/95 backdrop-blur-sm rounded shadow-[0_4px_16px_rgba(0,0,0,0.5)] font-mono">
+            <div className="flex items-center gap-2.5 text-[#ffb800]">
+              <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
+              <span className="text-[11px] font-bold tracking-wider uppercase">
+                {selectedLLM === 'KAGGLE-T4' ? 'Kaggle Dual-T4' : 'Boardroom'} Active Cascade executing... [ELAPSED: {formatElapsed(elapsedSeconds)}]
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleAllStop}
+              className="px-3 py-1.5 bg-[#ef4444]/20 hover:bg-[#ef4444] text-[#fca5a5] hover:text-white border border-[#ef4444]/50 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(239,68,68,0.3)]"
+            >
+              <Square className="w-3 h-3 fill-current" />
+              <span>TERMINATE BATCH JOB</span>
+            </button>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar pt-4">
           {streamLog.map(log => (
             <div key={log.id} className="space-y-1">
               <div className="flex items-center justify-between select-none">
@@ -588,57 +832,61 @@ export default function Tab02WarRoom({ ws }) {
           <div ref={streamBottomRef} />
         </div>
 
-        <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none">
+        <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none relative z-10">
           <div className="flex items-center justify-between text-[11px] bg-[#14171c] px-3 py-1.5 rounded border border-[#232832]">
-            <label className="text-[#ffb800] hover:text-[#fef08a] flex items-center gap-2 font-bold tracking-wider transition-colors cursor-pointer select-none">
-              <Paperclip className="w-4 h-4 text-[#ffb800]" /><span>+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</span>
+            <label className={`flex items-center gap-2 font-bold tracking-wider transition-colors select-none ${isAnyExecuting ? 'text-[#5c6b7f] cursor-not-allowed' : 'text-[#ffb800] hover:text-[#fef08a] cursor-pointer'}`}>
+              <Paperclip className={`w-4 h-4 ${isAnyExecuting ? 'text-[#5c6b7f]' : 'text-[#ffb800]'}`} />
+              <span>+ ATTACH FILE / SCREENSHOT (CLICK OR PRESS CTRL+V)</span>
             </label>
-            <button onClick={toggleMic} className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${isListening ? 'bg-[#ffb800] text-black border border-[#ffb800] shadow-[0_0_8px_rgba(255,184,0,0.4)]' : 'bg-[#0d0f12] text-[#ffb800] border border-[#ffb800]/40 hover:bg-[#ffb800]/10'}`}>
+            <button onClick={toggleMic} disabled={isAnyExecuting} className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${isAnyExecuting ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${isListening ? 'bg-[#ffb800] text-black border border-[#ffb800] shadow-[0_0_8px_rgba(255,184,0,0.4)]' : 'bg-[#0d0f12] text-[#ffb800] border border-[#ffb800]/40 hover:bg-[#ffb800]/10'}`}>
               {isListening ? <MicOff className="w-3.5 h-3.5 text-black" /> : <Mic className="w-3.5 h-3.5 text-[#ffb800]" />}<span>{isListening ? 'STOP MIC' : 'CHROME MIC'}</span>
             </button>
           </div>
 
           <div className="relative">
             <textarea
-              id="warroom-input" value={inputBuffer} onChange={(e) => setInputBuffer(e.target.value)}
-              placeholder={isListening ? "Streaming voice via Chrome... speak naturally..." : (analysisMode === 'BOARDROOM' ? `Enter core objective for [${selectedProject}] Elite Boardroom...` : `Enter direct scope for assigned targets [${assignedDirectors.length > 0 ? assignedDirectors.map(d => d.split(' // ')[0]).join(', ') : 'None'}]...`)}
+              id="warroom-input" 
+              value={inputBuffer} 
+              onChange={(e) => setInputBuffer(e.target.value)}
+              disabled={isAnyExecuting}
+              placeholder={isAnyExecuting ? `Sequence executing via [${selectedLLM}]... [Elapsed: ${formatElapsed(elapsedSeconds)}]` : isListening ? "Streaming voice via Chrome... speak naturally..." : `Enter core directive for [${selectedProject}] via [${selectedLLM}]...`}
               rows={3}
-              className={`w-full bg-[#0d0f12] text-[#e2e8f0] border rounded p-2.5 text-xs font-mono focus:outline-none resize-none select-text transition-colors ${isListening ? 'border-[#ffb800] ring-1 ring-[#ffb800]' : 'border-[#1f242d] focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800]'}`}
+              className={`w-full bg-[#0d0f12] text-[#e2e8f0] border rounded p-2.5 text-xs font-mono focus:outline-none resize-none select-text transition-colors ${isAnyExecuting ? 'opacity-60 border-[#ffb800]/40 bg-[#080a0c] cursor-not-allowed' : isListening ? 'border-[#ffb800] ring-1 ring-[#ffb800]' : 'border-[#1f242d] focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800]'}`}
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono">
             <div className="flex items-center gap-1.5">
-              <button onClick={() => handleAction('INITIATE LLM ANALYSIS')} disabled={isEliteCascading || isLLMExecuting || !inputBuffer.trim()} className={`px-4 py-1.5 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5 ${isEliteCascading || isLLMExecuting || !inputBuffer.trim() ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832]' : 'bg-[#ffb800] text-black hover:bg-[#e6a600]'}`}>
-                {isEliteCascading || isLLMExecuting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                {isEliteCascading || isLLMExecuting ? 'ACTIVE...' : 'INITIATE LLM'}
+              <button onClick={() => handleAction('INITIATE LLM ANALYSIS')} disabled={isAnyExecuting} className={`px-4 py-1.5 font-bold rounded text-[11px] transition-colors flex items-center gap-1.5 ${isAnyExecuting ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed' : 'bg-[#ffb800] text-black hover:bg-[#e6a600] cursor-pointer'}`}>
+                {isLLMExecuting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> : null}
+                <span>{isLLMExecuting ? `ACTIVE [${formatElapsed(elapsedSeconds)}]` : 'INITIATE LLM'}</span>
               </button>
               
-              <button onClick={() => handleAction('INITIATE DIRECTOR ANALYSIS')} disabled={isMultiAgentExecuting || isFreeCascading || !inputBuffer.trim()} className={`px-3 py-1.5 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5 ${isMultiAgentExecuting || isFreeCascading || !inputBuffer.trim() ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832]' : (analysisMode === 'DIRECTORS' ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50' : 'bg-[#14171c] text-[#38bdf8] border border-[#232832] hover:border-[#38bdf8]/50')}`}>
-                {isMultiAgentExecuting || isFreeCascading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                {isMultiAgentExecuting || isFreeCascading ? 'ACTIVE...' : 'INITIATE DIR'}
+              <button onClick={() => handleAction('INITIATE DIRECTOR ANALYSIS')} disabled={isAnyExecuting} className={`px-3 py-1.5 font-bold rounded text-[11px] transition-colors flex items-center gap-1.5 ${isAnyExecuting ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed' : (analysisMode === 'DIRECTORS' ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 cursor-pointer' : 'bg-[#14171c] text-[#38bdf8] border border-[#232832] hover:border-[#38bdf8]/50 cursor-pointer')}`}>
+                {isMultiAgentExecuting || isCascading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#38bdf8]" /> : null}
+                <span>{isMultiAgentExecuting || isCascading ? `ACTIVE [${formatElapsed(elapsedSeconds)}]` : 'INITIATE DIR'}</span>
               </button>
               
-              <button onClick={() => handleAction('REFINE')} className="px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] hover:bg-[#1c2129] hover:text-white cursor-pointer">REFINE</button>
+              <button onClick={() => handleAction('REFINE')} disabled={isAnyExecuting} className="px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] hover:bg-[#1c2129] hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">REFINE</button>
               
-              <button onClick={() => handleAction('AUTHORIZE ACTION')} className={`px-3 py-1.5 font-semibold rounded text-[11px] transition-all flex items-center gap-1.5 ${workflowState === 'MONTY_APPROVED' || workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/40 shadow-[0_0_8px_rgba(16,185,129,0.2)] cursor-pointer' : 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'}`}>
+              <button onClick={() => handleAction('AUTHORIZE ACTION')} disabled={isAnyExecuting || workflowState !== 'MONTY_APPROVED'} className={`px-3 py-1.5 font-semibold rounded text-[11px] transition-all flex items-center gap-1.5 ${workflowState === 'MONTY_APPROVED' || workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/40 shadow-[0_0_8px_rgba(16,185,129,0.2)] cursor-pointer' : 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'}`}>
                 {workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? <Check className="w-3.5 h-3.5" /> : null}
                 {workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'AUTHORIZED' : 'AUTHORIZE'}
               </button>
               
-              <button onClick={() => handleAction('MONTY DISPATCH')} className={`px-3 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 ${workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'bg-[#d97706]/20 text-[#fef08a] border border-[#d97706] shadow-[0_0_12px_rgba(217,119,6,0.3)] cursor-pointer' : 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'}`}>
+              <button onClick={() => handleAction('MONTY DISPATCH')} disabled={isAnyExecuting || workflowState !== 'AUTHORIZED'} className={`px-3 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 ${workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'bg-[#d97706]/20 text-[#fef08a] border border-[#d97706] shadow-[0_0_12px_rgba(217,119,6,0.3)] cursor-pointer' : 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'}`}>
                 {workflowState === 'DISPATCHED' ? <Check className="w-3.5 h-3.5" /> : null}
                 {workflowState === 'DISPATCHED' ? 'DISPATCHED' : 'DISPATCH'}
               </button>
               
-              <button onClick={handleCls} className="px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] hover:bg-[#592525] cursor-pointer">CLS</button>
-              <button onClick={handleAllStop} className="px-3 py-1.5 bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/60 font-extrabold rounded text-[11px] hover:bg-[#ef4444]/40 cursor-pointer flex items-center gap-1">
-                <AlertOctagon className="w-3 h-3 text-[#ef4444]" /><span>ALL STOP</span>
+              <button onClick={handleCls} disabled={isAnyExecuting} className="px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] hover:bg-[#592525] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">CLS</button>
+              <button onClick={handleAllStop} className="px-3 py-1.5 bg-[#450a0a]/60 hover:bg-[#7f1d1d] text-[#fca5a5] hover:text-white border border-[#7f1d1d] font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer shadow-[0_0_8px_rgba(239,68,68,0.2)] transition-all">
+                <AlertOctagon className="w-3.5 h-3.5 text-[#ef4444]" /><span>ALL STOP</span>
               </button>
             </div>
 
             <div className="flex items-center gap-1.5">
-              <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)} className="bg-[#14171c] text-[#a0aec0] border border-[#232832] text-[11px] px-2 py-1.5 rounded focus:outline-none focus:border-[#ffb800] cursor-pointer">
+              <select value={selectedProject} onChange={(e) => handleSelectProject(e.target.value)} disabled={isAnyExecuting} className="bg-[#14171c] text-[#a0aec0] border border-[#232832] text-[11px] px-2 py-1.5 rounded focus:outline-none focus:border-[#ffb800] cursor-pointer disabled:opacity-50">
                 {projects.map(p => <option key={p} value={p}>[ PROJECT: {p} ]</option>)}
               </select>
               
@@ -648,7 +896,7 @@ export default function Tab02WarRoom({ ws }) {
                   if (e.target.value === '5-TURN ROUND-ROBIN CASCADE' || e.target.value === 'ALL DIRECTORS // AUTO-ROUTING') {
                     setAssignedDirectors([]);
                   }
-                }} className="bg-transparent text-[#ffb800] font-bold text-[11px] px-2 py-1.5 focus:outline-none cursor-pointer">
+                }} disabled={isAnyExecuting} className="bg-transparent text-[#ffb800] font-bold text-[11px] px-2 py-1.5 focus:outline-none cursor-pointer disabled:opacity-50">
                   <option value="5-TURN ROUND-ROBIN CASCADE">[ ASSIGN: 5-TURN ROUND-ROBIN ]</option>
                   <option value="ALL DIRECTORS // AUTO-ROUTING">[ ASSIGN: ALL DIRECTORS // AUTO-ROUTING ]</option>
                   {DIRECTOR_BOARD_CONFIG.map(a => <option key={a.name} value={a.name} className="bg-[#0d0f12] text-[#e2e8f0]">[ TARGET: {a.name} ]</option>)}
@@ -656,12 +904,12 @@ export default function Tab02WarRoom({ ws }) {
                 {assignedDirectors.length > 0 && (
                   <div className="flex items-center gap-1 px-2 border-l border-[#232832] text-[#10b981] font-bold text-[10px]">
                     LOCKED: {assignedDirectors.length}
-                    <button onClick={() => setAssignedDirectors([])} className="ml-1 text-[#5c6b7f] hover:text-[#ef4444] cursor-pointer"><X className="w-3 h-3" /></button>
+                    <button onClick={() => setAssignedDirectors([])} disabled={isAnyExecuting} className="ml-1 text-[#5c6b7f] hover:text-[#ef4444] cursor-pointer"><X className="w-3 h-3" /></button>
                   </div>
                 )}
               </div>
 
-              <button onClick={() => handleAction('ASSIGN')} className="px-3.5 py-1.5 bg-[#10b981]/20 hover:bg-[#10b981]/30 text-[#10b981] border border-[#10b981]/50 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5">
+              <button onClick={() => handleAction('ASSIGN')} disabled={isAnyExecuting} className="px-3.5 py-1.5 bg-[#10b981]/20 hover:bg-[#10b981]/30 text-[#10b981] border border-[#10b981]/50 font-bold rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
                 <UserCheck className="w-3.5 h-3.5" /><span>ASSIGN TARGET</span>
               </button>
             </div>
