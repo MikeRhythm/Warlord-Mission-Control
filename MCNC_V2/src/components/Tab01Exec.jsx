@@ -41,6 +41,7 @@ export default function Tab01Exec({ ws }) {
   const [speechSupported, setSpeechSupported] = useState(true);
   const recognitionRef = useRef(null);
   const streamBottomRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   useEffect(() => {
     streamBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -129,6 +130,47 @@ All code and specifications must be 100% complete with full file integrity. Zero
     setInputBuffer(cleanPayload);
   };
 
+  const handleAllStop = async () => {
+    // 1. Abort local fetch pipeline immediately
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    // 2. Terminate speech recognition if running
+    setIsListening(false);
+    recognitionRef.current?.stop();
+
+    // 3. Dispatch global halt event across tabs (syncs with War Room)
+    window.dispatchEvent(new CustomEvent('universal-all-stop', {
+      detail: { source: 'Tab01Exec', timestamp: Date.now() }
+    }));
+
+    // 4. Send hard kill signal to Base 1 backend daemon
+    try {
+      await fetch('http://127.0.0.1:8081/api/all-stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'EXEC_ALL_STOP_TRIGGERED', timestamp: Date.now() })
+      });
+    } catch (e) {
+      console.warn('Base 1 stop daemon tripwire pinged:', e.message);
+    }
+
+    setIsProcessing(false);
+
+    setChatLog(prev => [
+      ...prev,
+      { 
+        id: Date.now(), 
+        sender: 'EMERGENCY // ALL STOP', 
+        text: 'CRITICAL OVERRIDE: All inference sequences, board cascades, and daemon tasks aborted. System idle state restored.', 
+        type: 'error', 
+        agent: 'System' 
+      }
+    ]);
+  };
+
   const handleSend = async () => {
     if (!inputBuffer.trim() || isProcessing) return;
 
@@ -156,11 +198,13 @@ All code and specifications must be 100% complete with full file integrity. Zero
     ]);
 
     setIsProcessing(true);
+    abortControllerRef.current = new AbortController();
 
     try {
       const response = await fetch('http://127.0.0.1:8081/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           model: selectedModel,
           prompt: userText,
@@ -176,24 +220,28 @@ All code and specifications must be 100% complete with full file integrity. Zero
           id: Date.now() + 1, 
           sender: `${targetedAgent.toUpperCase()} // ${data.activeModelUsed || selectedModel}`, 
           text: data.reply || data.error || 'No response returned from daemon.', 
-          type: 'system',
+          type: 'system', 
           agent: targetedAgent
         }
       ]);
     } catch (err) {
+      if (err.name === 'AbortError') {
+        // Handled cleanly by handleAllStop
+        return;
+      }
       setChatLog(prev => [
         ...prev,
         { id: Date.now() + 1, sender: 'DAEMON // ERROR', text: `Failed to reach Base 1 Master Daemon: ${err.message}`, type: 'error', agent: 'Daemon' }
       ]);
     } finally {
       setIsProcessing(false);
+      abortControllerRef.current = null;
     }
   };
 
   const handlePushToWarRoom = () => {
     if (isProcessing) return;
 
-    // Prefer active input buffer (if loaded/refined), else fall back to last system message, else last user message
     let payload = inputBuffer.trim();
     if (!payload) {
       const lastSysMsg = [...chatLog].reverse().find(m => m.type === 'system' && m.agent !== 'System');
@@ -457,7 +505,7 @@ All code and specifications must be 100% complete with full file integrity. Zero
           </div>
 
           {/* Action Toolbar */}
-          <div className="flex items-center justify-between gap-2 pt-1">
+          <div className="flex items-center justify-between gap-2 pt-1 font-mono">
             <div className="flex items-center gap-1.5">
               <button
                 onClick={handleSend}
@@ -480,6 +528,7 @@ All code and specifications must be 100% complete with full file integrity. Zero
                   </>
                 )}
               </button>
+              
               <button
                 onClick={handlePushToWarRoom}
                 disabled={isProcessing}
@@ -489,6 +538,7 @@ All code and specifications must be 100% complete with full file integrity. Zero
               >
                 PUSH TO WAR ROOM
               </button>
+
               <button
                 onClick={() => alert('Refinement constraints injected.')}
                 disabled={isProcessing}
@@ -498,6 +548,7 @@ All code and specifications must be 100% complete with full file integrity. Zero
               >
                 REFINE
               </button>
+
               <button
                 onClick={handleCls}
                 disabled={isProcessing}
@@ -507,7 +558,19 @@ All code and specifications must be 100% complete with full file integrity. Zero
               >
                 CLS
               </button>
+
+              {/* ALL STOP TRIPWIRE BUTTON */}
+              <button
+                type="button"
+                onClick={handleAllStop}
+                title="Universal Emergency Stop: Kill inference loops, daemon tasks, and release CPU"
+                className="px-3 py-1.5 bg-[#450a0a]/60 hover:bg-[#7f1d1d] text-[#fca5a5] hover:text-white border border-[#7f1d1d] font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer shadow-[0_0_8px_rgba(239,68,68,0.2)] transition-all"
+              >
+                <AlertOctagon className="w-3.5 h-3.5 text-[#ef4444]" />
+                <span>ALL STOP</span>
+              </button>
             </div>
+
             <div className="text-[10px] text-[#5c6b7f]">
               Ctrl+Enter to Submit
             </div>

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './index.css'; 
 import './high_finance_master.css';
 import { initGlobalInterceptor } from './utils/execBus';
@@ -220,3 +220,4 @@ export default function App() {
     </div>
   );
 }
+
