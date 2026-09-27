@@ -1,9 +1,57 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles 
+  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles, FileText 
 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 import './Tab02WarRoom.css';
+
+// Stage 1 Forensic Deconstruction Template Wrapper
+const STAGE1_TEMPLATE_HEADER = `EXECUTE: STAGE 1 ZERO-SOLUTION FORENSIC DECONSTRUCTION
+GOVERNANCE: WARLORD ROE TIER 1 - TIER 5
+TARGET: 5-TURN ROUND-ROBIN KAGGLE CASCADE
+DOMINANT METRIC: ABSOLUTE PRECISION
+
+[MISSION DIRECTIVE]
+Ingest the core project scope and strip it of all conversational drift, premature technology assumptions, and emotional bias. Deconstruct the requirements across the 16 MECE Directors Matrix (00_core through 15_social).
+
+[CASCADE RULES OF ENGAGEMENT]
+- Turn 1 (Qwen 2.5 7B): System Architect & Strategy. Establish core architectural pillars and extract pure functional requirements. No code.
+- Turn 2 (Llama 3 8B): Director Critique & Ops. Pressure-test operational boundaries, identify dependency bottlenecks, and enforce MECE domain isolation.
+- Turn 3 (Qwen 2.5 Coder): Technical Refinement. Define precise data contracts, input/output interfaces, and absolute path requirements.
+- Turn 4 (Qwen 2.5 Judge Gate): Risk Audit & Verification. Hard-check all constraints, apply the default 1.0 Rhythm Multiplier across all pillars, and enforce zero-state memory boundaries.
+- Turn 5 (Consensus Synthesis): Emit the final validated JSON contract for Stage 1.
+
+[MANDATORY CONSTRAINTS]
+1. NO SOLUTIONS OR PREMATURE CODE: State WHAT must be achieved, never write execution code.
+2. PALETTE & TOKEN SANITIZATION:
+   - UI/UX (Roxy / 02) strictly uses High Finance tokens: Obsidian (#080a0c), Gold Core (#ffb800), Wire Border (#1f242d), Emerald (#10b981), Ruby (#ef4444).
+   - MQL/Trading (01) strictly uses DodgerBlue, OrangeRed, and Goldenrod lines only.
+3. MEMORY SAFETY: Every domain requirement must include rhythm_multiplier: 1.0.
+
+[OUTPUT FORMAT]
+Output STRICT RAW JSON ONLY. No markdown code blocks, no preamble, no commentary:
+{
+  "pipeline_stage": 1,
+  "status": "FORENSIC_DECONSTRUCTION_COMPLETE",
+  "project": "__PROJECT_NAME__",
+  "dominant_metric": "Absolute Precision",
+  "raw_input_digest": "<clinical 1-sentence restatement>",
+  "pillars": [
+    {
+      "domain_id": "<00 to 15>",
+      "domain_name": "<exact domain name>",
+      "owner": "<Director Name>",
+      "functional_objective": "<objective requirement>",
+      "constraints": ["<constraint 1>", "<constraint 2>"],
+      "dependencies": ["<prerequisite domain_id>"],
+      "rhythm_multiplier": 1.0
+    }
+  ],
+  "unmapped_items": []
+}
+
+[INPUT SPECIFICATION]:
+`;
 
 // Elite Frontier LLMs Pool
 const ELITE_MODELS_POOL = [
@@ -252,6 +300,30 @@ export default function Tab02WarRoom({ ws }) {
     setIsCreatingProject(false);
   };
 
+  // Wrap User Directive with Kaggle Stage 1 Scaffold
+  const handleGenerateDirective = () => {
+    if (!inputBuffer || !inputBuffer.trim()) {
+      return;
+    }
+
+    if (inputBuffer.includes("EXECUTE: STAGE 1 ZERO-SOLUTION FORENSIC DECONSTRUCTION")) {
+      return;
+    }
+
+    const wrapped = STAGE1_TEMPLATE_HEADER.replace("__PROJECT_NAME__", selectedProject) + inputBuffer.trim();
+    setInputBuffer(wrapped);
+
+    setStreamLog(prev => [
+      ...prev,
+      { 
+        id: Date.now(), 
+        sender: 'CHARLIE // CODING LEAD', 
+        text: `Stage 1 Forensic Deconstruction scaffold injected into prompt buffer for [${selectedProject}].`, 
+        type: 'system' 
+      }
+    ]);
+  };
+
   const handleCls = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -263,7 +335,7 @@ export default function Tab02WarRoom({ ws }) {
     setInputBuffer(''); 
     setAssignedDirectors([]);
     
-    const initLog = [{ id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal cleared. War Room initialized.', type: 'system' }];
+    const initLog = [{ id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal ready. War Room initialized.', type: 'system' }];
     setStreamLog(initLog);
   };
 
@@ -1007,7 +1079,7 @@ Format strictly as:
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <button onClick={() => handleAction('INITIATE LLM ANALYSIS')} disabled={isAnyExecuting} className={`px-4 py-1.5 font-bold rounded text-[11px] transition-colors flex items-center gap-1.5 ${isAnyExecuting ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed' : 'bg-[#ffb800] text-black hover:bg-[#e6a600] cursor-pointer'}`}>
                 {isLLMExecuting || isCascading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> : null}
                 <span>{isLLMExecuting || isCascading ? `ACTIVE [${formatElapsed(elapsedSeconds)}]` : 'INITIATE LLM'}</span>
@@ -1031,8 +1103,20 @@ Format strictly as:
               </button>
               
               <button onClick={handleCls} disabled={isAnyExecuting} className="px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] hover:bg-[#592525] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">CLS</button>
+              
               <button onClick={handleAllStop} className="px-3 py-1.5 bg-[#450a0a]/60 hover:bg-[#7f1d1d] text-[#fca5a5] hover:text-white border border-[#7f1d1d] font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer shadow-[0_0_8px_rgba(239,68,68,0.2)] transition-all">
                 <AlertOctagon className="w-3.5 h-3.5 text-[#ef4444]" /><span>ALL STOP</span>
+              </button>
+
+              {/* GENERATE DIRECTIVE WRAPPER BUTTON */}
+              <button
+                type="button"
+                onClick={handleGenerateDirective}
+                disabled={isAnyExecuting}
+                className="px-3 py-1.5 bg-[#080a0c] hover:bg-[#ffb800] text-[#ffb800] hover:text-black border border-[#ffb800] font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_6px_rgba(255,184,0,0.15)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>GENERATE DIRECTIVE</span>
               </button>
             </div>
 
