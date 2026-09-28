@@ -300,7 +300,6 @@ export default function Tab02WarRoom({ ws }) {
     setIsCreatingProject(false);
   };
 
-  // Wrap User Directive with Kaggle Stage 1 Scaffold
   const handleGenerateDirective = () => {
     if (!inputBuffer || !inputBuffer.trim()) {
       return;
@@ -366,7 +365,6 @@ export default function Tab02WarRoom({ ws }) {
     ]);
   };
 
-  // Switch Platform and auto-seed its corresponding models
   const handleSwitchPlatform = (targetPlatform) => {
     setSelectedLLM(targetPlatform);
     if (targetPlatform === 'KAGGLE-T4') {
@@ -378,7 +376,7 @@ export default function Tab02WarRoom({ ws }) {
 
   const toggleSubModel = (modelId) => {
     if (selectedSubModels.includes(modelId)) {
-      if (selectedSubModels.length === 1) return; // Prevent 0 models
+      if (selectedSubModels.length === 1) return; 
       setSelectedSubModels(selectedSubModels.filter(id => id !== modelId));
     } else {
       setSelectedSubModels([...selectedSubModels, modelId]);
@@ -392,6 +390,53 @@ export default function Tab02WarRoom({ ws }) {
 
   const selectSoloSubModel = (modelId) => {
     setSelectedSubModels([modelId]);
+  };
+
+  // ==========================================
+  // WEBSOCKET PROMISE WRAPPER (THE FIX)
+  // ==========================================
+  const dispatchAndWait = async (payload) => {
+    const res = await fetch('http://127.0.0.1:8081/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: abortControllerRef.current?.signal,
+      body: JSON.stringify(payload)
+    });
+    const initialData = await res.json();
+    
+    // If backend returns the 202 PROCESSING state, wait for the WebSocket CHAT_COMPLETE signal
+    if (initialData.status === 'PROCESSING') {
+       return new Promise((resolve, reject) => {
+          const handler = (event) => {
+              try {
+                  const wsData = JSON.parse(event.data);
+                  if (wsData.type === 'CHAT_COMPLETE') {
+                      if (ws) ws.removeEventListener('message', handler);
+                      resolve({ reply: wsData.msg.reply, modelUsed: wsData.msg.activeModelUsed });
+                  } else if (wsData.type === 'ERROR') {
+                      if (ws) ws.removeEventListener('message', handler);
+                      reject(new Error(wsData.msg.reply || 'Daemon error'));
+                  }
+              } catch (e) {}
+          };
+          
+          if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.addEventListener('message', handler);
+          } else {
+              reject(new Error("WebSocket not connected. Cannot await background dispatch."));
+          }
+
+          if (abortControllerRef.current) {
+              abortControllerRef.current.signal.addEventListener('abort', () => {
+                  if (ws) ws.removeEventListener('message', handler);
+                  reject(new DOMException('Aborted', 'AbortError'));
+              });
+          }
+       });
+    } else {
+       if (initialData.error) throw new Error(initialData.error);
+       return { reply: initialData.reply, modelUsed: initialData.modelUsed };
+    }
   };
 
   // Multi-Turn Chained Cascade Loop
@@ -441,23 +486,18 @@ Format strictly as:
 ` : ''}`;
 
       try {
-        const response = await fetch('http://127.0.0.1:8081/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: abortControllerRef.current?.signal,
-          body: JSON.stringify({
-            prompt: stagePrompt,
-            model: step.model || step.id,
-            project: selectedProject,
-            role: step.role,
-            turn: i + 1,
-            enforceFullPRD: true,
-            useKaggle: selectedLLM === 'KAGGLE-T4'
-          })
-        });
+        const payload = {
+          prompt: stagePrompt,
+          model: step.model || step.id,
+          project: selectedProject,
+          role: step.role,
+          turn: i + 1,
+          enforceFullPRD: true,
+          useKaggle: selectedLLM === 'KAGGLE-T4'
+        };
 
-        const data = await response.json();
-        const replyText = data.reply || data.error || 'No response returned from inference node.';
+        const data = await dispatchAndWait(payload);
+        const replyText = data.reply || 'No response returned from inference node.';
 
         setStreamLog(prev => [
           ...prev,
@@ -465,7 +505,7 @@ Format strictly as:
             id: Date.now() + 1,
             sender: `${step.tag || step.id} // ${step.name || step.label}`,
             text: replyText,
-            type: data.error ? 'error' : 'agent'
+            type: 'agent'
           }
         ]);
 
@@ -518,25 +558,20 @@ Format strictly as:
       const role = targetAgent.split(' // ')[1];
       
       try {
-        const response = await fetch('http://127.0.0.1:8081/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: abortControllerRef.current?.signal,
-          body: JSON.stringify({ 
-            prompt: currentPayload, 
-            director: targetAgent, 
-            project: selectedProject,
-            model: selectedLLM === 'KAGGLE-T4' ? 'qwen2.5:7b' : undefined,
-            useKaggle: selectedLLM === 'KAGGLE-T4'
-          })
-        });
-        const data = await response.json();
+        const payload = { 
+          prompt: currentPayload, 
+          director: targetAgent, 
+          project: selectedProject,
+          model: selectedLLM === 'KAGGLE-T4' ? 'qwen2.5:7b' : undefined,
+          useKaggle: selectedLLM === 'KAGGLE-T4'
+        };
+        const data = await dispatchAndWait(payload);
         
         setStreamLog(prev => [...prev, {
           id: Date.now(),
           sender: `${baseName} // ${role}`,
-          text: data.error ? `Daemon error: ${data.error}` : data.reply,
-          type: data.error ? 'error' : 'agent'
+          text: data.reply,
+          type: 'agent'
         }]);
 
         currentPayload = currentPayload + `\n\n--- TURN OVERPASS FROM ${baseName} ---\n${data.reply}`;
@@ -569,14 +604,12 @@ Format strictly as:
         return;
       }
 
-      // If multiple models selected, execute a dynamic cascade sequence
       if (filteredExecutionChain.length > 1) {
         const title = selectedLLM === 'KAGGLE-T4' 
           ? `${filteredExecutionChain.length}-Turn Kaggle Dual-T4 Cascade` 
           : `${filteredExecutionChain.length}-Turn Elite Frontier Cascade`;
         runLiveCascadeLoop(filteredExecutionChain, title);
       } else {
-        // Solo Execution
         const singleModel = filteredExecutionChain[0];
         setIsLLMExecuting(true);
         abortControllerRef.current = new AbortController();
@@ -584,19 +617,15 @@ Format strictly as:
         setInputBuffer('');
 
         try {
-          const response = await fetch('http://127.0.0.1:8081/api/chat', {
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            signal: abortControllerRef.current?.signal,
-            body: JSON.stringify({ 
-              prompt: activePrompt, 
-              model: singleModel.id, 
-              project: selectedProject,
-              useKaggle: selectedLLM === 'KAGGLE-T4'
-            })
-          });
-          const data = await response.json();
-          setStreamLog(prev => [...prev, { id: Date.now(), sender: `BOARDROOM // [${singleModel.name}]`, text: data.reply || data.error, type: 'agent' }]);
+          const payload = { 
+            prompt: activePrompt, 
+            model: singleModel.id, 
+            project: selectedProject,
+            useKaggle: selectedLLM === 'KAGGLE-T4'
+          };
+          const data = await dispatchAndWait(payload);
+          
+          setStreamLog(prev => [...prev, { id: Date.now(), sender: `BOARDROOM // [${singleModel.name}]`, text: data.reply, type: 'agent' }]);
           setWorkflowState('MONTY_APPROVED');
         } catch (err) {
           if (err.name !== 'AbortError') setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM // ERROR', text: err.message, type: 'error' }]);
@@ -623,13 +652,9 @@ Format strictly as:
           const activePrompt = inputBuffer.trim();
           setInputBuffer('');
           try {
-            const response = await fetch('http://127.0.0.1:8081/api/chat', {
-              method: 'POST', 
-              headers: { 'Content-Type': 'application/json' },
-              signal: abortControllerRef.current?.signal,
-              body: JSON.stringify({ prompt: activePrompt, director: 'ALL DIRECTORS', project: selectedProject, useKaggle: selectedLLM === 'KAGGLE-T4' })
-            });
-            const data = await response.json();
+            const payload = { prompt: activePrompt, director: 'ALL DIRECTORS', project: selectedProject, useKaggle: selectedLLM === 'KAGGLE-T4' };
+            const data = await dispatchAndWait(payload);
+            
             setStreamLog(prev => [...prev, { id: Date.now(), sender: `MONTY // ROUTER`, text: data.reply, type: 'agent' }]);
             setWorkflowState('MONTY_APPROVED');
           } catch (err) {
