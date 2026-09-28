@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles, FileText 
+  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles, FileText, Server
 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 import './Tab02WarRoom.css';
@@ -69,6 +69,15 @@ const KAGGLE_MODELS_POOL = [
   { id: 'qwen2.5:7b-judge', name: 'Qwen 2.5 Judge Gate', role: 'Risk Audit & Verification', tag: 'Turn 4' }
 ];
 
+// Local / Free Harvested Clusters Pool (NIM, Groq, Gemini, Ollama)
+const LOCAL_CLUSTERS_MODELS_POOL = [
+  { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (NIM)', role: 'Core Logic & Architecture', tag: 'NIM' },
+  { id: 'nvidia/nemotron-70b-ultra', name: 'Nemotron 70B (NIM)', role: 'Deep Reasoning & Audit', tag: 'NIM' },
+  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Groq)', role: 'Ultra-Fast Synthesis', tag: 'GROQ' },
+  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Studio)', role: 'Broad Context & Retrieval', tag: 'GEMINI' },
+  { id: 'llama3:latest', name: 'Llama 3 (Ollama Local)', role: 'Zero-Network Sovereign', tag: 'LOCAL' }
+];
+
 const FREE_CASCADE_STEPS = [
   { id: 'TURN-1-NIM', label: 'NVIDIA NIM CLUSTER', model: 'meta/llama-3.3-70b-instruct', role: 'Turn 1: Agent Discussion' },
   { id: 'TURN-2-GROQ', label: 'GROQ LPU ACCELERATOR', model: 'llama-3.3-70b-versatile', role: 'Turn 2: Director Critique' },
@@ -114,16 +123,19 @@ export default function Tab02WarRoom({ ws }) {
   const [isBoardroomOpen, setIsBoardroomOpen] = useState(true);
   const [isDirectorsOpen, setIsDirectorsOpen] = useState(true);
 
-  // Top platform target: 'KAGGLE-T4' or 'ELITE_CASCADE'
+  // Platform target: 'KAGGLE-T4', 'LOCAL_CLUSTERS', or 'ELITE_CASCADE'
   const [selectedLLM, setSelectedLLM] = useState(() => {
-    return localStorage.getItem('MCNC_SELECTED_LLM') || 'KAGGLE-T4';
+    return localStorage.getItem('MCNC_SELECTED_LLM') || 'LOCAL_CLUSTERS';
   });
 
   // Dynamic Selected Sub-Models
   const [selectedSubModels, setSelectedSubModels] = useState(() => {
-    const defaultPlatform = localStorage.getItem('MCNC_SELECTED_LLM') || 'KAGGLE-T4';
+    const defaultPlatform = localStorage.getItem('MCNC_SELECTED_LLM') || 'LOCAL_CLUSTERS';
     if (defaultPlatform === 'KAGGLE-T4') {
       return KAGGLE_MODELS_POOL.map(m => m.id);
+    }
+    if (defaultPlatform === 'LOCAL_CLUSTERS') {
+      return LOCAL_CLUSTERS_MODELS_POOL.slice(0, 4).map(m => m.id);
     }
     return ELITE_MODELS_POOL.map(m => m.id);
   });
@@ -150,10 +162,10 @@ export default function Tab02WarRoom({ ws }) {
     try {
       const stored = localStorage.getItem('MCNC_WARROOM_STREAM');
       return stored ? JSON.parse(stored) : [
-        { id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal ready. War Room initialized.', type: 'system' }
+        { id: 1, sender: 'SYSTEM // GATE KEEPER', text: 'Terminal ready. War Room initialized.', type: 'system' }
       ];
     } catch (e) {
-      return [{ id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal ready. War Room initialized.', type: 'system' }];
+      return [{ id: 1, sender: 'SYSTEM // GATE KEEPER', text: 'Terminal ready. War Room initialized.', type: 'system' }];
     }
   });
 
@@ -162,6 +174,7 @@ export default function Tab02WarRoom({ ws }) {
   
   const isAnyExecuting = Boolean(isCascading || isMultiAgentExecuting || isLLMExecuting);
 
+  // Sync to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('MCNC_WARROOM_STREAM', JSON.stringify(streamLog));
@@ -236,33 +249,83 @@ export default function Tab02WarRoom({ ws }) {
     return () => window.removeEventListener('universal-all-stop', handleGlobalStop);
   }, []);
 
+  // Check speech recognition capability on mount
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setSpeechSupported(false);
+    }
+    return () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
+    };
+  }, []);
+
+  // Self-Healing Web Speech Dictation Engine
+  const toggleMic = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      return alert('Chrome Speech Recognition is only supported natively in Google Chrome.');
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+        recognitionRef.current = null;
+      }
       return;
     }
-    const recog = new SpeechRecognition();
-    recog.continuous = true;
-    recog.interimResults = true;
-    recog.lang = 'en-US';
-    recog.onresult = (event) => {
-      let finalTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
-      }
-      if (finalTranscript) setInputBuffer(prev => (prev ? prev + ' ' + finalTranscript.trim() : finalTranscript.trim()));
-    };
-    recog.onerror = (err) => { if (err.error === 'not-allowed' || err.error === 'service-not-allowed') setIsListening(false); };
-    recog.onend = () => { if (isListening) { try { recog.start(); } catch (e) { setIsListening(false); } } };
-    recognitionRef.current = recog;
-    return () => { if (recog) recog.stop(); };
-  }, [isListening]);
 
-  const toggleMic = () => {
-    if (!speechSupported) return alert('Chrome Speech Recognition is only supported natively in Google Chrome.');
-    if (isListening) { setIsListening(false); recognitionRef.current?.stop(); } 
-    else { try { recognitionRef.current?.start(); setIsListening(true); } catch (err) {} }
+    try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+        recognitionRef.current = null;
+      }
+
+      const recog = new SpeechRecognition();
+      recog.continuous = true;
+      recog.interimResults = true;
+      recog.lang = 'en-US';
+
+      recog.onstart = () => {
+        setIsListening(true);
+      };
+
+      recog.onresult = (event) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + ' ';
+          }
+        }
+        if (finalTranscript.trim()) {
+          setInputBuffer(prev => (prev ? `${prev.trim()} ${finalTranscript.trim()}` : finalTranscript.trim()));
+        }
+      };
+
+      recog.onerror = (err) => {
+        console.warn('[MIC ERROR EVENT]:', err.error);
+        if (err.error === 'not-allowed') {
+          alert('Microphone access blocked. Click the tune/padlock icon in Chrome address bar and set Microphone to "Allow".');
+        }
+        setIsListening(false);
+        recognitionRef.current = null;
+      };
+
+      recog.onend = () => {
+        setIsListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recog;
+      recog.start();
+    } catch (err) {
+      console.error('[MIC START FAILED]:', err);
+      setIsListening(false);
+      recognitionRef.current = null;
+    }
   };
 
   const handleCopyDiscussion = () => {
@@ -323,19 +386,38 @@ export default function Tab02WarRoom({ ws }) {
     ]);
   };
 
+  // Hardened CLS: Resets memory and purges persistent storage cache
   const handleCls = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    setIsCascading(false); setIsMultiAgentExecuting(false); setIsLLMExecuting(false);
+    
+    setIsCascading(false); 
+    setIsMultiAgentExecuting(false); 
+    setIsLLMExecuting(false);
     setCascadeIndex(0); 
     setWorkflowState('IDLE'); 
     setInputBuffer(''); 
     setAssignedDirectors([]);
     
-    const initLog = [{ id: Date.now(), sender: 'SYSTEM // GATE KEEPER', text: 'Terminal ready. War Room initialized.', type: 'system' }];
-    setStreamLog(initLog);
+    const freshReset = [
+      { 
+        id: Date.now(), 
+        sender: 'SYSTEM // GATE KEEPER', 
+        text: 'Terminal ready. War Room initialized.', 
+        type: 'system' 
+      }
+    ];
+
+    try {
+      localStorage.setItem('MCNC_WARROOM_STREAM', JSON.stringify(freshReset));
+      localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
+      localStorage.removeItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
+      sessionStorage.removeItem('MCNC_WARROOM_STREAM');
+    } catch (e) {}
+
+    setStreamLog(freshReset);
   };
 
   const handleAllStop = async () => {
@@ -369,6 +451,8 @@ export default function Tab02WarRoom({ ws }) {
     setSelectedLLM(targetPlatform);
     if (targetPlatform === 'KAGGLE-T4') {
       setSelectedSubModels(KAGGLE_MODELS_POOL.map(m => m.id));
+    } else if (targetPlatform === 'LOCAL_CLUSTERS') {
+      setSelectedSubModels(LOCAL_CLUSTERS_MODELS_POOL.slice(0, 4).map(m => m.id));
     } else {
       setSelectedSubModels(ELITE_MODELS_POOL.map(m => m.id));
     }
@@ -384,7 +468,9 @@ export default function Tab02WarRoom({ ws }) {
   };
 
   const selectAllSubModels = () => {
-    const currentPool = selectedLLM === 'KAGGLE-T4' ? KAGGLE_MODELS_POOL : ELITE_MODELS_POOL;
+    let currentPool = LOCAL_CLUSTERS_MODELS_POOL;
+    if (selectedLLM === 'KAGGLE-T4') currentPool = KAGGLE_MODELS_POOL;
+    if (selectedLLM === 'ELITE_CASCADE') currentPool = ELITE_MODELS_POOL;
     setSelectedSubModels(currentPool.map(m => m.id));
   };
 
@@ -393,7 +479,7 @@ export default function Tab02WarRoom({ ws }) {
   };
 
   // ==========================================
-  // WEBSOCKET PROMISE WRAPPER (THE FIX)
+  // WEBSOCKET PROMISE WRAPPER
   // ==========================================
   const dispatchAndWait = async (payload) => {
     const res = await fetch('http://127.0.0.1:8081/api/chat', {
@@ -404,7 +490,6 @@ export default function Tab02WarRoom({ ws }) {
     });
     const initialData = await res.json();
     
-    // If backend returns the 202 PROCESSING state, wait for the WebSocket CHAT_COMPLETE signal
     if (initialData.status === 'PROCESSING') {
        return new Promise((resolve, reject) => {
           const handler = (event) => {
@@ -550,7 +635,9 @@ Format strictly as:
     let currentPayload = inputBuffer.trim() || `Operational Tasking: Deliver full domain execution specifications for project [${selectedProject}].`;
     setInputBuffer('');
     
-    setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // COMMAND', text: `Initiating sequential execution across ${targets.length} assigned directors ${selectedLLM === 'KAGGLE-T4' ? '[VIA KAGGLE COMPUTE]' : ''}.`, type: 'user' }]);
+    const isKaggle = selectedLLM === 'KAGGLE-T4';
+    const tagDisplay = isKaggle ? '[VIA KAGGLE COMPUTE]' : selectedLLM === 'LOCAL_CLUSTERS' ? '[VIA LOCAL CLUSTERS]' : '[VIA OPENROUTER]';
+    setStreamLog(prev => [...prev, { id: Date.now(), sender: 'MONTY // COMMAND', text: `Initiating sequential execution across ${targets.length} assigned directors ${tagDisplay}.`, type: 'user' }]);
 
     for (let i = 0; i < targets.length; i++) {
       const targetAgent = targets[i];
@@ -562,8 +649,8 @@ Format strictly as:
           prompt: currentPayload, 
           director: targetAgent, 
           project: selectedProject,
-          model: selectedLLM === 'KAGGLE-T4' ? 'qwen2.5:7b' : undefined,
-          useKaggle: selectedLLM === 'KAGGLE-T4'
+          model: isKaggle ? 'qwen2.5:7b' : undefined,
+          useKaggle: isKaggle
         };
         const data = await dispatchAndWait(payload);
         
@@ -595,7 +682,10 @@ Format strictly as:
       setIsBoardroomOpen(true); 
       setIsDirectorsOpen(false);
 
-      const activePool = selectedLLM === 'KAGGLE-T4' ? KAGGLE_MODELS_POOL : ELITE_MODELS_POOL;
+      let activePool = LOCAL_CLUSTERS_MODELS_POOL;
+      if (selectedLLM === 'KAGGLE-T4') activePool = KAGGLE_MODELS_POOL;
+      if (selectedLLM === 'ELITE_CASCADE') activePool = ELITE_MODELS_POOL;
+
       const filteredExecutionChain = activePool.filter(m => selectedSubModels.includes(m.id));
 
       if (filteredExecutionChain.length === 0) {
@@ -607,7 +697,9 @@ Format strictly as:
       if (filteredExecutionChain.length > 1) {
         const title = selectedLLM === 'KAGGLE-T4' 
           ? `${filteredExecutionChain.length}-Turn Kaggle Dual-T4 Cascade` 
-          : `${filteredExecutionChain.length}-Turn Elite Frontier Cascade`;
+          : selectedLLM === 'LOCAL_CLUSTERS'
+            ? `${filteredExecutionChain.length}-Turn Local / NIM Cascade`
+            : `${filteredExecutionChain.length}-Turn Elite Frontier Cascade`;
         runLiveCascadeLoop(filteredExecutionChain, title);
       } else {
         const singleModel = filteredExecutionChain[0];
@@ -643,6 +735,8 @@ Format strictly as:
         if (selectedAgentDropdown === '5-TURN ROUND-ROBIN CASCADE') {
           if (selectedLLM === 'KAGGLE-T4') {
             runLiveCascadeLoop(KAGGLE_MODELS_POOL, '4-Turn Kaggle Dual-T4 Cascade');
+          } else if (selectedLLM === 'LOCAL_CLUSTERS') {
+            runLiveCascadeLoop(LOCAL_CLUSTERS_MODELS_POOL.slice(0, 4), '4-Turn Local / Free Cluster Cascade');
           } else {
             runLiveCascadeLoop(FREE_CASCADE_STEPS, '5-Turn Collective Round-Robin');
           }
@@ -652,7 +746,12 @@ Format strictly as:
           const activePrompt = inputBuffer.trim();
           setInputBuffer('');
           try {
-            const payload = { prompt: activePrompt, director: 'ALL DIRECTORS', project: selectedProject, useKaggle: selectedLLM === 'KAGGLE-T4' };
+            const payload = { 
+              prompt: activePrompt, 
+              director: 'ALL DIRECTORS', 
+              project: selectedProject, 
+              useKaggle: selectedLLM === 'KAGGLE-T4' 
+            };
             const data = await dispatchAndWait(payload);
             
             setStreamLog(prev => [...prev, { id: Date.now(), sender: `MONTY // ROUTER`, text: data.reply, type: 'agent' }]);
@@ -770,7 +869,11 @@ Format strictly as:
   };
 
   const lastAgentLog = [...streamLog].reverse().find(l => l.type === 'agent' || l.type === 'system');
-  const currentSubPool = selectedLLM === 'KAGGLE-T4' ? KAGGLE_MODELS_POOL : ELITE_MODELS_POOL;
+  
+  let currentSubPool = LOCAL_CLUSTERS_MODELS_POOL;
+  if (selectedLLM === 'KAGGLE-T4') currentSubPool = KAGGLE_MODELS_POOL;
+  if (selectedLLM === 'ELITE_CASCADE') currentSubPool = ELITE_MODELS_POOL;
+  
   const isCascadeMode = selectedSubModels.length > 1;
 
   return (
@@ -803,7 +906,7 @@ Format strictly as:
 
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
           
-          {/* BOARDROOM CASCADE: DYNAMIC PLATFORM + SUB-MODELS DECK */}
+          {/* BOARDROOM CASCADE: 3-WAY DYNAMIC PLATFORM + SUB-MODELS DECK */}
           <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
             <button onClick={() => { setIsBoardroomOpen(!isBoardroomOpen); setAnalysisMode('BOARDROOM'); }} className="w-full flex items-center justify-between px-3 py-2 bg-[#14171c] hover:bg-[#1a1f26] text-[#ffb800] font-bold text-xs transition-colors cursor-pointer border-b border-[#1f242d]">
               <span className="flex items-center gap-1.5">
@@ -816,32 +919,47 @@ Format strictly as:
             {isBoardroomOpen && (
               <div className="p-2 space-y-2 bg-[#0a0c0e]">
                 
-                {/* 1. TOP PLATFORM SELECTION BUTTONS */}
-                <div className="grid grid-cols-2 gap-1.5">
+                {/* 1. THREE-WAY TOP PLATFORM SELECTION BUTTONS */}
+                <div className="grid grid-cols-3 gap-1">
+                  {/* KAGGLE DUAL-T4 */}
                   <button
                     onClick={() => handleSwitchPlatform('KAGGLE-T4')}
-                    className={`px-2 py-2 rounded text-[10px] font-mono font-bold border transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                    className={`px-1.5 py-2 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                       selectedLLM === 'KAGGLE-T4'
                         ? 'bg-[#10b981]/20 text-[#10b981] border-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.3)]'
                         : 'bg-[#14171c] text-[#8fa0b5] border-[#1f242d] hover:text-white'
                     }`}
                   >
-                    <span>KAGGLE DUAL-T4</span>
-                    <span className="text-[8px] opacity-75 font-normal">
-                      {isKaggleOnline ? `ONLINE (${remainingQuotaHours}h)` : 'STANDBY'}
+                    <span className="truncate">KAGGLE T4</span>
+                    <span className="text-[7.5px] opacity-75 font-normal">
+                      {isKaggleOnline ? 'ONLINE' : 'STANDBY'}
                     </span>
                   </button>
 
+                  {/* LOCAL / CLUSTERS (NIM, GROQ, GEMINI, OLLAMA) */}
+                  <button
+                    onClick={() => handleSwitchPlatform('LOCAL_CLUSTERS')}
+                    className={`px-1.5 py-2 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                      selectedLLM === 'LOCAL_CLUSTERS'
+                        ? 'bg-[#38bdf8]/20 text-[#38bdf8] border-[#38bdf8] shadow-[0_0_8px_rgba(56,189,248,0.3)]'
+                        : 'bg-[#14171c] text-[#8fa0b5] border-[#1f242d] hover:text-white'
+                    }`}
+                  >
+                    <span className="truncate">LOCAL / NIM</span>
+                    <span className="text-[7.5px] opacity-75 font-normal">FREE CLUSTERS</span>
+                  </button>
+
+                  {/* 4-TURN ELITE (OPENROUTER) */}
                   <button
                     onClick={() => handleSwitchPlatform('ELITE_CASCADE')}
-                    className={`px-2 py-2 rounded text-[10px] font-mono font-bold border transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                    className={`px-1.5 py-2 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                       selectedLLM === 'ELITE_CASCADE'
                         ? 'bg-[#ffb800]/20 text-[#ffb800] border-[#ffb800] shadow-[0_0_8px_rgba(255,184,0,0.3)]'
                         : 'bg-[#14171c] text-[#8fa0b5] border-[#1f242d] hover:text-white'
                     }`}
                   >
-                    <span>4-TURN ELITE</span>
-                    <span className="text-[8px] opacity-75 font-normal">OPENROUTER</span>
+                    <span className="truncate">4-TURN ELITE</span>
+                    <span className="text-[7.5px] opacity-75 font-normal">OPENROUTER</span>
                   </button>
                 </div>
 
@@ -849,13 +967,13 @@ Format strictly as:
                 <div className="pt-2 border-t border-[#1f242d] space-y-1.5">
                   <div className="flex items-center justify-between text-[10px] text-[#5c6b7f] font-bold px-1">
                     <span className="text-[#38bdf8] uppercase">
-                      {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE OPEN-WEIGHTS' : 'FRONTIER LLMS'}
+                      {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE OPEN-WEIGHTS' : selectedLLM === 'LOCAL_CLUSTERS' ? 'LOCAL & HARVESTED CLUSTERS' : 'FRONTIER LLMS'}
                     </span>
                     <button
                       onClick={selectAllSubModels}
                       className="text-[9px] text-[#ffb800] hover:underline cursor-pointer"
                     >
-                      SELECT ALL 4
+                      SELECT ALL
                     </button>
                   </div>
 
@@ -924,7 +1042,7 @@ Format strictly as:
               <span>DIRECTOR BOARD</span>
               <div className="flex items-center gap-2">
                 <span className="text-[9px] border border-[#38bdf8] text-[#38bdf8] px-1.5 py-0.5 rounded font-mono font-bold">
-                  {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE HOSTED' : 'ONLINE (16)'}
+                  {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE' : selectedLLM === 'LOCAL_CLUSTERS' ? 'LOCAL/NIM' : 'OPENROUTER'}
                 </span>
                 {isDirectorsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </div>
@@ -947,7 +1065,7 @@ Format strictly as:
                     <span className="truncate pr-1">5-TURN ROUND-ROBIN CASCADE</span>
                   </div>
                   <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${isCascading ? 'bg-[#ffb800] text-black' : 'bg-[#1f242d] text-[#5c6b7f]'}`}>
-                    {isCascading ? `TURN ${cascadeIndex + 1}/5` : (selectedLLM === 'KAGGLE-T4' ? 'KAGGLE' : 'BASE 1')}
+                    {isCascading ? `TURN ${cascadeIndex + 1}/5` : (selectedLLM === 'KAGGLE-T4' ? 'KAGGLE' : selectedLLM === 'LOCAL_CLUSTERS' ? 'NIM/LOCAL' : 'BASE 1')}
                   </span>
                 </button>
 
@@ -957,7 +1075,7 @@ Format strictly as:
                   const isAssigned = assignedDirectors.includes(agentName);
                   const isSpinning = isMultiAgentExecuting && isAssigned;
                   
-                  let badgeLabel = selectedLLM === 'KAGGLE-T4' ? 'KAGGLE' : 'STANDBY';
+                  let badgeLabel = selectedLLM === 'KAGGLE-T4' ? 'KAGGLE' : selectedLLM === 'LOCAL_CLUSTERS' ? agentObj.modelBadge : 'STANDBY';
                   let badgeStyle = selectedLLM === 'KAGGLE-T4' ? 'text-[#00d2ff] bg-[#00d2ff]/10 border border-[#00d2ff]/30' : 'text-[#5c6b7f] bg-[#1f242d]';
 
                   if (isSpinning) {
@@ -1000,9 +1118,11 @@ Format strictly as:
             <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${
               selectedLLM === 'KAGGLE-T4' 
                 ? 'text-[#00d2ff] bg-[#00d2ff]/10 border-[#00d2ff]/40' 
-                : 'text-[#ffb800] bg-[#ffb800]/10 border-[#ffb800]/40'
+                : selectedLLM === 'LOCAL_CLUSTERS'
+                  ? 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/40'
+                  : 'text-[#ffb800] bg-[#ffb800]/10 border-[#ffb800]/40'
             }`}>
-              [ENGINE: {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE DUAL-T4 32GB' : 'OPENROUTER CLOUD'} // {selectedSubModels.length} ACTIVE]
+              [ENGINE: {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE DUAL-T4 32GB' : selectedLLM === 'LOCAL_CLUSTERS' ? 'LOCAL / FREE CLUSTERS' : 'OPENROUTER CLOUD'} // {selectedSubModels.length} ACTIVE]
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -1019,13 +1139,13 @@ Format strictly as:
           </div>
         </div>
 
-        {/* STATIC STICKY BANNER INSIDE CHAT (NEVER CLIPPED) */}
+        {/* STATIC STICKY BANNER INSIDE CHAT */}
         {isAnyExecuting && (
           <div className="mx-3 mt-2 py-2 px-3 border border-[#ffb800] bg-[#14171c] rounded shadow-[0_0_12px_rgba(255,184,0,0.2)] font-mono flex items-center justify-between select-none z-10">
             <div className="flex items-center gap-2.5 text-[#ffb800]">
               <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
               <span className="text-xs font-bold tracking-wide uppercase">
-                {selectedLLM === 'KAGGLE-T4' ? 'Kaggle Dual-T4' : 'Elite Frontier'} Sequence Running... [ELAPSED: {formatElapsed(elapsedSeconds)}]
+                {selectedLLM === 'KAGGLE-T4' ? 'Kaggle Dual-T4' : selectedLLM === 'LOCAL_CLUSTERS' ? 'Local / Free Clusters' : 'Elite Frontier'} Sequence Running... [ELAPSED: {formatElapsed(elapsedSeconds)}]
               </span>
             </div>
             <button
@@ -1039,6 +1159,7 @@ Format strictly as:
           </div>
         )}
 
+        {/* TERMINAL LOG FEED: SELECT-TEXT PERMITTED */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
           {streamLog.map(log => (
             <div key={log.id} className="space-y-1">
@@ -1105,13 +1226,35 @@ Format strictly as:
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => handleAction('INITIATE LLM ANALYSIS')} disabled={isAnyExecuting} className={`px-4 py-1.5 font-bold rounded text-[11px] transition-colors flex items-center gap-1.5 ${isAnyExecuting ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed' : 'bg-[#ffb800] text-black hover:bg-[#e6a600] cursor-pointer'}`}>
+              {/* INITIATE LLM (IDENTICAL RESTING PARITY -> PURE GOLD ON HOVER) */}
+              <button 
+                onClick={() => handleAction('INITIATE LLM ANALYSIS')} 
+                disabled={isAnyExecuting} 
+                className={`px-3.5 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 border cursor-pointer ${
+                  isAnyExecuting 
+                    ? 'bg-[#14171c]/40 text-[#5c6b7f] border-[#232832] cursor-not-allowed' 
+                    : isLLMExecuting || isCascading
+                      ? 'bg-[#ffb800] text-black border-[#ffb800] shadow-[0_0_12px_rgba(255,184,0,0.5)]'
+                      : 'bg-[#14171c]/40 hover:bg-[#ffb800] text-[#8fa0b5] hover:text-black border-[#232832] hover:border-[#ffb800] hover:shadow-[0_0_12px_rgba(255,184,0,0.45)]'
+                }`}
+              >
                 {isLLMExecuting || isCascading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> : null}
                 <span>{isLLMExecuting || isCascading ? `ACTIVE [${formatElapsed(elapsedSeconds)}]` : 'INITIATE LLM'}</span>
               </button>
               
-              <button onClick={() => handleAction('INITIATE DIRECTOR ANALYSIS')} disabled={isAnyExecuting} className={`px-3 py-1.5 font-bold rounded text-[11px] transition-colors flex items-center gap-1.5 ${isAnyExecuting ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed' : (analysisMode === 'DIRECTORS' ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/50 cursor-pointer' : 'bg-[#14171c] text-[#38bdf8] border border-[#232832] hover:border-[#38bdf8]/50 cursor-pointer')}`}>
-                {isMultiAgentExecuting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#38bdf8]" /> : null}
+              {/* INITIATE DIR (IDENTICAL RESTING PARITY -> PURE CYAN ON HOVER) */}
+              <button 
+                onClick={() => handleAction('INITIATE DIRECTOR ANALYSIS')} 
+                disabled={isAnyExecuting} 
+                className={`px-3.5 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 border cursor-pointer ${
+                  isAnyExecuting 
+                    ? 'bg-[#14171c]/40 text-[#5c6b7f] border-[#232832] cursor-not-allowed' 
+                    : isMultiAgentExecuting
+                      ? 'bg-[#38bdf8] text-black border-[#38bdf8] shadow-[0_0_12px_rgba(56,189,248,0.5)]'
+                      : 'bg-[#14171c]/40 hover:bg-[#38bdf8] text-[#8fa0b5] hover:text-black border-[#232832] hover:border-[#38bdf8] hover:shadow-[0_0_12px_rgba(56,189,248,0.45)]'
+                }`}
+              >
+                {isMultiAgentExecuting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> : null}
                 <span>{isMultiAgentExecuting ? `ACTIVE [${formatElapsed(elapsedSeconds)}]` : 'INITIATE DIR'}</span>
               </button>
               
@@ -1127,7 +1270,15 @@ Format strictly as:
                 {workflowState === 'DISPATCHED' ? 'DISPATCHED' : 'DISPATCH'}
               </button>
               
-              <button onClick={handleCls} disabled={isAnyExecuting} className="px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] hover:bg-[#592525] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">CLS</button>
+              {/* CLS (PERMANENTLY UNLOCKED) */}
+              <button 
+                type="button"
+                onClick={handleCls} 
+                className="px-3 py-1.5 bg-[#592525]/40 text-[#fca5a5] border border-[#7f3535] font-semibold rounded text-[11px] hover:bg-[#592525] hover:text-white cursor-pointer transition-colors"
+                title="Force-wipe all messages and reset War Room"
+              >
+                CLS
+              </button>
               
               <button onClick={handleAllStop} className="px-3 py-1.5 bg-[#450a0a]/60 hover:bg-[#7f1d1d] text-[#fca5a5] hover:text-white border border-[#7f1d1d] font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer shadow-[0_0_8px_rgba(239,68,68,0.2)] transition-all">
                 <AlertOctagon className="w-3.5 h-3.5 text-[#ef4444]" /><span>ALL STOP</span>

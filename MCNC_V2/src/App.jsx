@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import './index.css'; 
 import './high_finance_master.css';
 import { initGlobalInterceptor } from './utils/execBus';
-import McncSpinner from './components/McncSpinner';
 
 import Tab01Exec from './components/Tab01Exec'; 
 import Tab02WarRoom from './components/Tab02WarRoom';
@@ -34,7 +33,7 @@ export default function App() {
   const [mcncSocket, setMcncSocket] = useState(null);
   const [wsStatus, setWsStatus] = useState('DISCONNECTED');
   
-  // Universal Busy State across all 14 Tabs
+  // Universal Background Busy State (Tracks active dispatches without blocking UI)
   const [isSystemBusy, setIsSystemBusy] = useState(false);
   const [busyCount, setBusyCount] = useState(0);
 
@@ -44,8 +43,8 @@ export default function App() {
   // Listen for Global Busy Events across fetch and agent dispatches
   useEffect(() => {
     const handleBusy = (e) => {
-      setIsSystemBusy(e.detail.isBusy);
-      setBusyCount(e.detail.count || 0);
+      setIsSystemBusy(Boolean(e.detail?.isBusy));
+      setBusyCount(e.detail?.count || 0);
     };
 
     window.addEventListener('mcnc-busy-state', handleBusy);
@@ -107,8 +106,18 @@ export default function App() {
           <span>WARLORD MISSION CONTROL // MCNC MASTER</span>
         </div>
 
-        <div className="system-status" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--text-mist)' }}>
-          BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core)' : 'var(--ruby-core)', fontWeight: 'bold' }}>{wsStatus} (BASE 1)</span> | FRAMEWORK: REACT VITE
+        <div className="system-status" style={{ display: 'flex', alignItems: 'center', gap: '16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--text-mist)' }}>
+          {/* NON-BLOCKING TELEMETRY PILL */}
+          {isSystemBusy && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.4)', padding: '2px 8px', borderRadius: '4px', color: '#38bdf8' }}>
+              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#38bdf8', animation: 'pulse 1.5s infinite' }} />
+              <span>DISPATCH RUNNING ({busyCount})</span>
+            </div>
+          )}
+
+          <div>
+            BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core)' : 'var(--ruby-core)', fontWeight: 'bold' }}>{wsStatus} (BASE 1)</span> | FRAMEWORK: REACT VITE
+          </div>
         </div>
       </header>
 
@@ -124,42 +133,58 @@ export default function App() {
         boxSizing: 'border-box',
         width: '100%'
       }}>
-        {TABS.map(tab => (
-          <button 
-            key={tab} 
-            className={`btn-glass-nav ${activeTab === tab ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              color: activeTab === tab ? 'var(--gold-core)' : '#EEDD82',
-              padding: '9px 4px',
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '0.68rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-              overflow: 'hidden',
-              textTransform: 'uppercase',
-              fontWeight: activeTab === tab ? 'bold' : 'normal',
-              textAlign: 'center',
-              boxSizing: 'border-box'
-            }}
-          >
-            {tab}
-          </button>
-        ))}
+        {TABS.map(tab => {
+          const isWarRoomActive = tab === '02 WAR ROOM' && isSystemBusy;
+          const isSelected = activeTab === tab;
+
+          return (
+            <button 
+              key={tab} 
+              className={`btn-glass-nav ${isSelected ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                color: isSelected ? 'var(--gold-core)' : isWarRoomActive ? '#38bdf8' : '#EEDD82',
+                padding: '9px 4px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '0.68rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                overflow: 'hidden',
+                textTransform: 'uppercase',
+                fontWeight: isSelected ? 'bold' : 'normal',
+                textAlign: 'center',
+                boxSizing: 'border-box',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              {/* NON-BLOCKING SPINNER DOT ON TAB 02 WHEN EXECUTING */}
+              {isWarRoomActive && (
+                <span 
+                  style={{
+                    display: 'inline-block',
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: '#38bdf8',
+                    boxShadow: '0 0 8px #38bdf8',
+                    animation: 'pulse 1s infinite'
+                  }} 
+                />
+              )}
+              <span>{tab}</span>
+            </button>
+          );
+        })}
       </nav>
 
-      {/* SUBSTANTIAL UNIVERSAL EXECUTION SPINNER BANNER */}
-      {isSystemBusy && (
-        <McncSpinner 
-          label={`ACTIVE INFERENCE SEQUENCE // DISPATCH ACTIVE (${busyCount})`}
-          subtext="ALL 14 TABS LOCKED ON CLUSTER TELEMETRY // AWAITING STREAM COMPLETION"
-        />
-      )}
-
-      {/* MAIN CONTENT AREA */}
+      {/* MAIN CONTENT AREA: PRESERVES DOM STATE ACROSS ALL 14 TABS */}
       <main className="tab-content-area" style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: activeTab === '01 EXEC' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
           <Tab01Exec ws={mcncSocket} />
@@ -220,4 +245,3 @@ export default function App() {
     </div>
   );
 }
-
