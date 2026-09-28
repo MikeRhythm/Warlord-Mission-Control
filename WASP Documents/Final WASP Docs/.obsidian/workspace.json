@@ -1,24 +1,20 @@
 {
   "main": {
-    "id": "9a72db99af99f227",
+    "id": "0313cacb01ff91ca",
     "type": "split",
     "children": [
       {
-        "id": "ed2fd38e5414c8fe",
+        "id": "f8b0e60bf9b09605",
         "type": "tabs",
         "children": [
           {
-            "id": "47b6351d8ca91616",
+            "id": "2ec109cfd7f691a0",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "00_Master_Doctrine/Master_SOPs.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "Master_SOPs"
+              "title": "New tab"
             }
           }
         ]
@@ -27,15 +23,15 @@
     "direction": "vertical"
   },
   "left": {
-    "id": "417f6712c7831a53",
+    "id": "d8ea10b37cd96a7c",
     "type": "split",
     "children": [
       {
-        "id": "9693392a395c49d4",
+        "id": "33e92f06d4cdaa91",
         "type": "tabs",
         "children": [
           {
-            "id": "562a98b0dcac329d",
+            "id": "35affd146f98d113",
             "type": "leaf",
             "state": {
               "type": "file-explorer",
@@ -50,7 +46,7 @@
             }
           },
           {
-            "id": "a46f4a958f2df8d2",
+            "id": "5de4fb8c1e3ceb3c",
             "type": "leaf",
             "state": {
               "type": "search",
@@ -67,7 +63,7 @@
             }
           },
           {
-            "id": "46a6cc2832ecccaa",
+            "id": "f04f41bde341e6f2",
             "type": "leaf",
             "state": {
               "type": "bookmarks",
@@ -83,23 +79,22 @@
       }
     ],
     "direction": "horizontal",
-    "width": 458.5
+    "width": 300
   },
   "right": {
-    "id": "b1baefc422c951f5",
+    "id": "87ba5d771b65ef70",
     "type": "split",
     "children": [
       {
-        "id": "19d44da90684bbe8",
+        "id": "5be838c3d538edd8",
         "type": "tabs",
         "children": [
           {
-            "id": "2ff5abaab9a46c3a",
+            "id": "605ffce5a66a96f2",
             "type": "leaf",
             "state": {
               "type": "backlink",
               "state": {
-                "file": "00_Master_Doctrine/ROE's.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -113,12 +108,11 @@
             }
           },
           {
-            "id": "9bfeeb93c1fbb628",
+            "id": "b66bd1e33adcb9f7",
             "type": "leaf",
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "00_Master_Doctrine/ROE's.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -127,7 +121,7 @@
             }
           },
           {
-            "id": "6f2cee4bd6e5ea9b",
+            "id": "0fe4ca14d711ae0f",
             "type": "leaf",
             "state": {
               "type": "tag",
@@ -142,7 +136,7 @@
             }
           },
           {
-            "id": "133c3cd12c5ded93",
+            "id": "8f4cd9fd8536e0a7",
             "type": "leaf",
             "state": {
               "type": "all-properties",
@@ -156,12 +150,11 @@
             }
           },
           {
-            "id": "89e49a556875ee06",
+            "id": "82bff196896e30b9",
             "type": "leaf",
             "state": {
               "type": "outline",
               "state": {
-                "file": "00_Master_Doctrine/ROE's.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -188,37 +181,6 @@
       "bases:Create new base": false
     }
   },
-  "active": "47b6351d8ca91616",
-  "lastOpenFiles": [
-    "Rhythm INTELLIGENCE INGESTION, VAULT PRUNING & COMMAND ROE PROTOCOL.md",
-    "00_Master_Doctrine/MIKE CEO of Rhythm Trading.md",
-    "RHYTHM INC.  GOOGLE DEVELOPER TOOLS.txt",
-    "RHYTHM INC.  MASTER TOOL STACK & ST.txt",
-    "RHYTHM INC.  MASTER MISSION BRIEFING.txt",
-    "01_Command_Tier/00_COMMAND_Monty_Chief_Of_Staff.md",
-    "01_Command_Tier/00_Monty_Chief_Of_Staff.md",
-    "01_Command_Tier/00_Monty_Chief_Of_Staff.md.md",
-    "01_Command_Tier/01_MONTY_PA_CHIEF_OF_STAFF.md",
-    "02_Director_Board/15_AGENT_PROTOCOL_Orion_Strategic_Intelligence.md",
-    "02_Director_Board/14_AGENT_PROTOCOL_Justin_Risk_Legal.md",
-    "02_Director_Board/15_AGENT_PROTOCOL_Orion_Strategic Intelligence.md",
-    "02_Director_Board/14_AGENT_PROTOCOL_Justin_Risk & Legal.md",
-    "02_Director_Board/15_AGENT PROTOCOL_Orion_Strategic Intelligence.md",
-    "02_Director_Board/14_AGENT PROTOCOL_Justin_Risk & Legal.md",
-    "02_Director_Board/15_AGENT PROTOCOL - Orion - Strategic Intelligence.md",
-    "02_Director_Board/14_AGENT PROTOCOL - Justin - Risk & Legal.md",
-    "02_Director_Board/13_AGENT_PROTOCOL_Vance_Finance.md",
-    "02_Director_Board/05_AGENT_PROTOCOL_Valerie_Relations.md",
-    "02_Director_Board/12_AGENT_PROTOCOL_The_Askari_Security.md",
-    "02_Director_Board/04_AGENT_PROTOCOL_Atlas_Infrastructure.md",
-    "02_Director_Board/03_AGENT_PROTOCOL_Ares_Execution.md",
-    "02_Director_Board/11_AGENT_PROTOCOL_Charlie_Code.md",
-    "02_Director_Board/01_AGENT_PROTOCOL_Silas_Database.md",
-    "02_Director_Board/00_AGENT_PROTOCOL_Tess_Quant.md",
-    "02_Director_Board/07_AGENT_PROTOCOL_Maverick_SEO.md",
-    "02_Director_Board/06_AGENT_PROTOCOL_Jack_Marketing.md",
-    "02_Director_Board/02_AGENT_PROTOCOL_Amber_Copywriter.md",
-    "02_Director_Board/02_AGENT_PROTOCOL_Amber_Content_Copywriter.md",
-    "The Rhythm Inc - Mission Statement.txt"
-  ]
+  "active": "2ec109cfd7f691a0",
+  "lastOpenFiles": []
 }

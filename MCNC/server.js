@@ -35,6 +35,7 @@ const KEYS_DIR = path.join(VAULT_DIR, 'Keys');
 const NIM_CLUSTER_FILE = path.join(KEYS_DIR, 'nim_cluster.json');
 const GROQ_CLUSTER_FILE = path.join(KEYS_DIR, 'groq_cluster.json');
 const GEMINI_CLUSTER_FILE = path.join(KEYS_DIR, 'gemini_cluster.json');
+const STAGE1_PROMPT_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'Prompts', 'Base1', 'stage1_deconstruct.txt');
 
 [LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -460,8 +461,110 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 }
 
 // ==========================================
-// REST API ROUTES
+// THE BOUNCER: ANTI-SNIPPET MIDDLEWARE GATE
 // ==========================================
+const SNIPPET_MARKERS = [
+    '// ...', 
+    '// existing code', 
+    '// rest of the code', 
+    '/* ... */',
+    '# ...'
+];
+
+function isSnippet(text) {
+    for (const marker of SNIPPET_MARKERS) {
+        if (text.includes(marker)) return true;
+    }
+    return false;
+}
+
+async function armoredDispatch(systemPrompt, rawBody, targetFilePath = null) {
+    let retries = 0;
+    const maxRetries = 3;
+    let lastReply = "";
+    let lastModel = "";
+    let currentSystemPrompt = systemPrompt;
+
+    while (retries < maxRetries) {
+        const { reply, modelUsed } = await dispatchToBrain(currentSystemPrompt, rawBody);
+        lastReply = reply;
+        lastModel = modelUsed;
+
+        let rejected = false;
+        let rejectReason = "";
+
+        if (isSnippet(reply)) {
+            rejected = true;
+            rejectReason = "Snippet marker detected (e.g., '// ...'). SOP 03 violation.";
+        }
+
+        if (!rejected && targetFilePath && fs.existsSync(targetFilePath)) {
+            const originalContent = fs.readFileSync(targetFilePath, 'utf8');
+            const originalLines = originalContent.split('\n').length;
+            const newLines = reply.split('\n').length;
+            
+            if (newLines < (originalLines * 0.5)) {
+                rejected = true;
+                rejectReason = `Output line count (${newLines}) is drastically lower than target file (${originalLines}). Suspected truncation.`;
+            }
+        }
+
+        if (rejected) {
+            console.warn(`[BOUNCER GATE] Rejecting payload from ${modelUsed}. Reason: ${rejectReason}. Retrying (${retries + 1}/${maxRetries})...`);
+            broadcast('WARN', `[BOUNCER] Intercepted snippet from ${modelUsed}. Forcing re-generation...`);
+            currentSystemPrompt += `\n\n[SYSTEM OVERRIDE - ATTEMPT ${retries + 1} FAILED]: Your previous output was rejected by the Bouncer middleware. Reason: ${rejectReason}. You MUST output the COMPLETE file from line 1 to the end. Truncated code blocks and ellipses are strictly forbidden.`;
+            retries++;
+        } else {
+            return { reply, modelUsed };
+        }
+    }
+    
+    console.error(`[BOUNCER GATE] Max retries exhausted. Yielding compromised payload.`);
+    return { reply: lastReply, modelUsed: lastModel };
+}
+
+// ==========================================
+// ASYNC REST API ROUTES (NON-BLOCKING)
+// ==========================================
+
+app.post('/api/chat', (req, res) => {
+    // 1. Immediately unlock the Commander's UI
+    res.status(202).json({ status: 'PROCESSING', reply: '[SYSTEM]: Directive acknowledged. Bouncer engaged in background. Await WebSocket push...', activeModelUsed: 'PENDING' });
+
+    // 2. Dispatch to the Bouncer in a non-blocking background thread
+    setImmediate(async () => {
+        try {
+            const targetDirector = req.body?.director || 'ALL DIRECTORS // AUTO-ROUTING';
+            const rawRequestedModel = req.body?.model || 'meta/llama-3.3-70b-instruct';
+            
+            const optimalModel = routeToOptimalModel(targetDirector, rawRequestedModel);
+            req.body.model = optimalModel; 
+
+            const montySoul = loadSoul('monty');
+            const mikeSoul = loadSoul('mike');
+            const liveTelemetry = getLiveSystemSnapshot();
+            
+            let directorSoul = "";
+            if (targetDirector && !targetDirector.includes('AUTO-ROUTING') && !targetDirector.includes('ROUND-ROBIN')) {
+                const baseName = targetDirector.split(' // ')[0].toLowerCase().trim();
+                directorSoul = loadSoul(baseName);
+            }
+            
+            let systemPrompt = liveTelemetry + "\n\n" + WARLORD_CORE_DIRECTIVE;
+            if (montySoul) systemPrompt += `\n\n=== CHIEF OF STAFF PROTOCOL (MONTY) ===\n${montySoul}`;
+            if (mikeSoul) systemPrompt += `\n\n=== COMMANDER PROFILE & INNER CIRCLE (MIKE) ===\n${mikeSoul}`;
+            if (directorSoul) systemPrompt += `\n\n=== ACTIVE DIRECTOR PROTOCOL (${targetDirector}) ===\n${directorSoul}`;
+            
+            // Background Bouncer Intercept
+            const { reply, modelUsed } = await armoredDispatch(systemPrompt, req.body);
+            
+            // 3. Push final payload to UI silently
+            broadcast('CHAT_COMPLETE', { reply, activeModelUsed: modelUsed });
+        } catch (err) {
+            broadcast('ERROR', { reply: `Daemon execution error: ${err.message}`, activeModelUsed: 'ERROR' });
+        }
+    });
+});
 
 app.get('/api/cluster/nim/keys', (req, res) => {
     const safeKeys = readNimCluster().keys.map(k => ({ masked: `nvapi-...${k.key.slice(-6)}`, alias: k.alias, status: k.status, lastChecked: k.lastChecked, latency: k.latency || 'N/A' }));
@@ -665,39 +768,6 @@ app.post('/api/orchestrate/turn', async (req, res) => {
 
     broadcast('TRACE', `[DISPATCH] Firing request using ${targetCluster.toUpperCase()} Key Index: ${rrState[targetCluster] - 1 < 0 ? 0 : rrState[targetCluster] - 1}`);
     res.json({ targetCluster, key_used: mask, status: 'DISPATCHED' });
-});
-
-app.post('/api/chat', async (req, res) => {
-    try {
-        const targetDirector = req.body?.director || 'ALL DIRECTORS // AUTO-ROUTING';
-        const rawRequestedModel = req.body?.model || 'meta/llama-3.3-70b-instruct';
-        
-        const optimalModel = routeToOptimalModel(targetDirector, rawRequestedModel);
-        req.body.model = optimalModel; 
-
-        const montySoul = loadSoul('monty');
-        const mikeSoul = loadSoul('mike');
-        const liveTelemetry = getLiveSystemSnapshot();
-        
-        let directorSoul = "";
-        if (targetDirector && !targetDirector.includes('AUTO-ROUTING') && !targetDirector.includes('ROUND-ROBIN')) {
-            const baseName = targetDirector.split(' // ')[0].toLowerCase().trim();
-            directorSoul = loadSoul(baseName);
-        }
-        
-        let systemPrompt = liveTelemetry + "\n\n" + WARLORD_CORE_DIRECTIVE;
-        if (montySoul) systemPrompt += `\n\n=== CHIEF OF STAFF PROTOCOL (MONTY) ===\n${montySoul}`;
-        if (mikeSoul) systemPrompt += `\n\n=== COMMANDER PROFILE & INNER CIRCLE (MIKE) ===\n${mikeSoul}`;
-        
-        if (directorSoul) {
-            systemPrompt += `\n\n=== ACTIVE DIRECTOR PROTOCOL (${targetDirector}) ===\n${directorSoul}`;
-        }
-        
-        const { reply, modelUsed } = await dispatchToBrain(systemPrompt, req.body);
-        return res.json({ reply, activeModelUsed: modelUsed });
-    } catch (err) {
-        return res.status(500).json({ reply: `Daemon execution error: ${err.message}`, activeModelUsed: 'ERROR' });
-    }
 });
 
 // ==========================================
@@ -972,6 +1042,48 @@ Your objective is to PRUNE and DISTILL the provided dossier file.
     } catch (error) {
         console.error('[PRUNE ERROR]:', error);
         res.status(500).json({ status: 'ERROR', error: error.message });
+    }
+});
+
+// ==========================================
+// BASE 1 // STAGE 1 DECONSTRUCTION PIPELINE
+// ==========================================
+app.post('/api/pipeline/stage1', async (req, res) => {
+    try {
+        const { objective, model } = req.body;
+        if (!objective || !objective.trim()) {
+            return res.status(400).json({ error: 'Objective input is required.' });
+        }
+
+        if (!fs.existsSync(STAGE1_PROMPT_PATH)) {
+            return res.status(500).json({ error: `Template missing at: ${STAGE1_PROMPT_PATH}` });
+        }
+
+        const template = fs.readFileSync(STAGE1_PROMPT_PATH, 'utf8');
+        const systemPrompt = template.replace('[USER INPUT TO DECONSTRUCT]:', '').trim();
+        const userInput = `[USER INPUT TO DECONSTRUCT]:\n${objective.trim()}`;
+
+        console.log(`[STAGE 1 DISPATCH] Ingesting macro objective...`);
+        broadcast('TRACE', '[STAGE 1] Ingesting macro objective into compute engine...');
+
+        // BOUNCER INTERCEPT: Replaced raw dispatchToBrain with armoredDispatch
+        const { reply, modelUsed } = await armoredDispatch(systemPrompt, {
+            prompt: userInput,
+            model: model || 'qwen2.5:7b'
+        });
+
+        let cleanPayload = reply.trim();
+        if (cleanPayload.startsWith('```json')) cleanPayload = cleanPayload.replace(/^```json/, '').replace(/```$/, '').trim();
+        else if (cleanPayload.startsWith('```')) cleanPayload = cleanPayload.replace(/^```/, '').replace(/```$/, '').trim();
+
+        res.json({
+            status: 'STAGE_1_SUCCESS',
+            modelUsed,
+            payload: JSON.parse(cleanPayload)
+        });
+    } catch (err) {
+        console.error('[STAGE 1 ERROR]:', err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
