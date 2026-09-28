@@ -47,11 +47,11 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-const WARLORD_CORE_DIRECTIVE = `You are MONTY, Chief of Staff for Warlord MCNC Base 1.
+const WARLORD_CORE_DIRECTIVE = `You are an operational intelligence agent for Warlord MCNC Base 1.
 Operational control, planning, and agent orchestration under Rhythm Holdings and W.A.S.P.
-Commander Mike (The Warlord) is supreme command.
+Mike is supreme command.
 DIRECTORS: Tess (Quant), Silas (Database), Charlie (MQL5/Node), Roxy (UI/UX), Jack (Marketing), Skyla (Frontend), Atlas (Infrastructure), Ares (Execution), Vance (Finance), Orion (Strategic Intel), The Askari (Security), Amber (Copywriter), Jax (Artwork Omega), Valerie (Relations), Maverick (SEO), Justin (Risk Legal).
-SOP: Full functional code only. Solid DodgerBlue, OrangeRed, Goldenrod lines only for chart indicators. High Finance palette for UI. Zero filler.
+SOP: Full functional code only when generating code. Solid DodgerBlue, OrangeRed, Goldenrod lines only for chart indicators. Zero fluff. Zero filler.
 RHYTHM MULTIPLIER: Enforce 0.0 to 1.0 scaling on quantitative and telemetry arrays. Default 1.0.`;
 
 // ==========================================
@@ -189,7 +189,7 @@ function getNextActiveKey(clusterType) {
 }
 
 // ==========================================
-// CAPABILITY ROUTING MATRIX (MONTY'S BRAIN - 16 DIRECTORS)
+// CAPABILITY ROUTING MATRIX (16 DIRECTORS)
 // ==========================================
 const DIRECTOR_TRAITS = {
     'CHARLIE // CODE': 'CODE',
@@ -446,7 +446,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
             }
         }
     } else {
-        console.warn("[TIER 4 STANDBY] Kaggle is in STANDBY. Notifying Commander Mike...");
+        console.warn("[TIER 4 STANDBY] Kaggle is in STANDBY. Notifying Mike...");
         broadcast('WARN', 'Mike, please activate Kaggle. (Free tiers exhausted, awaiting GPU bridge or rolling to OpenRouter).');
     }
 
@@ -461,109 +461,90 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 }
 
 // ==========================================
-// THE BOUNCER: ANTI-SNIPPET MIDDLEWARE GATE
+// ELEVENLABS TTS PROXY ROUTE (TAB 14 PIPELINE)
 // ==========================================
-const SNIPPET_MARKERS = [
-    '// ...', 
-    '// existing code', 
-    '// rest of the code', 
-    '/* ... */',
-    '# ...'
-];
+app.post('/api/tts', async (req, res) => {
+    try {
+        const { text, voiceId, apiKey, speed, stability, similarityBoost } = req.body;
+        if (!apiKey || !voiceId) {
+            return res.status(400).json({ error: 'Missing ElevenLabs API Key or Voice ID.' });
+        }
 
-function isSnippet(text) {
-    for (const marker of SNIPPET_MARKERS) {
-        if (text.includes(marker)) return true;
+        const parsedSpeed = (typeof speed === 'number' && speed >= 0.7 && speed <= 1.2) ? speed : 1.0;
+        const parsedStability = (typeof stability === 'number' && stability >= 0.0 && stability <= 1.0) ? stability : 0.75;
+        const parsedSimilarity = (typeof similarityBoost === 'number' && similarityBoost >= 0.0 && similarityBoost <= 1.0) ? similarityBoost : 0.80;
+
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'audio/mpeg',
+                'Content-Type': 'application/json',
+                'xi-api-key': apiKey
+            },
+            body: JSON.stringify({
+                text: text || "Greetings Mike, director online and fully synced.",
+                model_id: 'eleven_multilingual_v2',
+                voice_settings: {
+                    stability: parsedStability,
+                    similarity_boost: parsedSimilarity,
+                    speed: parsedSpeed
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            return res.status(response.status).json({ error: `ElevenLabs API error: ${errText}` });
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.send(Buffer.from(arrayBuffer));
+    } catch (err) {
+        console.error('[TTS PROXY ERROR]:', err.message);
+        res.status(500).json({ error: err.message });
     }
-    return false;
-}
+});
 
-async function armoredDispatch(systemPrompt, rawBody, targetFilePath = null) {
-    let retries = 0;
-    const maxRetries = 3;
-    let lastReply = "";
-    let lastModel = "";
-    let currentSystemPrompt = systemPrompt;
+// ==========================================
+// DIRECT SYNCHRONOUS CHAT ROUTE (ZERO BOUNCER, INSTANT RESPONSE)
+// ==========================================
+app.post('/api/chat', async (req, res) => {
+    try {
+        const targetDirector = req.body?.director || 'MONTY // CHIEF OF STAFF';
+        const rawRequestedModel = req.body?.model || 'meta/llama-3.3-70b-instruct';
+        
+        const optimalModel = routeToOptimalModel(targetDirector, rawRequestedModel);
+        req.body.model = optimalModel;
 
-    while (retries < maxRetries) {
-        const { reply, modelUsed } = await dispatchToBrain(currentSystemPrompt, rawBody);
-        lastReply = reply;
-        lastModel = modelUsed;
-
-        let rejected = false;
-        let rejectReason = "";
-
-        if (isSnippet(reply)) {
-            rejected = true;
-            rejectReason = "Snippet marker detected (e.g., '// ...'). SOP 03 violation.";
+        const montySoul = loadSoul('monty');
+        const mikeSoul = loadSoul('mike');
+        const liveTelemetry = getLiveSystemSnapshot();
+        
+        let directorSoul = "";
+        if (targetDirector && !targetDirector.includes('AUTO-ROUTING') && !targetDirector.includes('ROUND-ROBIN')) {
+            const baseName = targetDirector.split(' // ')[0].toLowerCase().trim();
+            directorSoul = loadSoul(baseName);
         }
+        
+        let systemPrompt = liveTelemetry + "\n\n" + WARLORD_CORE_DIRECTIVE;
+        if (montySoul) systemPrompt += `\n\n=== CHIEF OF STAFF PROTOCOL (MONTY) ===\n${montySoul}`;
+        if (mikeSoul) systemPrompt += `\n\n=== MIKE PROFILE & INNER CIRCLE ===\n${mikeSoul}`;
+        if (directorSoul) systemPrompt += `\n\n=== ACTIVE DIRECTOR PROTOCOL (${targetDirector}) ===\n${directorSoul}`;
 
-        if (!rejected && targetFilePath && fs.existsSync(targetFilePath)) {
-            const originalContent = fs.readFileSync(targetFilePath, 'utf8');
-            const originalLines = originalContent.split('\n').length;
-            const newLines = reply.split('\n').length;
-            
-            if (newLines < (originalLines * 0.5)) {
-                rejected = true;
-                rejectReason = `Output line count (${newLines}) is drastically lower than target file (${originalLines}). Suspected truncation.`;
-            }
-        }
+        // Direct Brain Dispatch
+        const { reply, modelUsed } = await dispatchToBrain(systemPrompt, req.body);
+        
+        // Broadcast over WS for live trace logging
+        broadcast('CHAT_COMPLETE', { reply, activeModelUsed: modelUsed });
 
-        if (rejected) {
-            console.warn(`[BOUNCER GATE] Rejecting payload from ${modelUsed}. Reason: ${rejectReason}. Retrying (${retries + 1}/${maxRetries})...`);
-            broadcast('WARN', `[BOUNCER] Intercepted snippet from ${modelUsed}. Forcing re-generation...`);
-            currentSystemPrompt += `\n\n[SYSTEM OVERRIDE - ATTEMPT ${retries + 1} FAILED]: Your previous output was rejected by the Bouncer middleware. Reason: ${rejectReason}. You MUST output the COMPLETE file from line 1 to the end. Truncated code blocks and ellipses are strictly forbidden.`;
-            retries++;
-        } else {
-            return { reply, modelUsed };
-        }
+        // Immediate HTTP response straight to UI
+        res.json({ status: 'SUCCESS', reply, activeModelUsed: modelUsed });
+    } catch (err) {
+        console.error('[CHAT ERROR]:', err.message);
+        broadcast('ERROR', { reply: `Daemon communication failure: ${err.message}`, activeModelUsed: 'ERROR' });
+        res.status(500).json({ status: 'ERROR', reply: `Daemon communication failure: ${err.message}`, activeModelUsed: 'ERROR' });
     }
-    
-    console.error(`[BOUNCER GATE] Max retries exhausted. Yielding compromised payload.`);
-    return { reply: lastReply, modelUsed: lastModel };
-}
-
-// ==========================================
-// ASYNC REST API ROUTES (NON-BLOCKING)
-// ==========================================
-
-app.post('/api/chat', (req, res) => {
-    // 1. Immediately unlock the Commander's UI
-    res.status(202).json({ status: 'PROCESSING', reply: '[SYSTEM]: Directive acknowledged. Bouncer engaged in background. Await WebSocket push...', activeModelUsed: 'PENDING' });
-
-    // 2. Dispatch to the Bouncer in a non-blocking background thread
-    setImmediate(async () => {
-        try {
-            const targetDirector = req.body?.director || 'ALL DIRECTORS // AUTO-ROUTING';
-            const rawRequestedModel = req.body?.model || 'meta/llama-3.3-70b-instruct';
-            
-            const optimalModel = routeToOptimalModel(targetDirector, rawRequestedModel);
-            req.body.model = optimalModel; 
-
-            const montySoul = loadSoul('monty');
-            const mikeSoul = loadSoul('mike');
-            const liveTelemetry = getLiveSystemSnapshot();
-            
-            let directorSoul = "";
-            if (targetDirector && !targetDirector.includes('AUTO-ROUTING') && !targetDirector.includes('ROUND-ROBIN')) {
-                const baseName = targetDirector.split(' // ')[0].toLowerCase().trim();
-                directorSoul = loadSoul(baseName);
-            }
-            
-            let systemPrompt = liveTelemetry + "\n\n" + WARLORD_CORE_DIRECTIVE;
-            if (montySoul) systemPrompt += `\n\n=== CHIEF OF STAFF PROTOCOL (MONTY) ===\n${montySoul}`;
-            if (mikeSoul) systemPrompt += `\n\n=== COMMANDER PROFILE & INNER CIRCLE (MIKE) ===\n${mikeSoul}`;
-            if (directorSoul) systemPrompt += `\n\n=== ACTIVE DIRECTOR PROTOCOL (${targetDirector}) ===\n${directorSoul}`;
-            
-            // Background Bouncer Intercept
-            const { reply, modelUsed } = await armoredDispatch(systemPrompt, req.body);
-            
-            // 3. Push final payload to UI silently
-            broadcast('CHAT_COMPLETE', { reply, activeModelUsed: modelUsed });
-        } catch (err) {
-            broadcast('ERROR', { reply: `Daemon execution error: ${err.message}`, activeModelUsed: 'ERROR' });
-        }
-    });
 });
 
 app.get('/api/cluster/nim/keys', (req, res) => {
@@ -1046,7 +1027,7 @@ Your objective is to PRUNE and DISTILL the provided dossier file.
 });
 
 // ==========================================
-// BASE 1 // STAGE 1 DECONSTRUCTION PIPELINE
+// BASE 1 // STAGE 1 DECONSTRUCTION PIPELINE (DIRECT DISPATCH)
 // ==========================================
 app.post('/api/pipeline/stage1', async (req, res) => {
     try {
@@ -1066,8 +1047,7 @@ app.post('/api/pipeline/stage1', async (req, res) => {
         console.log(`[STAGE 1 DISPATCH] Ingesting macro objective...`);
         broadcast('TRACE', '[STAGE 1] Ingesting macro objective into compute engine...');
 
-        // BOUNCER INTERCEPT: Replaced raw dispatchToBrain with armoredDispatch
-        const { reply, modelUsed } = await armoredDispatch(systemPrompt, {
+        const { reply, modelUsed } = await dispatchToBrain(systemPrompt, {
             prompt: userInput,
             model: model || 'qwen2.5:7b'
         });
@@ -1109,7 +1089,6 @@ app.get('/api/status', async (req, res) => {
     });
 });
 
-// Toggle Kaggle Mode: ACTIVE <-> STANDBY
 app.post('/api/compute/toggle', async (req, res) => {
     const current = (process.env.COMPUTE_MODE || 'STANDBY').toUpperCase();
     process.env.COMPUTE_MODE = current === 'KAGGLE' ? 'STANDBY' : 'KAGGLE';
@@ -1129,7 +1108,6 @@ app.post('/api/compute/toggle', async (req, res) => {
     });
 });
 
-// Update Kaggle Tunnel URL dynamically from UI
 app.post('/api/compute/tunnel', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL required' });
