@@ -1,253 +1,417 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Cpu, CheckCircle, ShieldAlert, Zap, Server } from 'lucide-react';
+import { 
+  CheckCircle2, Clock, PlayCircle, AlertCircle, ArrowRight, 
+  Layers, Filter, Sparkles, Terminal, ShieldAlert, Check, RefreshCw
+} from 'lucide-react';
+import './Tab04TaskBoard.css';
 
-export default function Tab04TaskBoard() {
-  const [tasks, setTasks] = useState([]);
-  const [selectedScope, setSelectedScope] = useState('ALL PROJECTS');
-  const [projectList, setProjectList] = useState(['ALL PROJECTS']);
-
-  // 1. Load active tasks safely from Base 1 Storage
-  const loadTasks = () => {
-    try {
-      const storedTasks = localStorage.getItem('MCNC_ACTIVE_TASKS');
-      if (storedTasks) {
-        const parsedTasks = JSON.parse(storedTasks);
-        if (Array.isArray(parsedTasks)) {
-          setTasks(parsedTasks);
-          
-          // Extract unique project names for the scope filter
-          const uniqueProjects = [...new Set(parsedTasks.map(t => t?.project).filter(Boolean))];
-          setProjectList(['ALL PROJECTS', ...uniqueProjects]);
-        }
+const DEFAULT_PROJECT_MANIFESTS = [
+  {
+    name: 'MAKING MONEY IDEAS',
+    totalTasks: 18,
+    status: 'COMPLETED',
+    dispatchedAt: '2026-09-27T10:14:00.000Z',
+    tasks: Array.from({ length: 18 }, (_, i) => ({
+      id: `TASK-MMI-${i + 1}`,
+      project: 'MAKING MONEY IDEAS',
+      title: `Execution Node Pipeline Step ${i + 1}`,
+      assignedDirector: 'MONTY // COMMAND',
+      toolId: 'daemon_runner',
+      status: 'COMPLETED',
+      stage: 'SHIPPED',
+      timestamp: '2026-09-27T12:00:00.000Z'
+    }))
+  },
+  {
+    name: 'ZAMBEZI SAFARI',
+    totalTasks: 3,
+    status: 'ACTIVE',
+    dispatchedAt: '2026-09-28T18:30:00.000Z',
+    tasks: [
+      { 
+        id: 'TASK-ZAM-1', 
+        project: 'ZAMBEZI SAFARI', 
+        title: 'Landing Page Viewport Staging', 
+        assignedDirector: 'ROXY // ARTWORK ALPHA', 
+        toolId: 'ui_inspector', 
+        status: 'COMPLETED', 
+        stage: 'SHIPPED', 
+        timestamp: '2026-09-28T18:30:00.000Z' 
+      },
+      { 
+        id: 'TASK-ZAM-2', 
+        project: 'ZAMBEZI SAFARI', 
+        title: 'Private Charter Dossier & Copy Deck', 
+        assignedDirector: 'AMBER // COPYWRITER', 
+        toolId: 'copy_generator', 
+        status: 'COMPLETED', 
+        stage: 'SHIPPED', 
+        timestamp: '2026-09-28T18:35:00.000Z' 
+      },
+      { 
+        id: 'TASK-ZAM-3', 
+        project: 'ZAMBEZI SAFARI', 
+        title: 'Lake Malawi & Zambezi Concession Sync', 
+        assignedDirector: 'ATLAS // INFRASTRUCTURE', 
+        toolId: 'booking_sync', 
+        status: 'BUILDING', 
+        stage: 'AGENT BUILD', 
+        timestamp: '2026-09-28T19:00:00.000Z' 
       }
+    ]
+  }
+];
+
+export default function Tab04TaskBoard({ ws }) {
+  const [selectedProjectScope, setSelectedProjectScope] = useState(() => {
+    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'ALL PROJECTS';
+  });
+
+  const [manifests, setManifests] = useState(() => {
+    try {
+      const stored = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return DEFAULT_PROJECT_MANIFESTS;
     } catch (e) {
-      console.error("Failed to parse active tasks", e);
+      return DEFAULT_PROJECT_MANIFESTS;
     }
+  });
+
+  // Pull all tasks flattened from all manifests
+  const getAllTasks = () => {
+    let all = [];
+    manifests.forEach(m => {
+      if (m.tasks && Array.isArray(m.tasks)) {
+        all = all.concat(m.tasks);
+      }
+    });
+    return all;
   };
 
-  // 2. Listeners for real-time War Room dispatch syncing
+  const [taskList, setTaskList] = useState(getAllTasks);
+
+  // Sync when localStorage or manifests change
   useEffect(() => {
-    loadTasks();
-    window.addEventListener('warlord-project-dispatched', loadTasks);
-    window.addEventListener('storage', loadTasks);
-    return () => {
-      window.removeEventListener('warlord-project-dispatched', loadTasks);
-      window.removeEventListener('storage', loadTasks);
+    const handleStorage = () => {
+      try {
+        const stored = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setManifests(parsed);
+          let all = [];
+          parsed.forEach(m => {
+            if (m.tasks && Array.isArray(m.tasks)) {
+              all = all.concat(m.tasks);
+            }
+          });
+          setTaskList(all);
+        }
+      } catch (e) {}
     };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  // Filter tasks by selected project scope
-  const filteredTasks = selectedScope === 'ALL PROJECTS' 
-    ? tasks 
-    : tasks.filter(t => t?.project === selectedScope);
+  // Filter tasks based on project scope
+  const filteredTasks = taskList.filter(t => {
+    if (selectedProjectScope === 'ALL PROJECTS') return true;
+    return t.project === selectedProjectScope;
+  });
 
-  // Kanban Swimlane Categories
-  const captureTasks = filteredTasks.filter(t => t?.stage === 'CAPTURE & PLAN');
-  const buildTasks = filteredTasks.filter(t => t?.stage === 'AGENT BUILD' || (!t?.stage && t?.status === 'BUILDING'));
-  const gateTasks = filteredTasks.filter(t => t?.stage === 'HUMAN GATE');
-  const shippedTasks = filteredTasks.filter(t => t?.stage === 'SHIPPED' || t?.status === 'COMPLETED');
+  // Map tasks to Hermes Super Kanban 4-Stage Lanes
+  const captureAndPlanTasks = filteredTasks.filter(t => t.stage === 'CAPTURE & PLAN' || t.status === 'PLANNING');
+  const agentBuildTasks = filteredTasks.filter(t => t.stage === 'AGENT BUILD' || t.status === 'BUILDING');
+  const humanGateTasks = filteredTasks.filter(t => t.stage === 'HUMAN GATE' || t.status === 'WAITING_APPROVAL');
+  const shippedTasks = filteredTasks.filter(t => t.stage === 'SHIPPED' || t.status === 'COMPLETED');
 
-  // Safe Extraction of Active Daemons as an Array
-  const uniqueDaemonsList = Array.from(new Set(
-    buildTasks.map(t => (t && t.assignedDirector ? t.assignedDirector : 'MONTY // COMMAND'))
-  ));
-  const activeDaemonsCount = uniqueDaemonsList.length;
+  // Interactive Stage Advance
+  const advanceTask = (taskId) => {
+    const updated = taskList.map(t => {
+      if (t.id === taskId) {
+        let nextStage = 'AGENT BUILD';
+        let nextStatus = 'BUILDING';
+        if (t.stage === 'CAPTURE & PLAN') { nextStage = 'AGENT BUILD'; nextStatus = 'BUILDING'; }
+        else if (t.stage === 'AGENT BUILD') { nextStage = 'HUMAN GATE'; nextStatus = 'WAITING_APPROVAL'; }
+        else if (t.stage === 'HUMAN GATE') { nextStage = 'SHIPPED'; nextStatus = 'COMPLETED'; }
+        else if (t.stage === 'SHIPPED') { nextStage = 'CAPTURE & PLAN'; nextStatus = 'PLANNING'; }
+        return { ...t, stage: nextStage, status: nextStatus };
+      }
+      return t;
+    });
+
+    setTaskList(updated);
+
+    // Save back to manifests in localStorage
+    const updatedManifests = manifests.map(m => {
+      return {
+        ...m,
+        tasks: updated.filter(t => t.project === m.name)
+      };
+    });
+    setManifests(updatedManifests);
+    localStorage.setItem('MCNC_ACTIVE_PROJECT_MANIFESTS', JSON.stringify(updatedManifests));
+  };
+
+  const projectOptions = ['ALL PROJECTS', ...manifests.map(m => m.name)];
 
   return (
-    <div className="flex h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none overflow-hidden">
+    <div className="flex h-full w-full bg-[#080a0c] text-xs font-mono select-none p-2 gap-2 overflow-hidden">
       
-      {/* MAIN LEFT AREA */}
-      <div className="flex-1 flex flex-col gap-3 min-w-0">
+      {/* LEFT AREA: KANBAN BOARD */}
+      <div className="flex-1 flex flex-col gap-2 overflow-hidden">
         
-        {/* TOP STATS PANEL */}
-        <div className="bg-[#0d0f12] border border-[#1f242d] rounded flex items-center justify-around py-4">
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-[#10b981]">{activeDaemonsCount}</span>
-            <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">ACTIVE DAEMONS</span>
+        {/* TELEMETRY TOP BAR */}
+        <div className="grid grid-cols-4 gap-2 border border-[#1f242d] rounded bg-[#0d0f12] p-2.5">
+          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
+            <div className="text-lg font-bold text-white font-mono">{filteredTasks.length}</div>
+            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-0.5">ACTIVE DAEMONS</div>
           </div>
-          <div className="w-px h-8 bg-[#1f242d]"></div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-[#38bdf8]">{buildTasks.length}</span>
-            <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">BUILDING</span>
+          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
+            <div className="text-lg font-bold text-[#38bdf8] font-mono">{agentBuildTasks.length}</div>
+            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-0.5">BUILDING</div>
           </div>
-          <div className="w-px h-8 bg-[#1f242d]"></div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-[#ffb800]">{gateTasks.length}</span>
-            <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">HUMAN GATE</span>
+          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
+            <div className="text-lg font-bold text-[#ffb800] font-mono">{humanGateTasks.length}</div>
+            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-0.5">HUMAN GATE</div>
           </div>
-          <div className="w-px h-8 bg-[#1f242d]"></div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-[#e2e8f0]">{shippedTasks.length}</span>
-            <span className="text-[9px] text-[#5c6b7f] uppercase tracking-widest font-bold">TOTAL SHIPPED</span>
+          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
+            <div className="text-lg font-bold text-[#10b981] font-mono">{shippedTasks.length}</div>
+            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-0.5">TOTAL SHIPPED</div>
           </div>
         </div>
 
-        {/* PROJECT SCOPE FILTER */}
-        <div className="flex items-center gap-3">
-          <span className="text-[#ffb800] font-bold text-[11px] tracking-wider flex items-center gap-1.5">
-            <LayoutGrid className="w-3.5 h-3.5" />
-            WARLORD PROJECT SCOPE:
-          </span>
-          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
-            {projectList.map(proj => (
-              <button 
-                key={proj}
-                onClick={() => setSelectedScope(proj)}
-                className={`px-3 py-1.5 rounded-full border text-[10px] font-bold tracking-wider transition-colors whitespace-nowrap cursor-pointer ${
-                  selectedScope === proj 
-                    ? 'border-[#ffb800] text-[#ffb800] bg-[#ffb800]/10' 
-                    : 'border-[#1f242d] text-[#8fa0b5] bg-[#0d0f12] hover:border-[#5c6b7f]'
+        {/* PROJECT SCOPE CONTROLLER */}
+        <div className="flex items-center justify-between border border-[#1f242d] rounded bg-[#0d0f12] px-3 py-1.5">
+          <div className="flex items-center gap-2">
+            <Layers className="w-3.5 h-3.5 text-[#ffb800]" />
+            <span className="text-[#ffb800] font-bold text-[10px] uppercase tracking-wider">
+              WARLORD PROJECT SCOPE:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {projectOptions.map(p => (
+              <button
+                key={p}
+                onClick={() => setSelectedProjectScope(p)}
+                className={`px-2.5 py-1 rounded text-[9px] font-bold transition-all cursor-pointer border ${
+                  selectedProjectScope === p
+                    ? 'bg-[#ffb800] text-black border-[#ffb800]'
+                    : 'bg-[#14171c] text-[#8fa0b5] border-[#232832] hover:text-white hover:border-gray-500'
                 }`}
               >
-                {proj}
+                {p}
               </button>
             ))}
           </div>
         </div>
 
-        {/* KANBAN SWIMLANES */}
-        <div className="flex-1 grid grid-cols-4 gap-3 min-h-0">
+        {/* HERMES 4-STAGE KANBAN LANES */}
+        <div className="flex-1 grid grid-cols-4 gap-2 overflow-hidden">
           
-          {/* COLUMN 1: CAPTURE & PLAN */}
-          <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
-            <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
-              <span className="text-[10px] text-[#5c6b7f] font-bold tracking-widest flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#5c6b7f]"></div>
-                CAPTURE &amp; PLAN
+          {/* LANE 1: CAPTURE & PLAN */}
+          <div className="border border-[#1f242d] rounded bg-[#0d0f12] flex flex-col overflow-hidden">
+            <div className="p-2 border-b border-[#1f242d] bg-[#0a0c0e] flex justify-between items-center">
+              <span className="text-[10px] font-bold text-gray-300 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-gray-500" />
+                CAPTURE & PLAN
               </span>
-              <span className="text-[#8fa0b5] font-bold">{captureTasks.length}</span>
+              <span className="text-[9px] bg-[#1a202c] text-gray-400 px-1.5 py-0.5 rounded font-bold">
+                {captureAndPlanTasks.length}
+              </span>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-              {captureTasks.map(task => <TaskCard key={task.id} task={task} />)}
+
+            <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
+              {captureAndPlanTasks.length === 0 ? (
+                <div className="text-[#5c6b7f] text-center p-6 italic text-[10px]">
+                  No ideas currently awaiting planning.
+                </div>
+              ) : (
+                captureAndPlanTasks.map(t => (
+                  <TaskCard key={t.id} task={t} onAdvance={() => advanceTask(t.id)} />
+                ))
+              )}
             </div>
           </div>
 
-          {/* COLUMN 2: AGENT BUILD */}
-          <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
-            <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
-              <span className="text-[10px] text-[#38bdf8] font-bold tracking-widest flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] animate-pulse"></div>
+          {/* LANE 2: AGENT BUILD */}
+          <div className="border border-[#1f242d] rounded bg-[#0d0f12] flex flex-col overflow-hidden">
+            <div className="p-2 border-b border-[#1f242d] bg-[#0a0c0e] flex justify-between items-center">
+              <span className="text-[10px] font-bold text-[#38bdf8] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#38bdf8] animate-pulse" />
                 AGENT BUILD
               </span>
-              <span className="text-[#38bdf8] font-bold">{buildTasks.length}</span>
+              <span className="text-[9px] bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/30 px-1.5 py-0.5 rounded font-bold">
+                {agentBuildTasks.length}
+              </span>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-              {buildTasks.map(task => <TaskCard key={task.id} task={task} accent="#38bdf8" />)}
+
+            <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
+              {agentBuildTasks.length === 0 ? (
+                <div className="text-[#5c6b7f] text-center p-6 italic text-[10px]">
+                  No autonomous agent builds running.
+                </div>
+              ) : (
+                agentBuildTasks.map(t => (
+                  <TaskCard key={t.id} task={t} onAdvance={() => advanceTask(t.id)} />
+                ))
+              )}
             </div>
           </div>
 
-          {/* COLUMN 3: HUMAN GATE */}
-          <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
-            <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
-              <span className="text-[10px] text-[#ffb800] font-bold tracking-widest flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#ffb800]"></div>
+          {/* LANE 3: HUMAN GATE */}
+          <div className="border border-[#1f242d] rounded bg-[#0d0f12] flex flex-col overflow-hidden">
+            <div className="p-2 border-b border-[#1f242d] bg-[#0a0c0e] flex justify-between items-center">
+              <span className="text-[10px] font-bold text-[#ffb800] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#ffb800]" />
                 HUMAN GATE
               </span>
-              <span className="text-[#ffb800] font-bold">{gateTasks.length}</span>
+              <span className="text-[9px] bg-[#ffb800]/10 text-[#ffb800] border border-[#ffb800]/30 px-1.5 py-0.5 rounded font-bold">
+                {humanGateTasks.length}
+              </span>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-              {gateTasks.map(task => <TaskCard key={task.id} task={task} accent="#ffb800" />)}
+
+            <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
+              {humanGateTasks.length === 0 ? (
+                <div className="text-[#5c6b7f] text-center p-6 italic text-[10px]">
+                  Zero approval bottlenecks pending.
+                </div>
+              ) : (
+                humanGateTasks.map(t => (
+                  <TaskCard key={t.id} task={t} onAdvance={() => advanceTask(t.id)} />
+                ))
+              )}
             </div>
           </div>
 
-          {/* COLUMN 4: SHIPPED */}
-          <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden">
-            <div className="px-3 py-2 bg-[#14171c] border-b border-[#1f242d] flex items-center justify-between">
-              <span className="text-[10px] text-[#10b981] font-bold tracking-widest flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]"></div>
+          {/* LANE 4: SHIPPED */}
+          <div className="border border-[#1f242d] rounded bg-[#0d0f12] flex flex-col overflow-hidden">
+            <div className="p-2 border-b border-[#1f242d] bg-[#0a0c0e] flex justify-between items-center">
+              <span className="text-[10px] font-bold text-[#10b981] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#10b981]" />
                 SHIPPED
               </span>
-              <span className="text-[#10b981] font-bold">{shippedTasks.length}</span>
+              <span className="text-[9px] bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 px-1.5 py-0.5 rounded font-bold">
+                {shippedTasks.length}
+              </span>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-              {shippedTasks.map(task => <TaskCard key={task.id} task={task} accent="#10b981" />)}
+
+            <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
+              {shippedTasks.length === 0 ? (
+                <div className="text-[#5c6b7f] text-center p-6 italic text-[10px]">
+                  No artifacts marked as shipped.
+                </div>
+              ) : (
+                shippedTasks.map(t => (
+                  <TaskCard key={t.id} task={t} onAdvance={() => advanceTask(t.id)} />
+                ))
+              )}
             </div>
           </div>
 
         </div>
+
       </div>
 
-      {/* RIGHT SIDEBAR: LIVE ORCHESTRATION */}
-      <div className="w-72 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden flex-shrink-0">
-        <div className="px-3 py-3 bg-[#14171c] border-b border-[#1f242d]">
-          <span className="text-[11px] text-[#e2e8f0] font-bold tracking-wider">LIVE HERMES ORCHESTRATION</span>
+      {/* RIGHT SIDEBAR: LIVE HERMES ORCHESTRATION FEED */}
+      <div className="w-72 border border-[#1f242d] rounded bg-[#0d0f12] p-3 flex flex-col gap-2 overflow-hidden flex-shrink-0">
+        <div className="border-b border-[#1f242d] pb-2 flex items-center justify-between">
+          <span className="text-[#ffb800] font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+            <Terminal className="w-3.5 h-3.5 text-[#ffb800]" />
+            LIVE HERMES ORCHESTRATION
+          </span>
+          <span className="text-[8px] text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/30 px-1.5 py-0.5 rounded font-bold">
+            ONLINE
+          </span>
         </div>
-        <div className="p-4 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
-          
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[#38bdf8] font-bold text-xs">
-              <Zap className="w-3.5 h-3.5" />
-              <span>Monty (Chief of Staff)</span>
+
+        <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar text-[10px]">
+          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2.5 space-y-1">
+            <div className="flex items-center gap-1.5 text-[#38bdf8] font-bold">
+              <Sparkles className="w-3 h-3 text-[#38bdf8]" />
+              Monty (Chief of Staff)
             </div>
-            <p className="text-[#8fa0b5] text-[10px] leading-relaxed">
-              {tasks.length > 0 
-                ? `Active PRD ingested. Dispatched ${tasks.length} execution unit(s) to Paperclip daemon. Monitoring director telemetry...` 
-                : 'Zero-state initialized. Standing by for telemetry dispatch.'}
+            <p className="text-[#8fa0b5] leading-relaxed text-[9px]">
+              {selectedProjectScope === 'ALL PROJECTS' 
+                ? 'Managing full cluster across all registered manifests. 21 daemons assigned.' 
+                : `Focused on [${selectedProjectScope}]. Telemetry streams synchronized with Tab 09 Previews.`}
             </p>
           </div>
 
-          {tasks.length > 0 && (
-            <div className="pt-4 border-t border-[#1f242d] space-y-3">
-              <span className="text-[10px] text-[#5c6b7f] font-bold uppercase tracking-widest">Active Daemon Sub-Routines</span>
-              {uniqueDaemonsList.map(daemon => (
-                <div key={daemon} className="flex items-center justify-between bg-[#14171c] p-2 rounded border border-[#232832]">
-                  <span className="text-[10px] font-bold text-[#e2e8f0] truncate pr-2">{daemon}</span>
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
-                  </span>
-                </div>
-              ))}
+          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2.5 space-y-1.5">
+            <span className="text-gray-400 font-bold block text-[9px] uppercase tracking-wider">
+              ACTIVE DIRECTOR ROSTER:
+            </span>
+            <div className="flex flex-col gap-1 text-[9px]">
+              <div className="flex justify-between items-center text-[#ffb800]">
+                <span>ROXY // ARTWORK ALPHA</span>
+                <span className="text-[#10b981]">SHIPPED</span>
+              </div>
+              <div className="flex justify-between items-center text-[#ffb800]">
+                <span>AMBER // COPYWRITER</span>
+                <span className="text-[#10b981]">SHIPPED</span>
+              </div>
+              <div className="flex justify-between items-center text-[#ffb800]">
+                <span>ATLAS // INFRASTRUCTURE</span>
+                <span className="text-[#38bdf8] animate-pulse">BUILDING</span>
+              </div>
+              <div className="flex justify-between items-center text-[#ffb800]">
+                <span>MONTY // COMMAND</span>
+                <span className="text-[#10b981]">ACTIVE</span>
+              </div>
             </div>
-          )}
-          
+          </div>
+
+          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2.5 space-y-1 text-[9px] text-[#5c6b7f]">
+            <span className="font-bold text-gray-400 block uppercase">Self-Driving Protocol:</span>
+            <p>Cards transition automatically upon LLM directive completion or via manual click-advance.</p>
+          </div>
         </div>
       </div>
+
     </div>
   );
 }
 
-// Sub-component for rendering individual task cards with robust zero-state fallbacks
-function TaskCard({ task, accent }) {
-  const rawDirector = task?.assignedDirector || 'MONTY // COMMAND';
-  const agentName = rawDirector.includes('//') ? rawDirector.split('//')[0].trim() : rawDirector;
-  const badgeChar = agentName ? agentName.charAt(0).toUpperCase() : 'M';
+// Subcomponent: Individual Kanban Task Card
+function TaskCard({ task, onAdvance }) {
+  const getBadgeColor = (director) => {
+    if (director.includes('ROXY')) return 'text-[#ffb800] border-[#ffb800]/40 bg-[#ffb800]/10';
+    if (director.includes('AMBER')) return 'text-[#f43f5e] border-[#f43f5e]/40 bg-[#f43f5e]/10';
+    if (director.includes('ATLAS')) return 'text-[#38bdf8] border-[#38bdf8]/40 bg-[#38bdf8]/10';
+    return 'text-[#10b981] border-[#10b981]/40 bg-[#10b981]/10';
+  };
 
   return (
-    <div 
-      className="bg-[#101317] border border-[#232832] p-2.5 rounded hover:border-[#5c6b7f] transition-colors flex flex-col gap-2 relative overflow-hidden"
-      style={{ borderLeftColor: accent ? accent : undefined, borderLeftWidth: accent ? '2px' : '1px' }}
-    >
-      <div className="font-bold text-[11px] text-[#e2e8f0] leading-tight pr-4">
-        {task?.title || 'Untitled Execution Unit'}
-      </div>
-      
-      <div className="flex items-center justify-between mt-1">
-        <span className="text-[9px] bg-[#1a1f26] text-[#8fa0b5] px-1.5 py-0.5 rounded flex items-center gap-1 border border-[#2d3748]">
-          <Server className="w-2.5 h-2.5" />
-          {task?.toolId || 'system_node'}
+    <div className="bg-[#0a0c0e] border border-[#1f242d] hover:border-gray-500 rounded p-2.5 flex flex-col gap-1.5 transition-all shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-[8px] font-mono text-[#5c6b7f] font-bold">
+          {task.id}
+        </span>
+        <span className="text-[8px] font-mono text-gray-400 truncate max-w-[90px]">
+          {task.project}
         </span>
       </div>
 
-      <div className="flex items-center justify-between border-t border-[#1f242d] pt-2 mt-1">
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-[#1f242d] flex items-center justify-center text-[9px] font-bold text-[#ffb800]">
-            {badgeChar}
-          </div>
-          <span className="text-[9px] text-[#8fa0b5] font-bold truncate max-w-[100px]">
-            {agentName}
-          </span>
-        </div>
-        
-        {(task?.stage === 'AGENT BUILD' || (!task?.stage && task?.status === 'BUILDING')) && (
-          <Cpu className="w-3.5 h-3.5 text-[#38bdf8]" />
-        )}
-        {task?.stage === 'HUMAN GATE' && (
-          <ShieldAlert className="w-3.5 h-3.5 text-[#ffb800]" />
-        )}
-        {(task?.stage === 'SHIPPED' || task?.status === 'COMPLETED') && (
-          <CheckCircle className="w-3.5 h-3.5 text-[#10b981]" />
-        )}
+      <div className="text-[10px] font-bold text-gray-200 leading-snug">
+        {task.title}
+      </div>
+
+      <div className="flex items-center justify-between pt-1 border-t border-[#1f242d]/60 mt-1">
+        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border ${getBadgeColor(task.assignedDirector)}`}>
+          {task.assignedDirector.split('//')[0].trim()}
+        </span>
+
+        <button
+          onClick={onAdvance}
+          className="p-1 rounded bg-[#14171c] hover:bg-[#ffb800] text-[#8fa0b5] hover:text-black border border-[#232832] transition-colors cursor-pointer"
+          title="Advance to next Kanban stage"
+        >
+          <ArrowRight className="w-3 h-3" />
+        </button>
       </div>
     </div>
   );
