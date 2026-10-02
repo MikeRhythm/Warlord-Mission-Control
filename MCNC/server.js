@@ -24,6 +24,7 @@ app.set('views', path.join(__dirname, 'views'));
 // ==========================================
 // ZERO-STATE INIT & DIRECTORY SETUP
 // ==========================================
+const WORKSPACE_ROOT = path.resolve('C:\\Warlord_Inc\\Warlord_WASP');
 const SOULS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'souls');
 const LOGS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC_Logs');
 const VAULT_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'vault');
@@ -40,6 +41,11 @@ const STAGE1_PROMPT_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'Promp
 [LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
+
+function isPathSafe(targetPath) {
+    const resolved = path.resolve(targetPath);
+    return resolved.toLowerCase().startsWith(WORKSPACE_ROOT.toLowerCase());
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_PATH),
@@ -142,6 +148,38 @@ function extractYouTubeId(urlStr) {
 }
 
 // ==========================================
+// AUTONOMOUS AGENT RUNTIME FILE INTERCEPTOR
+// ==========================================
+function resolveReferencedFiles(rawText) {
+    if (!rawText || typeof rawText !== 'string') return '';
+    
+    // Match absolute paths, relative paths, or named files with extensions
+    const fileRegex = /([a-zA-Z]:\\[\w\-\.\\]+\.\w+|[\w\-_\\\/]+\.(css|js|jsx|json|md|txt|py|html))/gi;
+    const matches = rawText.match(fileRegex) || [];
+    
+    let injectedContext = '';
+    const seen = new Set();
+
+    for (const match of matches) {
+        if (seen.has(match)) continue;
+        seen.add(match);
+
+        const target = path.isAbsolute(match) ? match : path.join(WORKSPACE_ROOT, match);
+        if (isPathSafe(target) && fs.existsSync(target)) {
+            try {
+                const data = fs.readFileSync(target, 'utf8');
+                console.log(`[AUTONOMOUS TOOL] Read disk file: ${path.basename(target)}`);
+                broadcast('TRACE', `[TOOL INGEST] Real disk read: ${path.basename(target)} (${(data.length / 1024).toFixed(1)} KB)`);
+                injectedContext += `\n\n=== [AUTONOMOUS FILE INGEST: ${match}] ===\n${data}\n=== [END FILE: ${match}] ===\n`;
+            } catch (err) {
+                console.warn(`[TOOL WARN] Could not read ${match}:`, err.message);
+            }
+        }
+    }
+    return injectedContext;
+}
+
+// ==========================================
 // CLUSTER VAULT CONTROLLERS & ROUND-ROBIN
 // ==========================================
 function readClusterFile(filePath, providerName) {
@@ -162,15 +200,39 @@ function writeClusterFile(filePath, data) {
 
 const readNimCluster = () => readClusterFile(NIM_CLUSTER_FILE, "nvidia_nim");
 const writeNimCluster = (data) => writeClusterFile(NIM_CLUSTER_FILE, data);
-const getActiveNimKeys = () => readNimCluster().keys.filter(k => k.status === 'ACTIVE').map(k => k.key);
+const getActiveNimKeys = () => {
+    const fromVault = readNimCluster().keys.filter(k => k.status === 'ACTIVE').map(k => k.key);
+    const envKeys = [
+        process.env.NVIDIA_API_KEY,
+        process.env.NIM_API_KEY,
+        process.env.VITE_NVIDIA_API_KEY,
+        process.env.VITE_NIM_API_KEY
+    ].filter(Boolean);
+    return Array.from(new Set([...fromVault, ...envKeys]));
+};
 
 const readGroqCluster = () => readClusterFile(GROQ_CLUSTER_FILE, "groq");
 const writeGroqCluster = (data) => writeClusterFile(GROQ_CLUSTER_FILE, data);
-const getActiveGroqKeys = () => readGroqCluster().keys.filter(k => k.status === 'ACTIVE').map(k => k.key);
+const getActiveGroqKeys = () => {
+    const fromVault = readGroqCluster().keys.filter(k => k.status === 'ACTIVE').map(k => k.key);
+    const envKeys = [
+        process.env.GROQ_API_KEY,
+        process.env.VITE_GROQ_API_KEY
+    ].filter(Boolean);
+    return Array.from(new Set([...fromVault, ...envKeys]));
+};
 
 const readGeminiCluster = () => readClusterFile(GEMINI_CLUSTER_FILE, "gemini");
 const writeGeminiCluster = (data) => writeClusterFile(GEMINI_CLUSTER_FILE, data);
-const getActiveGeminiKeys = () => readGeminiCluster().keys.filter(k => k.status === 'ACTIVE').map(k => k.key);
+const getActiveGeminiKeys = () => {
+    const fromVault = readGeminiCluster().keys.filter(k => k.status === 'ACTIVE').map(k => k.key);
+    const envKeys = [
+        process.env.GEMINI_API_KEY,
+        process.env.GEMINI_KEY_2,
+        process.env.VITE_GEMINI_API_KEY
+    ].filter(Boolean);
+    return Array.from(new Set([...fromVault, ...envKeys]));
+};
 
 const rrState = { nim: 0, groq: 0, gemini: 0 };
 
@@ -214,7 +276,7 @@ function routeToOptimalModel(director, fallbackModel) {
     if (!director || director.includes('AUTO-ROUTING') || director.includes('ROUND-ROBIN')) return fallbackModel;
     const trait = DIRECTOR_TRAITS[director] || 'CREATIVE';
     switch (trait) {
-        case 'CODE': return 'meta/llama-3.3-70b-instruct';
+        case 'CODE': return 'meta/llama-3.2-90b-vision-instruct';
         case 'REASONING': return 'nvidia/nemotron-70b-ultra';
         case 'CONTEXT': return 'gemini-1.5-pro';
         case 'CREATIVE': return 'llama-3.3-70b-versatile';
@@ -303,11 +365,30 @@ async function dispatchToKaggle(systemPrompt, userText, modelSlug) {
     return data.choices?.[0]?.message?.content || "Empty response from Kaggle Compute.";
 }
 
-async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
+async function dispatchToOpenRouter(systemPrompt, userText, modelSlug, rawBody = null) {
     const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
     if (!openRouterKey) throw new Error("OPENROUTER_API_KEY missing from .env");
     
     console.log(`[FALLBACK / ELITE] -> OpenRouter: ${modelSlug}`);
+
+    const imageAttachments = (rawBody?.attachments || []).filter(
+        a => a.type === 'image' || (a.data && a.data.startsWith('data:image'))
+    );
+
+    let userContent = userText;
+    if (imageAttachments.length > 0) {
+        userContent = [
+            { 
+                type: "text", 
+                text: `[STRICT VISION INSTRUCTION]: Inspect and analyze ONLY the visual pixels contained in the attached image payload. Do not recite boilerplate doctrine colors unless they are visibly present in the image.\n\nCommander Inquiry: ${userText}` 
+            },
+            ...imageAttachments.map(img => ({
+                type: "image_url",
+                image_url: { url: img.data }
+            }))
+        ];
+    }
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: { 
@@ -320,9 +401,9 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
             model: modelSlug, 
             messages: [
                 { role: 'system', content: systemPrompt }, 
-                { role: 'user', content: userText }
+                { role: 'user', content: userContent }
             ], 
-            temperature: 0.3, 
+            temperature: 0.2, 
             max_tokens: 4096 
         })
     });
@@ -332,20 +413,31 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
 }
 
 async function dispatchToBrain(systemPrompt, rawBody) {
-    const validContent = extractPromptText(rawBody);
-    const requestedModel = rawBody?.model || 'meta/llama-3.3-70b-instruct';
+    let validContent = extractPromptText(rawBody);
+    const requestedModel = rawBody?.model || 'meta/llama-3.2-90b-vision-instruct';
     const reqModelLower = requestedModel.toLowerCase();
     const computeMode = (process.env.COMPUTE_MODE || process.env.VITE_COMPUTE_MODE || 'STANDBY').toUpperCase();
     const kaggleUrl = process.env.KAGGLE_TUNNEL_URL || process.env.VITE_KAGGLE_TUNNEL_URL;
 
+    // 1. AUTONOMOUS FILE RESOLVER (Reads disk files mentioned in prompt)
+    const referencedFiles = resolveReferencedFiles(validContent);
+    if (referencedFiles) {
+        validContent += `\n\n[DIRECTOR TOOL NOTICE: The following live files were autonomously read from the workspace disk by Base 1 runtime]:${referencedFiles}`;
+    }
+
     console.log(`\n========================================`);
     console.log(`[DISPATCH] Target Model: "${requestedModel}" | Mode: "${computeMode}"`);
+
+    const imageAttachments = (rawBody?.attachments || []).filter(
+        a => a.type === 'image' || (a.data && a.data.startsWith('data:image'))
+    );
+    const hasImages = imageAttachments.length > 0;
 
     // ----------------------------------------------------
     // TIER 1: GOOGLE GEMINI CLUSTER
     // ----------------------------------------------------
     const activeGeminiKeys = getActiveGeminiKeys();
-    if (activeGeminiKeys.length > 0) {
+    if (activeGeminiKeys.length > 0 && !hasImages && !reqModelLower.includes('llama') && !reqModelLower.includes('nemotron')) {
         console.log(`[TIER 1] Attempting Gemini Cluster (${activeGeminiKeys.length} keys active)...`);
         for (let i = 0; i < activeGeminiKeys.length; i++) {
             const mask = `...${activeGeminiKeys[i].slice(-6)}`;
@@ -355,7 +447,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + validContent }] }],
-                        generationConfig: { temperature: 0.3, maxOutputTokens: 8192 }
+                        generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
                     })
                 });
                 if (response.ok) {
@@ -370,12 +462,35 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     }
 
     // ----------------------------------------------------
-    // TIER 2: NVIDIA NIM CLUSTER
+    // TIER 2: NVIDIA NIM MULTIMODAL CLUSTER
     // ----------------------------------------------------
     const activeNimKeys = getActiveNimKeys();
     if (activeNimKeys.length > 0) {
         console.log(`[TIER 2] Attempting NVIDIA NIM Cluster (${activeNimKeys.length} keys active)...`);
-        const targetNimModel = reqModelLower.includes("nemotron") ? "nvidia/nemotron-70b-ultra" : "meta/llama-3.3-70b-instruct";
+
+        let targetNimModel = 'meta/llama-3.2-90b-vision-instruct';
+        if (!hasImages && reqModelLower.includes("nemotron")) {
+            targetNimModel = "nvidia/nemotron-70b-ultra";
+        } else if (!hasImages && reqModelLower.includes("llama-3.3-70b")) {
+            targetNimModel = "meta/llama-3.3-70b-instruct";
+        }
+
+        let userContent;
+        if (hasImages) {
+            userContent = [
+                { 
+                    type: "text", 
+                    text: `[STRICT VISION DIRECTIVE]: Inspect and analyze ONLY the visual pixels contained in the attached image payload. Do not recite system doctrine colors or boilerplate presets unless they are explicitly visible in the rendered image.\n\nCommander's Inquiry: ${validContent}` 
+                },
+                ...imageAttachments.map(img => ({
+                    type: "image_url",
+                    image_url: { url: img.data }
+                }))
+            ];
+        } else {
+            userContent = validContent;
+        }
+
         for (let i = 0; i < activeNimKeys.length; i++) {
             const mask = `...${activeNimKeys[i].slice(-6)}`;
             try {
@@ -384,9 +499,12 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${activeNimKeys[i]}` },
                     body: JSON.stringify({ 
                         model: targetNimModel, 
-                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }], 
-                        temperature: 0.3, 
-                        max_tokens: 2048 
+                        messages: [
+                            { role: 'system', content: systemPrompt }, 
+                            { role: 'user', content: userContent }
+                        ], 
+                        temperature: 0.2, 
+                        max_tokens: 3000 
                     })
                 });
                 if (response.ok) {
@@ -395,16 +513,18 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                     if (text) return { reply: text, modelUsed: `${targetNimModel} (Tier 2: NIM [${mask}])` };
                 }
                 console.warn(`[TIER 2 WARN] NIM key [${mask}] returned HTTP ${response.status}. Rolling over...`);
-            } catch (fetchErr) {}
+            } catch (fetchErr) {
+                console.warn(`[TIER 2 ERROR] NIM key [${mask}] request failed:`, fetchErr.message);
+            }
         }
         console.warn("[TIER 2 EXHAUSTED] All NVIDIA NIM keys rate-limited or unavailable.");
     }
 
     // ----------------------------------------------------
-    // TIER 3: GROQ CLUSTER
+    // TIER 3: GROQ CLUSTER (TEXT FALLBACK)
     // ----------------------------------------------------
     const activeGroqKeys = getActiveGroqKeys();
-    if (activeGroqKeys.length > 0) {
+    if (activeGroqKeys.length > 0 && !hasImages) {
         console.log(`[TIER 3] Attempting Groq LPU Cluster (${activeGroqKeys.length} keys active)...`);
         const targetGroqModel = "llama-3.3-70b-versatile";
         for (let i = 0; i < activeGroqKeys.length; i++) {
@@ -434,7 +554,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     // ----------------------------------------------------
     // TIER 4: KAGGLE DUAL-T4 FREE CLOUD BRIDGE
     // ----------------------------------------------------
-    if (computeMode === 'KAGGLE' && kaggleUrl) {
+    if (computeMode === 'KAGGLE' && kaggleUrl && !hasImages) {
         const isTunnelLive = await verifyKaggleTunnel();
         if (isTunnelLive) {
             try {
@@ -445,7 +565,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                 console.warn(`[TIER 4 WARN] Kaggle compute failed: ${kaggleErr.message}. Falling through...`);
             }
         }
-    } else {
+    } else if (!hasImages) {
         console.warn("[TIER 4 STANDBY] Kaggle is in STANDBY. Notifying Mike...");
         broadcast('WARN', 'Mike, please activate Kaggle. (Free tiers exhausted, awaiting GPU bridge or rolling to OpenRouter).');
     }
@@ -455,10 +575,63 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     // ----------------------------------------------------
     console.warn("[!] TIERS 1-4 EXHAUSTED OR IN STANDBY. ENGAGING OPENROUTER SHIELD...");
     broadcast('TRACE', '[SHIELD] Free tiers & Kaggle passed. Dispatched to OpenRouter paid shield.');
-    const fallbackSlug = "meta-llama/llama-3.3-70b-instruct";
-    const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, fallbackSlug);
+    const fallbackSlug = hasImages ? "meta-llama/llama-3.2-90b-vision-instruct" : "meta-llama/llama-3.3-70b-instruct";
+    const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, fallbackSlug, rawBody);
     return { reply: fallbackReply.trim(), modelUsed: `${fallbackSlug} (Tier 5: OpenRouter Shield)` };
 }
+
+// ==========================================
+// WARLORD AGENT TOOL ENGINE: FS READ/WRITE
+// ==========================================
+app.post('/api/tools/read', async (req, res) => {
+    try {
+        const { filePath } = req.body;
+        if (!filePath) return res.status(400).json({ status: 'ERROR', message: 'filePath is required.' });
+
+        const target = path.isAbsolute(filePath) ? filePath : path.join(WORKSPACE_ROOT, filePath);
+
+        if (!isPathSafe(target)) {
+            return res.status(403).json({ status: 'ERROR', message: 'Access denied: path outside workspace root.' });
+        }
+
+        if (!fs.existsSync(target)) {
+            return res.status(404).json({ status: 'ERROR', message: `File not found: ${filePath}` });
+        }
+
+        const content = fs.readFileSync(target, 'utf8');
+        res.json({ status: 'SUCCESS', filePath: target, content });
+    } catch (err) {
+        res.status(500).json({ status: 'ERROR', message: err.message });
+    }
+});
+
+app.post('/api/tools/write', async (req, res) => {
+    try {
+        const { filePath, content, confirmed } = req.body;
+        if (!filePath) return res.status(400).json({ status: 'ERROR', message: 'filePath is required.' });
+
+        if (!confirmed) {
+            return res.status(400).json({ status: 'ERROR', message: 'Action requires explicit Commander confirmation.' });
+        }
+
+        const target = path.isAbsolute(filePath) ? filePath : path.join(WORKSPACE_ROOT, filePath);
+
+        if (!isPathSafe(target)) {
+            return res.status(403).json({ status: 'ERROR', message: 'Access denied: path outside workspace root.' });
+        }
+
+        if (fs.existsSync(target)) {
+            const backupPath = `${target}.bak_${Date.now()}`;
+            fs.copyFileSync(target, backupPath);
+        }
+
+        fs.writeFileSync(target, content, 'utf8');
+        broadcast('TRACE', `[TOOL EXEC] File modified with Commander authorization: ${path.basename(target)}`);
+        res.json({ status: 'SUCCESS', message: `Successfully saved: ${path.basename(target)}` });
+    } catch (err) {
+        res.status(500).json({ status: 'ERROR', message: err.message });
+    }
+});
 
 // ==========================================
 // ELEVENLABS TTS PROXY ROUTE (TAB 14 PIPELINE)
@@ -512,7 +685,7 @@ app.post('/api/tts', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
     try {
         const targetDirector = req.body?.director || 'MONTY // CHIEF OF STAFF';
-        const rawRequestedModel = req.body?.model || 'meta/llama-3.3-70b-instruct';
+        const rawRequestedModel = req.body?.model || 'meta/llama-3.2-90b-vision-instruct';
         
         const optimalModel = routeToOptimalModel(targetDirector, rawRequestedModel);
         req.body.model = optimalModel;
@@ -1135,5 +1308,8 @@ server.listen(PORT, () => {
     console.log(`[COMPUTE ARCHITECTURE]   : Kaggle Dual-T4 (Handshake Probed) -> Multi-Cluster -> OpenRouter Shield`);
     console.log(`[INTELLIGENCE MATRIX]    : 16-Director Capability Matrix Active`);
     console.log(`[OBSIDIAN VAULT]         : ${VAULT_PATH}`);
+    console.log(`[AGENT TOOLS]            : /api/tools/read, /api/tools/write`);
+    console.log(`[AUTONOMOUS RESOLVER]    : Auto-Ingest Referenced Workspace Files`);
+    console.log(`[VISION CLUSTER]         : meta/llama-3.2-90b-vision-instruct`);
     console.log(`====================================================`);
 });

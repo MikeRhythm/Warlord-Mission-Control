@@ -1,0 +1,70 @@
+import React from 'react';
+
+const TABS = [
+  { id: '01', name: '01 EXEC' },
+  { id: '02', name: '02 WAR ROOM' },
+  { id: '03', name: '03 PROJECTS' },
+  { id: '04', name: '04 TASK BOARD' },
+  { id: '05', name: '05 CALENDAR' },
+  { id: '06', name: '06 MEMORY' },
+  { id: '07', name: '07 PAPERCLIP' },
+  { id: '08', name: '08 PALETTES' },
+  { id: '09', name: '09 PREVIEWS' },
+  { id: '10', name: '10 TOKENS' },
+  { id: '11', name: '11 GALAXY' },
+  { id: '12', name: '12 REVIEW' },
+  { id: '13', name: '13 DOCS' },
+  { id: '14', name: '14 PIPE-LINE' }
+];
+
+export default function TopNav({ activeTab, onSelectTab }) {
+  return (
+    <header className="w-full bg-[#080a0c] border-b border-[#1f242d] select-none shrink-0 z-50">
+      {/* Telemetry Bar */}
+      <div className="flex items-center justify-between px-3 py-1 border-b border-[#14171c] text-[10px] font-mono">
+        <div className="flex items-center gap-2">
+          <span className="text-[#DAA520] font-bold tracking-wider">WARLORD MISSION CONTROL</span>
+          <span className="text-[#8fa0b5]">//</span>
+          <span className="text-gray-300 font-bold">MCNC MASTER</span>
+        </div>
+        <div className="flex items-center gap-4 text-[9px] text-[#8fa0b5]">
+          <div>
+            BRIDGE: <span className="text-[#00FF66] font-bold">ACTIVE (BASE 1)</span>
+          </div>
+          <div>
+            FRAMEWORK: <span className="text-gray-300 font-bold">REACT VITE</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Universal Responsive Tabs Strip - Zero Clipping Constraint */}
+      <div 
+        className="w-full flex items-center gap-1 p-1 overflow-x-auto box-border"
+        style={{ 
+          scrollbarWidth: 'none', 
+          msOverflowStyle: 'none'
+        }}
+      >
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onSelectTab(tab.id)}
+              style={{ minWidth: 'max-content' }}
+              className={`h-7 px-3 flex items-center justify-center font-mono rounded border transition-all cursor-pointer ${
+                isActive
+                  ? 'border-[#DAA520] text-[#FFB800] bg-gradient-to-b from-[#3a2810] via-[#1f1508] to-[#0c0803] shadow-[0_0_8px_rgba(218,165,32,0.35)] ring-1 ring-[#DAA520]/50'
+                  : 'border-[#1f2836] text-[#c99836] bg-gradient-to-b from-[#1c2633] via-[#0d131a] to-[#070a0e] hover:border-[#3b4e68] hover:text-white hover:bg-gradient-to-b hover:from-[#243242] hover:via-[#111a24] hover:to-[#090e14]'
+              }`}
+            >
+              <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
+                {tab.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </header>
+  );
+}
