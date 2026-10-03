@@ -33,24 +33,27 @@ export default function TopNav({ activeTab, onSelectTab }) {
         </div>
       </div>
 
-      {/* Content-Proportional Tabs (Natural Padding) */}
-      <div 
-        className="w-full flex items-center gap-[4px] p-1 overflow-x-auto box-border"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
+      {/* Mathematical Viewport Scaling */}
+      <div className="w-full flex items-center justify-between gap-[2px] p-1 box-border overflow-hidden">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => onSelectTab(tab.id)}
-              className={`flex-none h-7 px-[14px] flex items-center justify-center font-mono rounded border transition-all cursor-pointer ${
+              className={`flex-1 min-w-0 h-7 flex items-center justify-center font-mono rounded border transition-all cursor-pointer box-border px-1 ${
                 isActive
                   ? 'border-[#DAA520] text-[#FFB800] bg-gradient-to-b from-[#3a2810] via-[#1f1508] to-[#0c0803] shadow-[0_0_8px_rgba(218,165,32,0.35)] ring-1 ring-[#DAA520]/50'
                   : 'border-[#1f2836] text-[#c99836] bg-gradient-to-b from-[#1c2633] via-[#0d131a] to-[#070a0e] hover:border-[#3b4e68] hover:text-white hover:bg-gradient-to-b hover:from-[#243242] hover:via-[#111a24] hover:to-[#090e14]'
               }`}
             >
-              <span className="font-bold tracking-wider whitespace-nowrap text-[11px]">
+              <span
+                className="font-bold whitespace-nowrap text-center"
+                style={{
+                  fontSize: 'min(11px, 0.65vw)',
+                  letterSpacing: 'normal'
+                }}
+              >
                 {tab.name}
               </span>
             </button>

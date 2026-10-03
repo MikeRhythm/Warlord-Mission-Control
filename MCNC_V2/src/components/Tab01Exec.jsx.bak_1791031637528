@@ -22,25 +22,20 @@ const BRAIN_TIERS = [
   {
     tier: 'TIER 3: OPENROUTER (ELITE)',
     models: [
-      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude Sonnet 3.5', badge: 'ELITE' },
-      { id: 'deepseek/deepseek-chat', name: 'DeepSeek', badge: 'ELITE' },
-      { id: 'x-ai/grok-2', name: 'Grok', badge: 'ELITE' },
-      { id: 'google/gemini-1.5-pro', name: 'Gemini Pro', badge: 'ELITE' }
+      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude Sonnet 3.5', badge: 'ELITE' }
     ]
   }
 ];
 
 export default function Tab01Exec() {
   const [selectedBrain, setSelectedBrain] = useState('meta/llama-3.2-90b-vision-instruct');
-  const [collapsedTiers, setCollapsedTiers] = useState({});
   const [inputCommand, setInputCommand] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState('0.0');
   const [copyFeedback, setCopyFeedback] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
+  // Staged Proposal for File Modification
   const [stagedProposal, setStagedProposal] = useState(null);
 
   const [chatLog, setChatLog] = useState([
@@ -55,26 +50,12 @@ export default function Tab01Exec() {
   const recognitionRef = useRef(null);
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
-  const timerIntervalRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatLog, attachedFiles, isLoading, stagedProposal]);
 
-  useEffect(() => {
-    if (isLoading) {
-      const startTime = Date.now();
-      timerIntervalRef.current = setInterval(() => {
-        setElapsedSeconds(((Date.now() - startTime) / 1000).toFixed(1));
-      }, 100);
-    } else {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    }
-    return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    };
-  }, [isLoading]);
-
+  // Chrome Web Speech API
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -101,16 +82,10 @@ export default function Tab01Exec() {
 
     return () => {
       if (recognitionRef.current) recognitionRef.current.abort();
+      if (abortControllerRef.current) abortControllerRef.current.abort();
       window.speechSynthesis.cancel();
     };
   }, []);
-
-  const toggleTier = (idx) => {
-    setCollapsedTiers((prev) => ({
-      ...prev,
-      [idx]: !prev[idx]
-    }));
-  };
 
   const toggleRecording = () => {
     if (!recognitionRef.current) {
@@ -130,25 +105,11 @@ export default function Tab01Exec() {
     }
   };
 
-  const toggleSpeech = (text) => {
-    if (!('speechSynthesis' in window)) return;
-
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-      return;
-    }
-
+  const speakText = (text) => {
     if (!text) return;
-
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.05;
-
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
     window.speechSynthesis.speak(utterance);
   };
 
@@ -239,7 +200,7 @@ export default function Tab01Exec() {
   };
 
   const handleRefine = () => {
-    const lastUserMsg = [...chatLog].reverse().find((msg) => msg.sender === 'MIKE');
+    const lastUserMsg = [...chatLog].reverse().find((msg) => msg.sender.includes('COMMANDER'));
     if (lastUserMsg) {
       const rawText = lastUserMsg.text.replace(/\[ATTACHMENT:.*\]/g, '').trim();
       setInputCommand(rawText);
@@ -252,14 +213,11 @@ export default function Tab01Exec() {
       setIsRecording(false);
     }
     if (abortControllerRef.current) abortControllerRef.current.abort();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    }
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    window.speechSynthesis.cancel();
     setIsLoading(false);
   };
 
+  // Execute Approved File Write
   const handleApproveWrite = async () => {
     if (!stagedProposal) return;
     try {
@@ -287,9 +245,9 @@ export default function Tab01Exec() {
     }
   };
 
+  // Main Dispatch to Server Bridge
   const dispatchToServer = async (userText, attachments) => {
     setIsLoading(true);
-    setElapsedSeconds('0.0');
     abortControllerRef.current = new AbortController();
 
     try {
@@ -317,6 +275,7 @@ export default function Tab01Exec() {
       const reply = data.reply || 'Daemon returned empty response.';
       const activeModel = data.activeModelUsed ? ` [${data.activeModelUsed}]` : '';
 
+      // Check if response contains a structured file change proposal
       const proposeMatch = reply.match(/```diff([\s\S]*?)```/);
       const fileMatch = reply.match(/FILE:\s*([^\n\r]+)/);
       if (proposeMatch && fileMatch) {
@@ -336,7 +295,7 @@ export default function Tab01Exec() {
       ]);
     } catch (err) {
       if (err.name === 'AbortError') {
-        setChatLog((prev) => [...prev, { sender: 'SYSTEM // ALERT', text: 'Execution aborted by Mike.' }]);
+        setChatLog((prev) => [...prev, { sender: 'SYSTEM // ALERT', text: 'Execution aborted by Commander.' }]);
       } else {
         console.error('Server Bridge Error:', err);
         setChatLog((prev) => [
@@ -371,7 +330,7 @@ export default function Tab01Exec() {
     setChatLog((prev) => [
       ...prev,
       {
-        sender: 'MIKE',
+        sender: 'COMMANDER MIKE',
         text: payloadText,
         attachments: currentFiles
       }
@@ -386,7 +345,7 @@ export default function Tab01Exec() {
   };
 
   return (
-    <div className="flex w-full h-[calc(100vh-40px)] max-h-full min-h-0 bg-[#080a0c] text-gray-200 font-mono overflow-hidden box-border pt-1">
+    <div className="flex w-full h-[calc(100vh-64px)] bg-[#080a0c] text-gray-200 font-mono overflow-hidden box-border pt-1">
       <input
         type="file"
         ref={fileInputRef}
@@ -399,7 +358,7 @@ export default function Tab01Exec() {
 
       {/* LEFT COLUMN: EXEC CONTROL PANEL */}
       <div
-        className="w-[260px] h-full border-r border-[#1f242d] flex flex-col p-2 gap-2 select-none shrink-0 overflow-y-auto min-h-0"
+        className="w-[260px] border-r border-[#1f242d] flex flex-col p-2 gap-2 select-none shrink-0 overflow-y-auto"
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#DAA520 #0b0e14' }}
       >
         <div className="flex items-center justify-between pb-1 border-b border-[#14171c] shrink-0">
@@ -411,54 +370,42 @@ export default function Tab01Exec() {
           </span>
         </div>
 
-        {BRAIN_TIERS.map((tierGroup, idx) => {
-          const isCollapsed = collapsedTiers[idx];
-          return (
-            <div key={idx} className="flex flex-col gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => toggleTier(idx)}
-                className="flex items-center justify-between w-full px-1.5 py-1 text-[9px] text-[#DAA520] hover:text-[#ffd700] hover:bg-[#16130b] rounded border border-transparent hover:border-[#DAA520]/20 font-bold tracking-tight uppercase cursor-pointer transition-colors"
-              >
-                <span>{tierGroup.tier}</span>
-                <span className="text-[8px] text-[#DAA520] font-mono">
-                  {isCollapsed ? '▶' : '▼'}
-                </span>
-              </button>
-
-              {!isCollapsed &&
-                tierGroup.models.map((m) => {
-                  const isSelected = selectedBrain === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => setSelectedBrain(m.id)}
-                      className={`w-full h-6 px-2 flex items-center justify-between text-[10px] rounded border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-[#00e5ff] text-[#00e5ff] bg-[#0c1c24]'
-                          : 'border-[#1f242d] text-gray-400 bg-[#0d1015] hover:border-[#384152] hover:text-gray-200'
-                      }`}
-                    >
-                      <span className="truncate">{m.name}</span>
-                      <span
-                        className={`text-[8px] font-bold px-1 rounded ${
-                          isSelected
-                            ? 'text-[#00e5ff] bg-[#00e5ff]/20'
-                            : 'text-gray-500 bg-[#161a22]'
-                        }`}
-                      >
-                        {m.badge}
-                      </span>
-                    </button>
-                  );
-                })}
-            </div>
-          );
-        })}
+        {BRAIN_TIERS.map((tierGroup, idx) => (
+          <div key={idx} className="flex flex-col gap-1 shrink-0">
+            <span className="text-[9px] text-[#8fa0b5] font-semibold tracking-tight uppercase">
+              {tierGroup.tier}
+            </span>
+            {tierGroup.models.map((m) => {
+              const isSelected = selectedBrain === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedBrain(m.id)}
+                  className={`w-full h-6 px-2 flex items-center justify-between text-[10px] rounded border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-[#00e5ff] text-[#00e5ff] bg-[#0c1c24]'
+                      : 'border-[#1f242d] text-gray-400 bg-[#0d1015] hover:border-[#384152] hover:text-gray-200'
+                  }`}
+                >
+                  <span className="truncate">{m.name}</span>
+                  <span
+                    className={`text-[8px] font-bold px-1 rounded ${
+                      isSelected
+                        ? 'text-[#00e5ff] bg-[#00e5ff]/20'
+                        : 'text-gray-500 bg-[#161a22]'
+                    }`}
+                  >
+                    {m.badge}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       {/* RIGHT COLUMN: DISPATCH CONSOLE */}
-      <div className="flex-1 flex flex-col p-2 min-h-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col justify-between p-2 min-h-0 overflow-hidden">
         {/* PINNED STATUS HEADER */}
         <div className="flex items-center justify-between pb-1.5 border-b border-[#14171c] text-[9px] shrink-0 bg-[#080a0c] z-10">
           <div className="flex items-center gap-2">
@@ -470,14 +417,10 @@ export default function Tab01Exec() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => toggleSpeech(chatLog[chatLog.length - 1]?.text)}
-              className={`border px-1.5 py-0.5 rounded text-[8px] cursor-pointer transition-all ${
-                isSpeaking
-                  ? 'border-[#ef4444] text-[#ef4444] bg-[#ef4444]/10 font-bold'
-                  : 'border-[#DAA520] text-[#DAA520] hover:bg-[#DAA520]/10'
-              }`}
+              onClick={() => speakText(chatLog[chatLog.length - 1]?.text)}
+              className="border border-[#DAA520] text-[#DAA520] px-1.5 py-0.5 rounded text-[8px] hover:bg-[#DAA520]/10 cursor-pointer"
             >
-              {isSpeaking ? '⏹ STOP BRIEF' : '🔊 VOICE BRIEF'}
+              🔊 VOICE BRIEF
             </button>
             <button
               onClick={handleCopyAll}
@@ -523,14 +466,10 @@ export default function Tab01Exec() {
                   </button>
                   {msg.sender.includes('MONTY') && (
                     <button
-                      onClick={() => toggleSpeech(msg.text)}
-                      className={`text-[8px] cursor-pointer transition-colors ${
-                        isSpeaking
-                          ? 'text-[#ef4444] font-bold'
-                          : 'text-gray-500 hover:text-[#DAA520]'
-                      }`}
+                      onClick={() => speakText(msg.text)}
+                      className="text-gray-500 hover:text-[#DAA520] text-[8px] cursor-pointer"
                     >
-                      {isSpeaking ? '⏹ STOP' : '🔊 LISTEN'}
+                      🔊 LISTEN
                     </button>
                   )}
                 </div>
@@ -568,6 +507,7 @@ export default function Tab01Exec() {
             </div>
           ))}
 
+          {/* Staged File Edit Approval Card */}
           {stagedProposal && (
             <div className="border border-[#DAA520] bg-[#16130b] p-3 rounded flex flex-col gap-2 shrink-0">
               <div className="flex items-center justify-between text-[10px]">
@@ -598,7 +538,7 @@ export default function Tab01Exec() {
             </div>
           )}
 
-          {/* ACTIVE SPINNER WITH TIMER */}
+          {/* ACTIVE SPINNER */}
           {isLoading && (
             <div className="border border-[#1f242d] bg-[#0b0e14] p-2.5 rounded flex items-center gap-3 text-[10px] text-[#00e5ff] shrink-0">
               <svg
@@ -621,29 +561,32 @@ export default function Tab01Exec() {
                   d="M4 12a8 8 0 018-8v8H4z"
                 ></path>
               </svg>
-              <div className="flex items-center gap-2">
-                <span className="tracking-wider font-semibold">
-                  MONTY PROCESSING VIA MASTER DAEMON // {selectedBrain.toUpperCase()}...
-                </span>
-                <span className="font-mono bg-[#00e5ff]/10 text-[#00e5ff] px-1.5 py-0.5 rounded border border-[#00e5ff]/30 text-[9px] font-bold">
-                  [{elapsedSeconds}s]
-                </span>
-              </div>
+              <span className="tracking-wider font-semibold">
+                MONTY PROCESSING VIA MASTER DAEMON // {selectedBrain.toUpperCase()}...
+              </span>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
         {/* INPUT DOCK */}
-        <div className="flex flex-col gap-1.5 pt-1.5 pb-1 border-t border-[#14171c] shrink-0 bg-[#080a0c]">
+        <div className="flex flex-col gap-1.5 pt-1.5 border-t border-[#14171c] shrink-0">
           <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              className="flex items-center gap-1 text-[#DAA520] border border-[#DAA520]/40 bg-[#16130b] hover:bg-[#261f0d] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-all"
-            >
-              <span>📎</span> + ATTACH FILE / SCREENSHOT (CTRL+V)
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                className="flex items-center gap-1 text-[#DAA520] border border-[#DAA520]/40 bg-[#16130b] hover:bg-[#261f0d] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-all"
+              >
+                <span>📎</span> + ATTACH FILE / SCREENSHOT (CTRL+V)
+              </button>
+              <button
+                type="button"
+                className="flex items-center gap-1 border border-[#1f242d] text-gray-400 hover:text-white px-1.5 py-0.5 rounded text-[9px] cursor-pointer"
+              >
+                DIRECTIVE
+              </button>
+            </div>
 
             <button
               type="button"
@@ -699,90 +642,94 @@ export default function Tab01Exec() {
                 ? 'Listening... speak clearly into microphone...'
                 : `Enter command for Monty dispatch via Master Daemon [${selectedBrain}]...`
             }
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#DAA520 #0b0e14' }}
-            className={`w-full bg-[#05070a] border rounded p-1.5 text-[10px] text-gray-200 focus:outline-none resize-none transition-all leading-tight overflow-y-auto max-h-[120px] ${
+            className={`w-full bg-[#05070a] border rounded p-1.5 text-[10px] text-gray-200 focus:outline-none resize-none transition-all leading-tight ${
               isRecording
                 ? 'border-[#ef4444]/60 ring-1 ring-[#ef4444]/30'
                 : 'border-[#1f242d] focus:border-[#DAA520]'
             }`}
           />
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isLoading}
-              className="bg-[#FFB800] hover:bg-[#e6a600] text-black font-bold text-[9px] px-3 py-1 rounded flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
-            >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="animate-spin h-3 w-3 text-black"
-                    xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"
-                    ></path>
-                  </svg>
-                  <span>PROCESSING... [{elapsedSeconds}s]</span>
-                </>
-              ) : (
-                <>
-                  <span>➤</span>
-                  <span>SUBMIT</span>
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              className="border border-[#00e5ff] text-[#00e5ff] hover:bg-[#00e5ff]/10 font-bold text-[9px] px-2 py-1 rounded cursor-pointer"
-            >
-              PUSH TO WAR ROOM
-            </button>
-            <button
-              type="button"
-              onClick={handleRefine}
-              className="border border-[#1f242d] text-gray-400 hover:text-white text-[9px] px-2 py-1 rounded cursor-pointer"
-            >
-              REFINE
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyAll}
-              className={`border text-[9px] px-2 py-1 rounded cursor-pointer transition-all ${
-                copyFeedback
-                  ? 'border-[#10b981] text-[#10b981] bg-[#10b981]/20 font-bold'
-                  : 'border-[#1f242d] text-gray-400 hover:text-white'
-              }`}
-            >
-              {copyFeedback ? '✓ COPIED ALL' : 'COPY ALL'}
-            </button>
-            <button
-              type="button"
-              onClick={handleCLS}
-              className="border border-[#1f242d] text-gray-400 hover:text-red-400 text-[9px] px-2 py-1 rounded cursor-pointer"
-            >
-              CLS
-            </button>
-            <button
-              type="button"
-              onClick={handleAllStop}
-              className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
-            >
-              <span>🛑</span> ALL STOP
-            </button>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isLoading}
+                className="bg-[#FFB800] hover:bg-[#e6a600] text-black font-bold text-[9px] px-3 py-1 rounded flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-3 w-3 text-black"
+                      xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      ></path>
+                    </svg>
+                    <span>PROCESSING...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>➤</span>
+                    <span>SUBMIT</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                className="border border-[#00e5ff] text-[#00e5ff] hover:bg-[#00e5ff]/10 font-bold text-[9px] px-2 py-1 rounded cursor-pointer"
+              >
+                PUSH TO WAR ROOM
+              </button>
+              <button
+                type="button"
+                onClick={handleRefine}
+                className="border border-[#1f242d] text-gray-400 hover:text-white text-[9px] px-2 py-1 rounded cursor-pointer"
+              >
+                REFINE
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyAll}
+                className={`border text-[9px] px-2 py-1 rounded cursor-pointer transition-all ${
+                  copyFeedback
+                    ? 'border-[#10b981] text-[#10b981] bg-[#10b981]/20 font-bold'
+                    : 'border-[#1f242d] text-gray-400 hover:text-white'
+                }`}
+              >
+                {copyFeedback ? '✓ COPIED ALL' : 'COPY ALL'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCLS}
+                className="border border-[#1f242d] text-gray-400 hover:text-red-400 text-[9px] px-2 py-1 rounded cursor-pointer"
+              >
+                CLS
+              </button>
+              <button
+                type="button"
+                onClick={handleAllStop}
+                className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
+              >
+                <span>🛑</span> ALL STOP
+              </button>
+            </div>
+            <span className="text-[8px] text-gray-600 font-mono">
+              Ctrl+Enter
+            </span>
           </div>
         </div>
       </div>
