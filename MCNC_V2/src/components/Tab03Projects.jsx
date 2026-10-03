@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import NewProjectModal from './NewProjectModal';
+import NewCronModal from './NewCronModal';
 
 const DEFAULT_SEED_PROJECTS = [
   {
     id: '01',
     name: 'MAKING MONEY IDEAS',
-    status: 'COMPLETED',
+    status: 'ACTIVE',
     description: 'PRD Executed. Task sequence handed off to Paperclip daemon.',
-    progress: 100,
-    tasksDone: 18,
+    progress: 33,
+    tasksDone: 6,
     tasksTotal: 18,
     agent: 'MONTY // CHIEF OF STAFF',
     dispatched: '12:14:00 PM',
@@ -19,16 +20,58 @@ const DEFAULT_SEED_PROJECTS = [
       { id: '1', role: 'PRIMARY', hex: '#C5BD9F' },
       { id: '2', role: 'ACCENT', hex: '#ffb800' },
       { id: '3', role: 'CANVAS BG', hex: '#080a0c' }
+    ],
+    pillars: [
+      {
+        id: "P01",
+        title: "Local Compliance & Entity Infrastructure",
+        directors: ["VANCE", "TESS"],
+        priority: "CRITICAL",
+        status: "APPROVED",
+        definitionOfDone: "ZAR banking rails mapped, POPIA legal constraints locked."
+      },
+      {
+        id: "P02",
+        title: "Regional Digital Portal & UI Dashboard",
+        directors: ["CHARLIE", "ROXY"],
+        priority: "HIGH",
+        status: "STAGED",
+        definitionOfDone: "Responsive Glassmorphic web presence live with Brand Hex tokens."
+      },
+      {
+        id: "P03",
+        title: "Lead Intake & Automated Outreach Pipeline",
+        directors: ["JACK", "SKYLA"],
+        priority: "MEDIUM",
+        status: "LOCKED",
+        definitionOfDone: "CRM ingestion endpoints verified with active SMTP dispatch."
+      }
+    ],
+    cronJobs: [
+      {
+        id: 'CRON-01',
+        title: 'NIGHTLY LEDGER RECONCILIATION',
+        director: 'JACK',
+        cadence: 'Daily (Midnight)',
+        cronExpression: '0 0 * * *',
+        targetCommand: 'npm run reconcile:wallets',
+        status: 'RUNNING',
+        lastRun: 'Yesterday 23:59',
+        nextRun: 'Today 00:00'
+      }
     ]
   }
 ];
 
 export default function Tab03Projects({ onNavigateToWarRoom }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [filter, setFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+  const [cronModalTarget, setCronModalTarget] = useState(null); // { id, name }
+  const [filter, setFilter] = useState('ALL');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
+  
+  const [expandedPillarProjectId, setExpandedPillarProjectId] = useState(null);
+  const [selectedDirectorFilter, setSelectedDirectorFilter] = useState('ALL');
 
-  // Initialize strictly from localStorage to avoid resurrecting deleted projects
   const [projects, setProjects] = useState(() => {
     try {
       const saved = localStorage.getItem('MCNC_PROJECT_MANIFESTS');
@@ -46,7 +89,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
     localStorage.setItem('MCNC_PROJECT_MANIFESTS', JSON.stringify(updatedList));
   };
 
-  // Toggle Archive / Restore
   const handleToggleArchive = (id, e) => {
     e.stopPropagation();
     const updated = projects.map((p) => {
@@ -59,7 +101,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
     persistProjects(updated);
   };
 
-  // Permanent Hard Purge / Delete
   const handlePermanentDelete = (id, name, e) => {
     e.stopPropagation();
     const confirmDelete = window.confirm(`PERMANENT PURGE: Are you sure you want to completely erase [${name}] from the MCNC Manifest?`);
@@ -67,10 +108,10 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
       const updated = projects.filter((p) => p.id !== id);
       persistProjects(updated);
       if (selectedProjectId === id) setSelectedProjectId(null);
+      if (expandedPillarProjectId === id) setExpandedPillarProjectId(null);
     }
   };
 
-  // Register New Project from Modal
   const handleSaveProject = (formData) => {
     const nextNumeric = projects.length > 0 
       ? Math.max(...projects.map(p => parseInt(p.id, 10) || 0)) + 1 
@@ -97,14 +138,15 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
       definitionOfDone: formData.definitionOfDone,
       forbiddenVectors: formData.forbiddenVectors,
       palette: formData.palette,
-      uploadedFiles: formData.uploadedFiles || []
+      uploadedFiles: formData.uploadedFiles || [],
+      pillars: [],
+      cronJobs: []
     };
 
     persistProjects([newProject, ...projects]);
     setIsModalOpen(false);
   };
 
-  // Direct Handoff to War Room
   const handlePushToWarRoom = (formData, warRoomPayload) => {
     handleSaveProject(formData);
     if (onNavigateToWarRoom) {
@@ -112,7 +154,52 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
     }
   };
 
-  // Metric Counts
+  // Add Cron Job to Specific Project
+  const handleSaveCronJob = (cronData) => {
+    const updated = projects.map(p => {
+      if (p.id === cronModalTarget.id) {
+        return {
+          ...p,
+          cronJobs: [...(p.cronJobs || []), cronData]
+        };
+      }
+      return p;
+    });
+    persistProjects(updated);
+    setCronModalTarget(null);
+  };
+
+  const handleToggleCronStatus = (projectId, cronId) => {
+    const updated = projects.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          cronJobs: (p.cronJobs || []).map(c => {
+            if (c.id === cronId) {
+              return { ...c, status: c.status === 'RUNNING' ? 'PAUSED' : 'RUNNING' };
+            }
+            return c;
+          })
+        };
+      }
+      return p;
+    });
+    persistProjects(updated);
+  };
+
+  const handleDeleteCron = (projectId, cronId) => {
+    const updated = projects.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          cronJobs: (p.cronJobs || []).filter(c => c.id !== cronId)
+        };
+      }
+      return p;
+    });
+    persistProjects(updated);
+  };
+
   const totalIngested = projects.length;
   const activePipelines = projects.filter((p) => p.status === 'ACTIVE').length;
   const completedCount = projects.filter((p) => p.status === 'COMPLETED').length;
@@ -136,7 +223,7 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
       fontFamily: 'monospace',
       overflow: 'hidden'
     }}>
-      {/* LEFT SIDEBAR: DIRECTORY */}
+      {/* LEFT SIDEBAR */}
       <div style={{
         width: '260px',
         minWidth: '260px',
@@ -145,7 +232,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        {/* Sidebar Header */}
         <div style={{
           padding: '16px',
           borderBottom: '1px solid #1f242d',
@@ -168,7 +254,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
           </span>
         </div>
 
-        {/* Action Button: Modal Trigger */}
         <div style={{ padding: '12px', borderBottom: '1px solid #1f242d' }}>
           <button
             onClick={() => setIsModalOpen(true)}
@@ -191,7 +276,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
           </button>
         </div>
 
-        {/* Sidebar Project Manifest List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
           <div
             onClick={() => setSelectedProjectId(null)}
@@ -253,7 +337,7 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
         </div>
       </div>
 
-      {/* RIGHT MAIN PANEL: MANIFEST BOARD */}
+      {/* RIGHT MAIN PANEL */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
         
         {/* Top Control Bar */}
@@ -269,7 +353,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
             ❖ 03 PROJECTS // PORTFOLIO MANIFEST BOARD
           </div>
 
-          {/* Filter Pills */}
           <div style={{ display: 'flex', gap: '6px' }}>
             {['ALL', 'ACTIVE', 'COMPLETED', 'ARCHIVED'].map((f) => (
               <button
@@ -291,7 +374,7 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
           </div>
         </div>
 
-        {/* Metric Rack */}
+        {/* Metric Cards */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
@@ -321,7 +404,7 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
           ))}
         </div>
 
-        {/* Project Cards Feed */}
+        {/* Projects Feed */}
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {displayedProjects.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', border: '1px dashed #1f242d' }}>
@@ -364,7 +447,7 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                       </div>
                     </div>
 
-                    {/* Controls: Status Badge + Archive Toggle + Delete Purge */}
+                    {/* Controls */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{
                         fontSize: '10px',
@@ -376,8 +459,30 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                       }}>
                         {proj.status}
                       </span>
+                      
+                      {/* VIEW PILLARS TOGGLE */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedPillarProjectId(expandedPillarProjectId === proj.id ? null : proj.id);
+                        }}
+                        style={{
+                          background: expandedPillarProjectId === proj.id ? '#ffb800' : 'rgba(255, 184, 0, 0.1)',
+                          border: '1px solid #ffb800',
+                          color: expandedPillarProjectId === proj.id ? '#080a0c' : '#ffb800',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          padding: '3px 8px',
+                          cursor: 'pointer',
+                          fontFamily: 'monospace',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginLeft: '8px'
+                        }}>
+                        {expandedPillarProjectId === proj.id ? '▲ CLOSE DETAILS' : '🏛️ VIEW PILLARS & DAEMONS'}
+                      </button>
 
-                      {/* Archive / Restore Button */}
                       <button
                         onClick={(e) => handleToggleArchive(proj.id, e)}
                         title={isArchived ? "Restore to Active" : "Archive Manifest"}
@@ -388,13 +493,11 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                           cursor: 'pointer',
                           padding: '3px 6px',
                           fontSize: '11px',
-                          display: 'flex',
-                          alignItems: 'center'
+                          marginLeft: '8px'
                         }}>
                         📦
                       </button>
 
-                      {/* Hard Purge / Delete Button */}
                       <button
                         onClick={(e) => handlePermanentDelete(proj.id, proj.name, e)}
                         title="Permanent Delete Manifest"
@@ -404,22 +507,18 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                           color: '#ef4444',
                           cursor: 'pointer',
                           padding: '3px 6px',
-                          fontSize: '11px',
-                          display: 'flex',
-                          alignItems: 'center'
+                          fontSize: '11px'
                         }}>
                         🗑
                       </button>
                     </div>
                   </div>
 
-                  {/* Progress Stats */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: strokeColor, marginBottom: '8px' }}>
                     <span>{isDone ? '⊙ 100% COMPLETED' : `⊙ ${proj.progress}% COMPLETED`}</span>
                     <span>{proj.tasksDone} / {proj.tasksTotal} TASKS</span>
                   </div>
 
-                  {/* Progress Bar Track */}
                   <div style={{ width: '100%', height: '3px', backgroundColor: '#14171c', marginBottom: '14px' }}>
                     <div style={{
                       width: `${proj.progress}%`,
@@ -429,7 +528,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                     }} />
                   </div>
 
-                  {/* Footer Meta Details */}
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -442,6 +540,227 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                     <div>{proj.agent}</div>
                     <div>DISPATCHED: {proj.dispatched}</div>
                   </div>
+
+                  {/* EXPANDABLE DETAILS: PILLARS + CRON DAEMONS */}
+                  {expandedPillarProjectId === proj.id && (
+                    <div style={{
+                      marginTop: '16px',
+                      backgroundColor: '#0a0d10',
+                      border: '1px solid #1f242d',
+                      borderTop: '2px solid #ffb800',
+                      padding: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '18px'
+                    }}>
+                      {/* 1. ATOMIC PILLARS SECTION */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                          <div>
+                            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '11px' }}>
+                              🏛️ ATOMIC CORE PILLARS
+                            </span>
+                            <span style={{ color: '#94a3b8', fontSize: '10px', marginLeft: '8px' }}>
+                              Execute branch-by-branch
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', color: '#C5BD9F' }}>FILTER:</span>
+                            {['ALL', 'CHARLIE', 'TESS', 'ROXY', 'JACK', 'SKYLA', 'VANCE'].map((dir) => (
+                              <button
+                                key={dir}
+                                onClick={() => setSelectedDirectorFilter(dir)}
+                                style={{
+                                  background: selectedDirectorFilter === dir ? 'rgba(255, 184, 0, 0.2)' : '#080a0c',
+                                  border: selectedDirectorFilter === dir ? '1px solid #ffb800' : '1px solid #1f242d',
+                                  color: selectedDirectorFilter === dir ? '#ffb800' : '#94a3b8',
+                                  fontSize: '9px',
+                                  padding: '2px 6px',
+                                  cursor: 'pointer',
+                                  fontFamily: 'monospace'
+                                }}>
+                                {dir}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {(!proj.pillars || proj.pillars.length === 0) ? (
+                          <div style={{ padding: '12px', textAlign: 'center', color: '#94a3b8', fontSize: '10px', border: '1px dashed #1f242d' }}>
+                            NO DECONSTRUCTED PILLARS GENERATED YET.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {proj.pillars
+                              .filter((pillar) => selectedDirectorFilter === 'ALL' || pillar.directors.includes(selectedDirectorFilter))
+                              .map((pillar) => (
+                                <div key={pillar.id} style={{
+                                  backgroundColor: '#0d0f12',
+                                  border: '1px solid #1f242d',
+                                  padding: '10px 12px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center'
+                                }}>
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                                      <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '11px' }}>
+                                        [{pillar.id}] {pillar.title}
+                                      </span>
+                                      <span style={{
+                                        fontSize: '8px',
+                                        padding: '1px 4px',
+                                        backgroundColor: pillar.priority === 'CRITICAL' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.1)',
+                                        color: pillar.priority === 'CRITICAL' ? '#ef4444' : '#38bdf8',
+                                        border: `1px solid ${pillar.priority === 'CRITICAL' ? '#ef4444' : '#1f242d'}`
+                                      }}>
+                                        {pillar.priority}
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                                      <strong style={{ color: '#C5BD9F' }}>DoD:</strong> {pillar.definitionOfDone}
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    onClick={() => alert(`DISPATCHING PILLAR [${pillar.id}] TO BASE ONE DAEMON.`)}
+                                    style={{
+                                      backgroundColor: 'rgba(255, 184, 0, 0.12)',
+                                      border: '1px solid #ffb800',
+                                      color: '#ffb800',
+                                      padding: '6px 10px',
+                                      fontSize: '9px',
+                                      fontWeight: 'bold',
+                                      cursor: 'pointer',
+                                      fontFamily: 'monospace'
+                                    }}>
+                                    DISPATCH BRANCH ⚡
+                                  </button>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. SCHEDULED CRON DAEMONS SECTION */}
+                      <div style={{ borderTop: '1px solid #1f242d', paddingTop: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <div>
+                            <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '11px' }}>
+                              ⏱️ SCHEDULED CRON DAEMONS
+                            </span>
+                            <span style={{ color: '#94a3b8', fontSize: '10px', marginLeft: '8px' }}>
+                              Automated background processes attached to this venture
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={() => setCronModalTarget({ id: proj.id, name: proj.name })}
+                            style={{
+                              backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                              border: '1px solid #38bdf8',
+                              color: '#38bdf8',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              padding: '3px 8px',
+                              cursor: 'pointer',
+                              fontFamily: 'monospace'
+                            }}>
+                            + ATTACH CRON DAEMON
+                          </button>
+                        </div>
+
+                        {(!proj.cronJobs || proj.cronJobs.length === 0) ? (
+                          <div style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontSize: '10px', border: '1px dashed #1f242d' }}>
+                            NO SCHEDULED DAEMONS ATTACHED. CLICK '+ ATTACH CRON DAEMON' TO SCHEDULE ONE.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {proj.cronJobs.map((cron) => (
+                              <div key={cron.id} style={{
+                                backgroundColor: '#0d0f12',
+                                border: '1px solid #1f242d',
+                                padding: '10px 14px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '10px'
+                              }}>
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                                    <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '11px' }}>
+                                      [{cron.id}] {cron.title}
+                                    </span>
+                                    <span style={{
+                                      fontSize: '9px',
+                                      padding: '1px 5px',
+                                      border: `1px solid ${cron.status === 'RUNNING' ? '#10b981' : '#64748b'}`,
+                                      color: cron.status === 'RUNNING' ? '#10b981' : '#64748b',
+                                      backgroundColor: 'rgba(0,0,0,0.3)'
+                                    }}>
+                                      ● {cron.status}
+                                    </span>
+                                    <span style={{ color: '#ffb800', fontSize: '10px' }}>
+                                      ⚡ {cron.director}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                                    <span>CADENCE: <strong style={{ color: '#fff' }}>{cron.cadence} ({cron.cronExpression})</strong></span>
+                                    <span style={{ marginLeft: '12px' }}>CMD: <strong style={{ color: '#10b981' }}>{cron.targetCommand}</strong></span>
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <button
+                                    onClick={() => handleToggleCronStatus(proj.id, cron.id)}
+                                    style={{
+                                      background: cron.status === 'RUNNING' ? '#1f242d' : 'rgba(16, 185, 129, 0.15)',
+                                      border: `1px solid ${cron.status === 'RUNNING' ? '#333' : '#10b981'}`,
+                                      color: cron.status === 'RUNNING' ? '#94a3b8' : '#10b981',
+                                      fontSize: '9px',
+                                      padding: '3px 8px',
+                                      cursor: 'pointer',
+                                      fontFamily: 'monospace'
+                                    }}>
+                                    {cron.status === 'RUNNING' ? 'PAUSE' : 'RESUME'}
+                                  </button>
+
+                                  <button
+                                    onClick={() => alert(`FORCING MANUAL DISPATCH: [${cron.title}] via ${cron.director}`)}
+                                    style={{
+                                      background: 'rgba(255, 184, 0, 0.1)',
+                                      border: '1px solid #ffb800',
+                                      color: '#ffb800',
+                                      fontSize: '9px',
+                                      padding: '3px 8px',
+                                      cursor: 'pointer',
+                                      fontFamily: 'monospace'
+                                    }}>
+                                    TRIGGER ⚡
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleDeleteCron(proj.id, cron.id)}
+                                    style={{
+                                      background: 'transparent',
+                                      border: 'none',
+                                      color: '#ef4444',
+                                      fontSize: '11px',
+                                      cursor: 'pointer',
+                                      padding: '2px 4px'
+                                    }}>
+                                    ✕
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               );
             })
@@ -456,6 +775,14 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
         onClose={() => setIsModalOpen(false)}
         onSaveProject={handleSaveProject}
         onPushToWarRoom={handlePushToWarRoom}
+      />
+
+      {/* NEW CRON JOB ATTACH MODAL */}
+      <NewCronModal
+        isOpen={!!cronModalTarget}
+        projectName={cronModalTarget?.name || ''}
+        onClose={() => setCronModalTarget(null)}
+        onSaveCron={handleSaveCronJob}
       />
     </div>
   );
