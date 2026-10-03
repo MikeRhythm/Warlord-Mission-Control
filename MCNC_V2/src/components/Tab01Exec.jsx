@@ -30,13 +30,14 @@ const BRAIN_TIERS = [
   }
 ];
 
-export default function Tab01Exec() {
+export default function Tab01Exec({ ws }) {
   const [selectedBrain, setSelectedBrain] = useState('meta/llama-3.2-90b-vision-instruct');
   const [collapsedTiers, setCollapsedTiers] = useState({});
   const [inputCommand, setInputCommand] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDistilling, setIsDistilling] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState('0.0');
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -59,10 +60,10 @@ export default function Tab01Exec() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatLog, attachedFiles, isLoading, stagedProposal]);
+  }, [chatLog, attachedFiles, isLoading, isDistilling, stagedProposal]);
 
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading || isDistilling) {
       const startTime = Date.now();
       timerIntervalRef.current = setInterval(() => {
         setElapsedSeconds(((Date.now() - startTime) / 1000).toFixed(1));
@@ -73,7 +74,7 @@ export default function Tab01Exec() {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [isLoading]);
+  }, [isLoading, isDistilling]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -243,6 +244,7 @@ export default function Tab01Exec() {
     if (lastUserMsg) {
       const rawText = lastUserMsg.text.replace(/\[ATTACHMENT:.*\]/g, '').trim();
       setInputCommand(rawText);
+      textareaRef.current?.focus();
     }
   };
 
@@ -258,6 +260,84 @@ export default function Tab01Exec() {
     }
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     setIsLoading(false);
+    setIsDistilling(false);
+  };
+
+  // CREATE PROMPT: DISTILLS CHAT TO ACTIONABLE NUGGET DIRECTIVE FOR WAR ROOM
+  const handleCreatePrompt = async () => {
+    if (chatLog.length <= 1) {
+      alert('Conversation log is empty. Exchange requirements with Monty first.');
+      return;
+    }
+
+    setIsDistilling(true);
+    setElapsedSeconds('0.0');
+
+    try {
+      const rawTranscript = chatLog
+        .map((m) => `[${m.sender}]: ${m.text}`)
+        .join('\n\n');
+
+      const distillationTask = `You are MONTY, Chief of Staff.
+Analyze the following conversation exchange with Mike. 
+Extract ONLY the actionable directives, technical constraints, concrete requirements, and specific file tasks.
+STRIP OUT: Conversational banter, greetings, pleasantries, apologies, filler words, and explanations.
+FORMAT: Output a clean, razor-sharp, consolidated master prompt ready for multi-agent dispatch into the War Room.
+Output ONLY the synthesized directive text without introductory or concluding conversational prose.
+
+CONVERSATION TRANSCRIPT:
+${rawTranscript}`;
+
+      const response = await fetch('http://localhost:8081/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          director: 'MONTY // CHIEF OF STAFF',
+          model: selectedBrain,
+          prompt: distillationTask,
+          message: distillationTask
+        })
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const synthesizedPrompt = (data.reply || '').trim();
+
+      if (synthesizedPrompt) {
+        setInputCommand(synthesizedPrompt);
+        textareaRef.current?.focus();
+        setChatLog((prev) => [
+          ...prev,
+          {
+            sender: 'CHIEF OF STAFF // MONTY [PROMPT CREATED]',
+            text: 'Actionable directive synthesized from conversation. Ready in input dock for inspection or War Room push.'
+          }
+        ]);
+      }
+    } catch (err) {
+      alert(`Create Prompt failed: ${err.message}`);
+    } finally {
+      setIsDistilling(false);
+    }
+  };
+
+  // PUSH TO WAR ROOM: DISPATCHES TO TAB 02 AND SWITCHES TAB
+  const handlePushToWarRoom = () => {
+    const textToPush = inputCommand.trim();
+    if (!textToPush) {
+      alert('Input command is empty. Enter or create a prompt first.');
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('push-to-warroom', {
+        detail: {
+          directive: textToPush,
+          source: 'TAB 01 EXEC',
+          timestamp: new Date().toISOString()
+        }
+      })
+    );
   };
 
   const handleApproveWrite = async () => {
@@ -599,7 +679,7 @@ export default function Tab01Exec() {
           )}
 
           {/* ACTIVE SPINNER WITH TIMER */}
-          {isLoading && (
+          {(isLoading || isDistilling) && (
             <div className="border border-[#1f242d] bg-[#0b0e14] p-2.5 rounded flex items-center gap-3 text-[10px] text-[#00e5ff] shrink-0">
               <svg
                 className="animate-spin h-4 w-4 text-[#00e5ff]"
@@ -623,7 +703,9 @@ export default function Tab01Exec() {
               </svg>
               <div className="flex items-center gap-2">
                 <span className="tracking-wider font-semibold">
-                  MONTY PROCESSING VIA MASTER DAEMON // {selectedBrain.toUpperCase()}...
+                  {isDistilling
+                    ? 'MONTY DISTILLING NUGGETS & CREATING WAR ROOM PROMPT...'
+                    : `MONTY PROCESSING VIA MASTER DAEMON // ${selectedBrain.toUpperCase()}...`}
                 </span>
                 <span className="font-mono bg-[#00e5ff]/10 text-[#00e5ff] px-1.5 py-0.5 rounded border border-[#00e5ff]/30 text-[9px] font-bold">
                   [{elapsedSeconds}s]
@@ -693,7 +775,7 @@ export default function Tab01Exec() {
             onChange={(e) => setInputCommand(e.target.value)}
             onPaste={handlePaste}
             onKeyDown={handleKeyDown}
-            disabled={isLoading}
+            disabled={isLoading || isDistilling}
             placeholder={
               isRecording
                 ? 'Listening... speak clearly into microphone...'
@@ -711,7 +793,7 @@ export default function Tab01Exec() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || isDistilling}
               className="bg-[#FFB800] hover:bg-[#e6a600] text-black font-bold text-[9px] px-3 py-1 rounded flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
             >
               {isLoading ? (
@@ -745,12 +827,29 @@ export default function Tab01Exec() {
                 </>
               )}
             </button>
+
+            {/* CREATE PROMPT: DISTILLS CONVERSATION INTO WAR ROOM DIRECTIVE */}
             <button
               type="button"
-              className="border border-[#00e5ff] text-[#00e5ff] hover:bg-[#00e5ff]/10 font-bold text-[9px] px-2 py-1 rounded cursor-pointer"
+              onClick={handleCreatePrompt}
+              disabled={isLoading || isDistilling}
+              className="bg-[#10b981]/15 hover:bg-[#10b981]/25 border border-[#10b981] text-[#10b981] font-bold text-[9px] px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-all disabled:opacity-50"
+              title="Extract conversation nuggets and synthesize a master prompt ready for War Room"
+            >
+              <span>⚡</span>
+              <span>{isDistilling ? 'CREATING...' : 'CREATE PROMPT'}</span>
+            </button>
+
+            {/* PUSH TO WAR ROOM */}
+            <button
+              type="button"
+              onClick={handlePushToWarRoom}
+              disabled={isLoading || isDistilling}
+              className="border border-[#00e5ff] text-[#00e5ff] hover:bg-[#00e5ff]/10 font-bold text-[9px] px-2 py-1 rounded cursor-pointer transition-all disabled:opacity-50"
             >
               PUSH TO WAR ROOM
             </button>
+
             <button
               type="button"
               onClick={handleRefine}
@@ -758,6 +857,7 @@ export default function Tab01Exec() {
             >
               REFINE
             </button>
+
             <button
               type="button"
               onClick={handleCopyAll}
@@ -769,6 +869,7 @@ export default function Tab01Exec() {
             >
               {copyFeedback ? '✓ COPIED ALL' : 'COPY ALL'}
             </button>
+
             <button
               type="button"
               onClick={handleCLS}
@@ -776,6 +877,7 @@ export default function Tab01Exec() {
             >
               CLS
             </button>
+
             <button
               type="button"
               onClick={handleAllStop}

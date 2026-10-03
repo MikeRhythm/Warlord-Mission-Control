@@ -53,10 +53,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-const WARLORD_CORE_DIRECTIVE = `You are an operational intelligence agent for Warlord MCNC Base 1.
+const CORE_DIRECTIVE = `You are an operational intelligence agent for MCNC Base 1.
 Operational control, planning, and agent orchestration under Rhythm Holdings and W.A.S.P.
-Mike is supreme command.
-DIRECTORS: Tess (Quant), Silas (Database), Charlie (MQL5/Node), Roxy (UI/UX), Jack (Marketing), Skyla (Frontend), Atlas (Infrastructure), Ares (Execution), Vance (Finance), Orion (Strategic Intel), The Askari (Security), Amber (Copywriter), Jax (Artwork Omega), Valerie (Relations), Maverick (SEO), Justin (Risk Legal).
+Mike is supreme CEO. Address Mike only as "Mike".
+DIRECTORS: Tess (Quant), Silas (Database), Charlie (MQL5/Node), Roxy (UI/UX), Jack (Backend), Skyla (Media), Atlas (Infrastructure), Ares (Execution), Vance (Finance), Orion (Strategic Intel), The Askari (Security), Amber (Copywriter), Jax (Artwork Omega), Valerie (Relations), Maverick (SEO), Justin (Risk Legal).
 SOP: Full functional code only when generating code. Solid DodgerBlue, OrangeRed, Goldenrod lines only for chart indicators. Zero fluff. Zero filler.
 RHYTHM MULTIPLIER: Enforce 0.0 to 1.0 scaling on quantitative and telemetry arrays. Default 1.0.`;
 
@@ -153,7 +153,6 @@ function extractYouTubeId(urlStr) {
 function resolveReferencedFiles(rawText) {
     if (!rawText || typeof rawText !== 'string') return '';
     
-    // Match absolute paths, relative paths, or named files with extensions
     const fileRegex = /([a-zA-Z]:\\[\w\-\.\\]+\.\w+|[\w\-_\\\/]+\.(css|js|jsx|json|md|txt|py|html|mq4|mq5))/gi;
     const matches = rawText.match(fileRegex) || [];
     
@@ -268,7 +267,7 @@ const DIRECTOR_TRAITS = {
     'AMBER // COPYWRITER': 'CREATIVE',
     'ROXY // ARTWORK ALPHA': 'CREATIVE',
     'JAX // ARTWORK OMEGA': 'CREATIVE',
-    'JACK // MARKETING': 'CREATIVE',
+    'JACK // BACKEND': 'CODE',
     'VALERIE // RELATIONS': 'CREATIVE',
     'SILAS // DATABASE': 'CONTEXT',
     'MAVERICK // SEO': 'CONTEXT',
@@ -383,7 +382,7 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug, rawBody =
         userContent = [
             { 
                 type: "text", 
-                text: `[STRICT VISION INSTRUCTION]: Inspect and analyze ONLY the visual pixels contained in the attached image payload. Do not recite boilerplate doctrine colors unless they are visibly present in the image.\n\nCommander Inquiry: ${userText}` 
+                text: `[STRICT VISION INSTRUCTION]: Inspect and analyze ONLY the visual pixels contained in the attached image payload. Do not recite boilerplate doctrine colors unless they are visibly present in the image.\n\nDirective Inquiry: ${userText}` 
             },
             ...imageAttachments.map(img => ({
                 type: "image_url",
@@ -398,7 +397,7 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug, rawBody =
             'Content-Type': 'application/json', 
             'Authorization': `Bearer ${openRouterKey}`, 
             'HTTP-Referer': 'http://localhost:5173', 
-            'X-Title': 'Warlord MCNC Master' 
+            'X-Title': 'MCNC Master' 
         },
         body: JSON.stringify({ 
             model: modelSlug, 
@@ -584,7 +583,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 }
 
 // ==========================================
-// WARLORD AGENT TOOL ENGINE: FS DIRECTORY / SEARCH / READ / WRITE / STAT
+// AGENT TOOL ENGINE: FS DIRECTORY / SEARCH / READ / WRITE / STAT
 // ==========================================
 
 // 1. FS:READ (Read single file content)
@@ -622,7 +621,7 @@ app.post('/api/tools/write', async (req, res) => {
         if (!filePath) return res.status(400).json({ status: 'ERROR', message: 'filePath is required.' });
 
         if (!confirmed) {
-            return res.status(400).json({ status: 'ERROR', message: 'Action requires explicit Commander confirmation.' });
+            return res.status(400).json({ status: 'ERROR', message: 'Action requires explicit Mike authorization.' });
         }
 
         const target = path.isAbsolute(filePath) ? filePath : path.join(WORKSPACE_ROOT, filePath);
@@ -642,7 +641,7 @@ app.post('/api/tools/write', async (req, res) => {
         }
 
         fs.writeFileSync(target, content, 'utf8');
-        broadcast('TRACE', `[TOOL EXEC] File modified with Commander authorization: ${path.basename(target)}`);
+        broadcast('TRACE', `[TOOL EXEC] File modified with Mike authorization: ${path.basename(target)}`);
         res.json({ status: 'SUCCESS', message: `Successfully saved: ${path.basename(target)}`, filePath: target });
     } catch (err) {
         res.status(500).json({ status: 'ERROR', message: err.message });
@@ -902,18 +901,14 @@ app.post('/api/chat', async (req, res) => {
             directorSoul = loadSoul(baseName);
         }
         
-        let systemPrompt = liveTelemetry + "\n\n" + WARLORD_CORE_DIRECTIVE;
+        let systemPrompt = liveTelemetry + "\n\n" + CORE_DIRECTIVE;
         if (montySoul) systemPrompt += `\n\n=== CHIEF OF STAFF PROTOCOL (MONTY) ===\n${montySoul}`;
         if (mikeSoul) systemPrompt += `\n\n=== MIKE PROFILE & INNER CIRCLE ===\n${mikeSoul}`;
         if (directorSoul) systemPrompt += `\n\n=== ACTIVE DIRECTOR PROTOCOL (${targetDirector}) ===\n${directorSoul}`;
 
-        // Direct Brain Dispatch
         const { reply, modelUsed } = await dispatchToBrain(systemPrompt, req.body);
         
-        // Broadcast over WS for live trace logging
         broadcast('CHAT_COMPLETE', { reply, activeModelUsed: modelUsed });
-
-        // Immediate HTTP response straight to UI
         res.json({ status: 'SUCCESS', reply, activeModelUsed: modelUsed });
     } catch (err) {
         console.error('[CHAT ERROR]:', err.message);
@@ -1107,7 +1102,7 @@ app.post('/api/orchestrate/turn', async (req, res) => {
 
     if (targetCluster === 'judge') {
         broadcast('TRACE', `[JUDGE GATE] Evaluating PRD for Paperclip escalation...`);
-        broadcast('TRACE', `[SUCCESS] PRD Approved. Ready for Paperclip CEO (Port ${PAPERCLIP_PORT}).`);
+        broadcast('TRACE', `[SUCCESS] PRD Approved. Ready for Paperclip dispatch (Port ${PAPERCLIP_PORT}).`);
         return res.json({ status: 'APPROVED', nextAction: 'PAPERCLIP_DISPATCH' });
     }
 
@@ -1307,7 +1302,7 @@ SPECIALIZATION: ${specialization}
 INSTRUCTIONS:
 1. Strip all narrative fluff, filler words, sponsorships, and irrelevant tangents.
 2. Extract only the high-value, actionable "nuggets" (code blocks, core concepts, tactical data, quantitative metrics).
-3. Format the output in clean Warlord Master Markdown (### for headers, bullet points).
+3. Format the output in clean Master Markdown (### for headers, bullet points).
 4. Do not include introductory or concluding conversational text. Output ONLY the refined dossier content.`;
 
         const harvestPayload = { model: 'gemini-1.5-pro', prompt: sourceMaterial };
@@ -1398,6 +1393,83 @@ Your objective is to PRUNE and DISTILL the provided dossier file.
     } catch (error) {
         console.error('[PRUNE ERROR]:', error);
         res.status(500).json({ status: 'ERROR', error: error.message });
+    }
+});
+
+// ==========================================
+// TAB 03: PROJECT DEEP PURGE CONTROLLER
+// ==========================================
+app.post('/api/projects/purge', async (req, res) => {
+    try {
+        const { projectName, confirmed } = req.body;
+        if (!projectName || !projectName.trim()) {
+            return res.status(400).json({ status: 'ERROR', message: 'Project name is required.' });
+        }
+        if (!confirmed) {
+            return res.status(400).json({ status: 'ERROR', message: 'Deep purge requires explicit Mike authorization.' });
+        }
+
+        const cleanSlug = projectName.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const searchTerms = [projectName.trim().toLowerCase(), cleanSlug];
+        const deletedFiles = [];
+
+        // 1. Sweep and unlink matching files in Vault
+        if (fs.existsSync(VAULT_PATH)) {
+            const vaultFiles = fs.readdirSync(VAULT_PATH);
+            vaultFiles.forEach(file => {
+                const lower = file.toLowerCase();
+                if (searchTerms.some(term => lower.includes(term))) {
+                    try {
+                        const target = path.join(VAULT_PATH, file);
+                        fs.unlinkSync(target);
+                        deletedFiles.push(`Vault: ${file}`);
+                    } catch (e) {}
+                }
+            });
+        }
+
+        // 2. Sweep and unlink matching files in MCNC_Logs
+        if (fs.existsSync(LOGS_PATH)) {
+            const logFiles = fs.readdirSync(LOGS_PATH);
+            logFiles.forEach(file => {
+                const lower = file.toLowerCase();
+                if (searchTerms.some(term => lower.includes(term))) {
+                    try {
+                        const target = path.join(LOGS_PATH, file);
+                        fs.unlinkSync(target);
+                        deletedFiles.push(`Logs: ${file}`);
+                    } catch (e) {}
+                }
+            });
+        }
+
+        // 3. Sweep any matching project folders inside workspace
+        const candidateFolders = [
+            path.join(WORKSPACE_ROOT, 'WASP_Projects', projectName.trim()),
+            path.join(WORKSPACE_ROOT, 'MCNC', 'vault', 'Projects', projectName.trim())
+        ];
+
+        candidateFolders.forEach(folder => {
+            if (fs.existsSync(folder)) {
+                try {
+                    fs.rmSync(folder, { recursive: true, force: true });
+                    deletedFiles.push(`Directory: ${path.relative(WORKSPACE_ROOT, folder)}`);
+                } catch (e) {}
+            }
+        });
+
+        logTelemetry('PROJECT_PURGED', `Deep purged project "${projectName}". Total assets unlinked: ${deletedFiles.length}`);
+        broadcast('TRACE', `[PURGE EXEC] Project "${projectName}" swept from disk (${deletedFiles.length} items removed).`);
+
+        res.json({
+            status: 'SUCCESS',
+            projectName,
+            purgedCount: deletedFiles.length,
+            purgedItems: deletedFiles
+        });
+    } catch (err) {
+        console.error('[PROJECT PURGE ERROR]:', err.message);
+        res.status(500).json({ status: 'ERROR', message: err.message });
     }
 });
 

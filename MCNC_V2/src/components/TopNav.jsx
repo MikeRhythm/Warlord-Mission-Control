@@ -23,7 +23,7 @@ export default function TopNav({ activeTab, onSelectTab }) {
       {/* Telemetry Bar */}
       <div className="flex items-center justify-between px-3 py-1 border-b border-[#14171c] text-[10px] font-mono">
         <div className="flex items-center gap-2">
-          <span className="text-[#DAA520] font-bold tracking-wider">WARLORD MISSION CONTROL</span>
+          <span className="text-[#DAA520] font-bold tracking-wider">BASE 1 MISSION CONTROL</span>
           <span className="text-[#8fa0b5]">//</span>
           <span className="text-gray-300 font-bold">MCNC MASTER</span>
         </div>

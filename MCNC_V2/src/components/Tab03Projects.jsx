@@ -1,325 +1,462 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FolderGit2, CheckCircle2, Clock, PlayCircle, Archive, Trash2, 
-  ExternalLink, Layers, ArrowUpDown, Filter, ChevronRight, Terminal, RefreshCw
-} from 'lucide-react';
-import './Tab03Projects.css';
+import NewProjectModal from './NewProjectModal';
 
-const DEFAULT_PROJECT_MANIFESTS = [
+const DEFAULT_SEED_PROJECTS = [
   {
+    id: '01',
     name: 'MAKING MONEY IDEAS',
-    totalTasks: 18,
     status: 'COMPLETED',
-    dispatchedAt: '2026-09-27T10:14:00.000Z',
-    tasks: Array.from({ length: 18 }, (_, i) => ({
-      id: `TASK-MMI-${i + 1}`,
-      project: 'MAKING MONEY IDEAS',
-      title: `Execution Node Pipeline Step ${i + 1}`,
-      assignedDirector: 'MONTY // COMMAND',
-      toolId: 'daemon_runner',
-      status: 'COMPLETED',
-      stage: 'STAGE 14',
-      timestamp: '2026-09-27T12:00:00.000Z'
-    }))
-  },
-  {
-    name: 'ZAMBEZI SAFARI',
-    totalTasks: 3,
-    status: 'ACTIVE',
-    dispatchedAt: '2026-09-28T18:30:00.000Z',
-    tasks: [
-      { 
-        id: 'TASK-ZAM-1', 
-        project: 'ZAMBEZI SAFARI', 
-        title: 'Landing Page Viewport Staging', 
-        assignedDirector: 'ROXY // ARTWORK ALPHA', 
-        toolId: 'ui_inspector', 
-        status: 'COMPLETED', 
-        stage: 'STAGE 09', 
-        timestamp: '2026-09-28T18:30:00.000Z' 
-      },
-      { 
-        id: 'TASK-ZAM-2', 
-        project: 'ZAMBEZI SAFARI', 
-        title: 'Private Charter Dossier & Copy Deck', 
-        assignedDirector: 'AMBER // COPYWRITER', 
-        toolId: 'copy_generator', 
-        status: 'COMPLETED', 
-        stage: 'STAGING', 
-        timestamp: '2026-09-28T18:35:00.000Z' 
-      },
-      { 
-        id: 'TASK-ZAM-3', 
-        project: 'ZAMBEZI SAFARI', 
-        title: 'Lake Malawi & Zambezi Concession Sync', 
-        assignedDirector: 'ATLAS // INFRASTRUCTURE', 
-        toolId: 'booking_sync', 
-        status: 'BUILDING', 
-        stage: 'AGENT BUILD', 
-        timestamp: '2026-09-28T19:00:00.000Z' 
-      }
+    description: 'PRD Executed. Task sequence handed off to Paperclip daemon.',
+    progress: 100,
+    tasksDone: 18,
+    tasksTotal: 18,
+    agent: 'MONTY // CHIEF OF STAFF',
+    dispatched: '12:14:00 PM',
+    industry: 'Corporate Strategy',
+    stakeholder: 'Mike',
+    dominantMetric: 'Speed to Market',
+    palette: [
+      { id: '1', role: 'PRIMARY', hex: '#C5BD9F' },
+      { id: '2', role: 'ACCENT', hex: '#ffb800' },
+      { id: '3', role: 'CANVAS BG', hex: '#080a0c' }
     ]
   }
 ];
 
-export default function Tab03Projects({ ws }) {
-  const [manifests, setManifests] = useState(() => {
+export default function Tab03Projects({ onNavigateToWarRoom }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filter, setFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+
+  // Initialize strictly from localStorage to avoid resurrecting deleted projects
+  const [projects, setProjects] = useState(() => {
     try {
-      const stored = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
-      if (!stored) {
-        localStorage.setItem('MCNC_ACTIVE_PROJECT_MANIFESTS', JSON.stringify(DEFAULT_PROJECT_MANIFESTS));
-        return DEFAULT_PROJECT_MANIFESTS;
+      const saved = localStorage.getItem('MCNC_PROJECT_MANIFESTS');
+      if (saved !== null) {
+        return JSON.parse(saved);
       }
-      
-      let parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        localStorage.setItem('MCNC_ACTIVE_PROJECT_MANIFESTS', JSON.stringify(DEFAULT_PROJECT_MANIFESTS));
-        return DEFAULT_PROJECT_MANIFESTS;
-      }
-
-      // Auto-heal empty task manifests (e.g. ZAMBEZI SAFARI with 0/0 tasks)
-      let stateModified = false;
-      const healed = parsed.map(p => {
-        if (p.name === 'ZAMBEZI SAFARI' && (!p.tasks || p.tasks.length === 0)) {
-          stateModified = true;
-          return {
-            ...p,
-            totalTasks: 3,
-            status: 'ACTIVE',
-            tasks: DEFAULT_PROJECT_MANIFESTS[1].tasks
-          };
-        }
-        return p;
-      });
-
-      // Ensure ZAMBEZI SAFARI exists in the manifest board if missing
-      if (!healed.some(p => p.name === 'ZAMBEZI SAFARI')) {
-        healed.push(DEFAULT_PROJECT_MANIFESTS[1]);
-        stateModified = true;
-      }
-
-      if (stateModified) {
-        localStorage.setItem('MCNC_ACTIVE_PROJECT_MANIFESTS', JSON.stringify(healed));
-      }
-      return healed;
     } catch (e) {
-      return DEFAULT_PROJECT_MANIFESTS;
+      console.error('Error loading MCNC_PROJECT_MANIFESTS:', e);
     }
+    return DEFAULT_SEED_PROJECTS;
   });
 
-  const [activeFilter, setActiveFilter] = useState('ALL');
-  const [selectedProjectName, setSelectedProjectName] = useState('ALL');
+  const persistProjects = (updatedList) => {
+    setProjects(updatedList);
+    localStorage.setItem('MCNC_PROJECT_MANIFESTS', JSON.stringify(updatedList));
+  };
 
-  useEffect(() => {
-    const handleStorage = () => {
-      try {
-        const stored = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
-        if (stored) {
-          setManifests(JSON.parse(stored));
-        }
-      } catch (e) {}
+  // Toggle Archive / Restore
+  const handleToggleArchive = (id, e) => {
+    e.stopPropagation();
+    const updated = projects.map((p) => {
+      if (p.id === id) {
+        const nextStatus = p.status === 'ARCHIVED' ? (p.progress === 100 ? 'COMPLETED' : 'ACTIVE') : 'ARCHIVED';
+        return { ...p, status: nextStatus };
+      }
+      return p;
+    });
+    persistProjects(updated);
+  };
+
+  // Permanent Hard Purge / Delete
+  const handlePermanentDelete = (id, name, e) => {
+    e.stopPropagation();
+    const confirmDelete = window.confirm(`PERMANENT PURGE: Are you sure you want to completely erase [${name}] from the MCNC Manifest?`);
+    if (confirmDelete) {
+      const updated = projects.filter((p) => p.id !== id);
+      persistProjects(updated);
+      if (selectedProjectId === id) setSelectedProjectId(null);
+    }
+  };
+
+  // Register New Project from Modal
+  const handleSaveProject = (formData) => {
+    const nextNumeric = projects.length > 0 
+      ? Math.max(...projects.map(p => parseInt(p.id, 10) || 0)) + 1 
+      : 1;
+    const nextId = String(nextNumeric).padStart(2, '0');
+
+    const newProject = {
+      id: nextId,
+      name: formData.name.toUpperCase() || `NEW PROJECT [${nextId}]`,
+      status: 'ACTIVE',
+      description: formData.objective || 'Discovery completed. Staged for PRD compilation.',
+      progress: 0,
+      tasksDone: 0,
+      tasksTotal: formData.toolStack ? formData.toolStack.length : 4,
+      agent: 'MONTY // CHIEF OF STAFF',
+      dispatched: new Date().toLocaleTimeString(),
+      industry: formData.industry,
+      stakeholder: formData.stakeholder,
+      contactEmail: formData.contactEmail,
+      webStatus: formData.webStatus,
+      webUrl: formData.webUrl,
+      selectedSocials: formData.selectedSocials,
+      dominantMetric: formData.dominantMetric,
+      definitionOfDone: formData.definitionOfDone,
+      forbiddenVectors: formData.forbiddenVectors,
+      palette: formData.palette,
+      uploadedFiles: formData.uploadedFiles || []
     };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
 
-  const totalIngested = manifests.length;
-  const activePipelines = manifests.filter(m => m.status === 'ACTIVE').length;
-  const shippedPipelines = manifests.filter(m => m.status === 'COMPLETED').length;
+    persistProjects([newProject, ...projects]);
+    setIsModalOpen(false);
+  };
 
-  const filteredManifests = manifests.filter(m => {
-    if (selectedProjectName !== 'ALL' && m.name !== selectedProjectName) return false;
-    if (activeFilter === 'ACTIVE') return m.status === 'ACTIVE';
-    if (activeFilter === 'COMPLETED') return m.status === 'COMPLETED';
+  // Direct Handoff to War Room
+  const handlePushToWarRoom = (formData, warRoomPayload) => {
+    handleSaveProject(formData);
+    if (onNavigateToWarRoom) {
+      onNavigateToWarRoom(warRoomPayload);
+    }
+  };
+
+  // Metric Counts
+  const totalIngested = projects.length;
+  const activePipelines = projects.filter((p) => p.status === 'ACTIVE').length;
+  const completedCount = projects.filter((p) => p.status === 'COMPLETED').length;
+  const archivedCount = projects.filter((p) => p.status === 'ARCHIVED').length;
+
+  const displayedProjects = projects.filter((p) => {
+    if (selectedProjectId) return p.id === selectedProjectId;
+    if (filter === 'ACTIVE') return p.status === 'ACTIVE';
+    if (filter === 'COMPLETED') return p.status === 'COMPLETED';
+    if (filter === 'ARCHIVED') return p.status === 'ARCHIVED';
     return true;
   });
 
-  const handleDelete = (name) => {
-    const updated = manifests.filter(m => m.name !== name);
-    setManifests(updated);
-    localStorage.setItem('MCNC_ACTIVE_PROJECT_MANIFESTS', JSON.stringify(updated));
-    if (selectedProjectName === name) setSelectedProjectName('ALL');
-  };
-
   return (
-    <div className="flex h-full w-full bg-[#080a0c] text-xs font-mono select-none p-2 gap-2 overflow-hidden">
-      
-      {/* LEFT COLUMN: ACTIVE PROJECTS DIRECTORY */}
-      <div className="w-80 flex flex-col gap-2 overflow-hidden flex-shrink-0">
-        <div className="border border-[#1f242d] rounded bg-[#0d0f12] p-2.5 flex-1 flex flex-col overflow-hidden">
-          <div className="flex justify-between items-center mb-2 pb-1.5 border-b border-[#1f242d]">
-            <span className="text-[#ffb800] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-              <FolderGit2 className="w-3.5 h-3.5 text-[#ffb800]" />
-              ACTIVE PROJECTS
-            </span>
-            <span className="text-[9px] text-[#38bdf8] border border-[#38bdf8]/40 px-1.5 py-0.5 rounded font-bold">
-              {manifests.length} REG
-            </span>
+    <div style={{
+      display: 'flex',
+      width: '100%',
+      height: 'calc(100vh - 80px)',
+      backgroundColor: '#080a0c',
+      color: '#fff',
+      fontFamily: 'monospace',
+      overflow: 'hidden'
+    }}>
+      {/* LEFT SIDEBAR: DIRECTORY */}
+      <div style={{
+        width: '260px',
+        minWidth: '260px',
+        backgroundColor: '#0a0d10',
+        borderRight: '1px solid #1f242d',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        {/* Sidebar Header */}
+        <div style={{
+          padding: '16px',
+          borderBottom: '1px solid #1f242d',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '11px', letterSpacing: '0.05em' }}>
+            📁 PROJECT DIRECTORY
+          </span>
+          <span style={{
+            fontSize: '10px',
+            backgroundColor: 'rgba(255, 184, 0, 0.1)',
+            border: '1px solid #ffb800',
+            color: '#ffb800',
+            padding: '2px 6px',
+            borderRadius: '2px'
+          }}>
+            {projects.length} REG
+          </span>
+        </div>
+
+        {/* Action Button: Modal Trigger */}
+        <div style={{ padding: '12px', borderBottom: '1px solid #1f242d' }}>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              width: '100%',
+              padding: '10px 8px',
+              backgroundColor: 'rgba(255, 184, 0, 0.12)',
+              border: '1px solid #ffb800',
+              color: '#ffb800',
+              fontWeight: 'bold',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}>
+            + NEW PROJECT INTAKE
+          </button>
+        </div>
+
+        {/* Sidebar Project Manifest List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+          <div
+            onClick={() => setSelectedProjectId(null)}
+            style={{
+              padding: '10px',
+              border: selectedProjectId === null ? '1px solid #ffb800' : '1px solid #1f242d',
+              backgroundColor: selectedProjectId === null ? '#14171c' : '#080a0c',
+              color: selectedProjectId === null ? '#ffb800' : '#C5BD9F',
+              fontSize: '11px',
+              marginBottom: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+            <span>[00] VIEW ALL MANIFESTS</span>
+            <span>›</span>
           </div>
 
-          <div className="space-y-1.5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+          {projects.map((proj) => (
             <div
-              onClick={() => setSelectedProjectName('ALL')}
-              className={`p-2.5 rounded border transition-all cursor-pointer flex items-center justify-between ${
-                selectedProjectName === 'ALL'
-                  ? 'bg-[#14171c] border-[#ffb800] text-[#ffb800] font-bold shadow-[0_0_8px_rgba(255,184,0,0.15)]'
-                  : 'bg-[#0a0c0e] border-[#1f242d] text-[#8fa0b5] hover:border-gray-600'
-              }`}
-            >
-              <span>[00] VIEW ALL MANIFESTS</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              key={proj.id}
+              onClick={() => setSelectedProjectId(proj.id)}
+              style={{
+                padding: '10px',
+                border: selectedProjectId === proj.id ? '1px solid #ffb800' : '1px solid #1f242d',
+                backgroundColor: selectedProjectId === proj.id ? '#14171c' : '#080a0c',
+                marginBottom: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+              <span style={{
+                color: selectedProjectId === proj.id ? '#ffb800' : '#fff',
+                fontSize: '11px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '125px'
+              }}>
+                [{proj.id}] {proj.name}
+              </span>
+              <span style={{
+                fontSize: '9px',
+                padding: '2px 5px',
+                border: `1px solid ${
+                  proj.status === 'COMPLETED' ? '#10b981' : 
+                  proj.status === 'ARCHIVED' ? '#64748b' : '#38bdf8'
+                }`,
+                color: 
+                  proj.status === 'COMPLETED' ? '#10b981' : 
+                  proj.status === 'ARCHIVED' ? '#64748b' : '#38bdf8'
+              }}>
+                {proj.status}
+              </span>
             </div>
+          ))}
+        </div>
+      </div>
 
-            {manifests.map((m, idx) => {
-              const isSelected = selectedProjectName === m.name;
+      {/* RIGHT MAIN PANEL: MANIFEST BOARD */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        
+        {/* Top Control Bar */}
+        <div style={{
+          padding: '16px 24px',
+          borderBottom: '1px solid #1f242d',
+          backgroundColor: '#0a0d10',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>
+            ❖ 03 PROJECTS // PORTFOLIO MANIFEST BOARD
+          </div>
+
+          {/* Filter Pills */}
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {['ALL', 'ACTIVE', 'COMPLETED', 'ARCHIVED'].map((f) => (
+              <button
+                key={f}
+                onClick={() => { setFilter(f); setSelectedProjectId(null); }}
+                style={{
+                  padding: '4px 12px',
+                  backgroundColor: filter === f && !selectedProjectId ? '#ffb800' : '#080a0c',
+                  border: filter === f && !selectedProjectId ? '1px solid #ffb800' : '1px solid #1f242d',
+                  color: filter === f && !selectedProjectId ? '#080a0c' : '#94a3b8',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  fontFamily: 'monospace',
+                  cursor: 'pointer'
+                }}>
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Metric Rack */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '12px',
+          padding: '20px 24px',
+          borderBottom: '1px solid #1f242d'
+        }}>
+          {[
+            { label: 'TOTAL INGESTED', val: totalIngested, col: '#fff' },
+            { label: 'ACTIVE PIPELINES', val: activePipelines, col: '#38bdf8' },
+            { label: '100% SHIPPED', val: completedCount, col: '#10b981' },
+            { label: 'ARCHIVED', val: archivedCount, col: '#94a3b8' }
+          ].map((stat, idx) => (
+            <div key={idx} style={{
+              backgroundColor: '#0d0f12',
+              border: '1px solid #1f242d',
+              padding: '16px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: stat.col, marginBottom: '4px' }}>
+                {stat.val}
+              </div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', letterSpacing: '0.05em' }}>
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Project Cards Feed */}
+        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {displayedProjects.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', border: '1px dashed #1f242d' }}>
+              NO PROJECT MANIFESTS MATCHING CURRENT CRITERIA.
+            </div>
+          ) : (
+            displayedProjects.map((proj) => {
+              const isDone = proj.status === 'COMPLETED';
+              const isArchived = proj.status === 'ARCHIVED';
+              const strokeColor = isDone ? '#10b981' : isArchived ? '#64748b' : '#38bdf8';
+
               return (
-                <div
-                  key={m.name}
-                  onClick={() => setSelectedProjectName(m.name)}
-                  className={`p-2.5 rounded border transition-all cursor-pointer flex items-center justify-between ${
-                    isSelected
-                      ? 'bg-[#14171c] border-[#ffb800] text-white shadow-[0_0_8px_rgba(255,184,0,0.15)]'
-                      : 'bg-[#0a0c0e] border-[#1f242d] text-[#8fa0b5] hover:border-gray-600'
-                  }`}
-                >
-                  <span className={`text-[10px] font-bold truncate max-w-[190px] ${isSelected ? 'text-[#ffb800]' : 'text-gray-300'}`}>
-                    [{String(idx + 1).padStart(2, '0')}] {m.name}
-                  </span>
-                  <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border ${
-                    m.status === 'COMPLETED'
-                      ? 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/40'
-                      : 'bg-[#38bdf8]/10 text-[#38bdf8] border-[#38bdf8]/40'
-                  }`}>
-                    {m.status}
-                  </span>
+                <div key={proj.id} style={{
+                  backgroundColor: '#0d0f12',
+                  border: '1px solid #1f242d',
+                  borderRadius: '2px',
+                  padding: '20px',
+                  opacity: isArchived ? 0.65 : 1
+                }}>
+                  {/* Card Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>
+                          {proj.name}
+                        </span>
+                        {proj.industry && (
+                          <span style={{ fontSize: '9px', padding: '2px 6px', backgroundColor: '#14171c', color: '#C5BD9F', border: '1px solid #1f242d' }}>
+                            {proj.industry}
+                          </span>
+                        )}
+                        {proj.dominantMetric && (
+                          <span style={{ fontSize: '9px', padding: '2px 6px', backgroundColor: 'rgba(255, 184, 0, 0.1)', color: '#ffb800', border: '1px solid rgba(255, 184, 0, 0.3)' }}>
+                            {proj.dominantMetric}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>
+                        {proj.description}
+                      </div>
+                    </div>
+
+                    {/* Controls: Status Badge + Archive Toggle + Delete Purge */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '3px 8px',
+                        fontWeight: 'bold',
+                        border: `1px solid ${strokeColor}`,
+                        color: strokeColor,
+                        backgroundColor: 'rgba(0,0,0,0.3)'
+                      }}>
+                        {proj.status}
+                      </span>
+
+                      {/* Archive / Restore Button */}
+                      <button
+                        onClick={(e) => handleToggleArchive(proj.id, e)}
+                        title={isArchived ? "Restore to Active" : "Archive Manifest"}
+                        style={{
+                          background: isArchived ? 'rgba(56, 189, 248, 0.15)' : '#14171c',
+                          border: `1px solid ${isArchived ? '#38bdf8' : '#1f242d'}`,
+                          color: isArchived ? '#38bdf8' : '#94a3b8',
+                          cursor: 'pointer',
+                          padding: '3px 6px',
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}>
+                        📦
+                      </button>
+
+                      {/* Hard Purge / Delete Button */}
+                      <button
+                        onClick={(e) => handlePermanentDelete(proj.id, proj.name, e)}
+                        title="Permanent Delete Manifest"
+                        style={{
+                          background: '#14171c',
+                          border: '1px solid #1f242d',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          padding: '3px 6px',
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}>
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Progress Stats */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: strokeColor, marginBottom: '8px' }}>
+                    <span>{isDone ? '⊙ 100% COMPLETED' : `⊙ ${proj.progress}% COMPLETED`}</span>
+                    <span>{proj.tasksDone} / {proj.tasksTotal} TASKS</span>
+                  </div>
+
+                  {/* Progress Bar Track */}
+                  <div style={{ width: '100%', height: '3px', backgroundColor: '#14171c', marginBottom: '14px' }}>
+                    <div style={{
+                      width: `${proj.progress}%`,
+                      height: '100%',
+                      backgroundColor: strokeColor,
+                      transition: 'width 0.4s ease'
+                    }} />
+                  </div>
+
+                  {/* Footer Meta Details */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '10px',
+                    color: '#94a3b8',
+                    borderTop: '1px solid #14171c',
+                    paddingTop: '10px'
+                  }}>
+                    <div>{proj.agent}</div>
+                    <div>DISPATCHED: {proj.dispatched}</div>
+                  </div>
                 </div>
               );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT COLUMN: MANIFEST TILES & PROGRESS DECK */}
-      <div className="flex-1 flex flex-col border border-[#1f242d] rounded bg-[#0d0f12] overflow-hidden">
-        
-        {/* HEADER TOOLBAR */}
-        <div className="p-2.5 bg-[#0a0c0e] border-b border-[#1f242d] flex justify-between items-center select-none">
-          <div className="flex items-center gap-2">
-            <Layers className="w-3.5 h-3.5 text-[#ffb800]" />
-            <span className="text-[#ffb800] font-bold text-[11px] uppercase tracking-wider">
-              03 PROJECTS // {selectedProjectName === 'ALL' ? 'PORTFOLIO MANIFEST BOARD' : selectedProjectName}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex bg-[#14171c] border border-[#1f242d] rounded p-0.5 gap-0.5">
-              {['ALL', 'ACTIVE', 'COMPLETED'].map(f => (
-                <button
-                  key={f}
-                  onClick={() => setActiveFilter(f)}
-                  className={`px-2 py-0.5 rounded text-[9px] font-bold transition-colors cursor-pointer ${
-                    activeFilter === f ? 'bg-[#ffb800] text-black' : 'text-[#8fa0b5] hover:text-white'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* TELEMETRY TOP BAR */}
-        <div className="grid grid-cols-4 gap-2 p-3 border-b border-[#1f242d] bg-[#0a0c0e]">
-          <div className="bg-[#0d0f12] border border-[#1f242d] rounded p-3 text-center">
-            <div className="text-xl font-bold text-white font-mono">{totalIngested}</div>
-            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-1">TOTAL INGESTED</div>
-          </div>
-          <div className="bg-[#0d0f12] border border-[#1f242d] rounded p-3 text-center">
-            <div className="text-xl font-bold text-[#38bdf8] font-mono">{activePipelines}</div>
-            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-1">ACTIVE PIPELINES</div>
-          </div>
-          <div className="bg-[#0d0f12] border border-[#1f242d] rounded p-3 text-center">
-            <div className="text-xl font-bold text-[#10b981] font-mono">{shippedPipelines}</div>
-            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-1">100% SHIPPED</div>
-          </div>
-          <div className="bg-[#0d0f12] border border-[#1f242d] rounded p-3 text-center">
-            <div className="text-xl font-bold text-[#ffb800] font-mono">0</div>
-            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-1">ARCHIVED</div>
-          </div>
-        </div>
-
-        {/* PROJECT MANIFEST CARDS */}
-        <div className="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
-          {filteredManifests.map(m => {
-            const completedCount = m.tasks ? m.tasks.filter(t => t.status === 'COMPLETED').length : 0;
-            const totalCount = m.totalTasks || (m.tasks ? m.tasks.length : 0);
-            const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
-            return (
-              <div 
-                key={m.name} 
-                className="border border-[#1f242d] rounded bg-[#0a0c0e] p-4 flex flex-col gap-3 hover:border-gray-600 transition-colors"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-sm font-bold text-[#ffb800] tracking-wide">{m.name}</h3>
-                    <p className="text-[10px] text-[#8fa0b5] mt-0.5">
-                      Warlord PRD Executed. Task sequence handed off to Paperclip daemon.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase border ${
-                      m.status === 'COMPLETED'
-                        ? 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/40'
-                        : 'bg-[#38bdf8]/10 text-[#38bdf8] border-[#38bdf8]/40'
-                    }`}>
-                      {m.status}
-                    </span>
-                    <button 
-                      onClick={() => handleDelete(m.name)}
-                      className="p-1 rounded bg-[#1f242d]/50 hover:bg-[#ef4444]/20 text-[#8fa0b5] hover:text-[#ef4444] transition-colors cursor-pointer"
-                      title="Delete Manifest"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* PROGRESS BAR */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-[#10b981] flex items-center gap-1 font-bold">
-                      <CheckCircle2 className="w-3 h-3 text-[#10b981]" />
-                      {progress}% COMPLETED
-                    </span>
-                    <span className="text-[#8fa0b5]">{completedCount} / {totalCount} TASKS</span>
-                  </div>
-                  <div className="w-full bg-[#14171c] h-1.5 rounded-full overflow-hidden border border-[#1f242d]">
-                    <div 
-                      className={`h-full transition-all duration-500 ${
-                        progress === 100 ? 'bg-[#10b981]' : 'bg-[#38bdf8]'
-                      }`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* FOOTER PILL CONTROLS */}
-                <div className="flex justify-between items-center pt-2 border-t border-[#1f242d]/60 select-none">
-                  <span className="text-[9px] text-[#5c6b7f] font-mono">
-                    M MONTY // COMMAND
-                  </span>
-                  <div className="text-[9px] text-[#8fa0b5] font-mono">
-                    DISPATCHED: {new Date(m.dispatchedAt).toLocaleTimeString()}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+            })
+          )}
         </div>
 
       </div>
 
+      {/* NEW PROJECT INTAKE MODAL */}
+      <NewProjectModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSaveProject={handleSaveProject}
+        onPushToWarRoom={handlePushToWarRoom}
+      />
     </div>
   );
 }

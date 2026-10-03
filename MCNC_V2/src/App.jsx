@@ -98,15 +98,15 @@ export default function App() {
   }, []);
 
   return (
-    <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       
       {/* GLOBAL MASTER HEADER */}
-      <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.85)', flexShrink: 0 }}>
-        <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: '0.9rem' }}>
-          <span>WARLORD MISSION CONTROL // MCNC MASTER</span>
+      <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(6px, 0.6vw, 10px) clamp(10px, 1vw, 16px)', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.85)', flexShrink: 0 }}>
+        <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: 'var(--fs-title)' }}>
+          <span>MISSION CONTROL // MCNC MASTER</span>
         </div>
 
-        <div className="system-status" style={{ display: 'flex', alignItems: 'center', gap: '16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--text-mist)' }}>
+        <div className="system-status" style={{ display: 'flex', alignItems: 'center', gap: '14px', fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--fs-meta)', color: 'var(--text-mist)' }}>
           {/* NON-BLOCKING TELEMETRY PILL */}
           {isSystemBusy && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.4)', padding: '2px 8px', borderRadius: '4px', color: '#38bdf8' }}>
@@ -116,22 +116,23 @@ export default function App() {
           )}
 
           <div>
-            BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core)' : 'var(--ruby-core)', fontWeight: 'bold' }}>{wsStatus} (BASE 1)</span> | FRAMEWORK: REACT VITE
+            BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core)' : 'var(--ruby-core)', fontWeight: 'bold' }}>{wsStatus}</span> | FRAMEWORK: REACT VITE
           </div>
         </div>
       </header>
 
-      {/* AUTO-FITTING 14-TAB NAVIGATION BAR */}
+      {/* AUTO-FITTING 14-TAB NAVIGATION BAR (METAL CHAMPAGNE, PROPORTIONED TO TASK BOARD) */}
       <nav className="tab-navigation" style={{ 
         display: 'flex', 
         alignItems: 'stretch', 
-        gap: '4px', 
-        padding: '8px 12px', 
-        background: 'rgba(0,0,0,0.7)', 
+        gap: '1.5px', 
+        padding: '3px 4px', 
+        background: 'rgba(0, 0, 0, 0.85)', 
         borderBottom: '1px solid var(--wire-border)',
         flexShrink: 0,
         boxSizing: 'border-box',
-        width: '100%'
+        width: '100%',
+        overflow: 'hidden'
       }}>
         {TABS.map(tab => {
           const isWarRoomActive = tab === '02 WAR ROOM' && isSystemBusy;
@@ -143,25 +144,28 @@ export default function App() {
               className={`btn-glass-nav ${isSelected ? 'active' : ''}`}
               onClick={() => setActiveTab(tab)}
               style={{
-                flex: 1,
+                flex: '1 1 0px',
                 minWidth: 0,
-                color: isSelected ? 'var(--gold-core)' : isWarRoomActive ? '#38bdf8' : '#EEDD82',
-                padding: '9px 4px',
+                height: 'var(--nav-btn-h)',
+                color: isSelected ? 'var(--gold-core)' : isWarRoomActive ? '#38bdf8' : '#C5BD9F',
+                padding: '0 1px',
                 fontFamily: "'JetBrains Mono', monospace",
-                fontSize: '0.68rem',
+                fontSize: 'clamp(0.74rem, 0.82vw, 0.94rem)',
+                letterSpacing: '0.01em',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
+                textOverflow: 'clip',
                 overflow: 'hidden',
                 textTransform: 'uppercase',
-                fontWeight: isSelected ? 'bold' : 'normal',
+                fontWeight: isSelected ? '700' : '600',
                 textAlign: 'center',
                 boxSizing: 'border-box',
                 position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '6px'
+                gap: '4px',
+                transition: 'color 0.15s ease, border-color 0.15s ease'
               }}
             >
               {/* NON-BLOCKING SPINNER DOT ON TAB 02 WHEN EXECUTING */}
@@ -169,11 +173,11 @@ export default function App() {
                 <span 
                   style={{
                     display: 'inline-block',
-                    width: '6px',
-                    height: '6px',
+                    width: '5px',
+                    height: '5px',
                     borderRadius: '50%',
                     backgroundColor: '#38bdf8',
-                    boxShadow: '0 0 8px #38bdf8',
+                    boxShadow: '0 0 6px #38bdf8',
                     animation: 'pulse 1s infinite'
                   }} 
                 />

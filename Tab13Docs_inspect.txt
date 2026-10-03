@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿﻿import React, { useState, useEffect } from 'react';
 import { 
   RefreshCw, 
   Search, 
@@ -8,11 +8,7 @@ import {
   Save, 
   X, 
   Loader2, 
-  FileText,
-  Copy,
-  Mic,
-  Send,
-  Calendar
+  FileText 
 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 
@@ -31,7 +27,6 @@ export default function Tab13Docs({ ws }) {
   const [editedNiche, setEditedNiche] = useState('');
   const [editedContent, setEditedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [copiedDoc, setCopiedDoc] = useState(false);
 
   // Modal / New Doc States
   const [showNewDocModal, setShowNewDocModal] = useState(false);
@@ -39,16 +34,6 @@ export default function Tab13Docs({ ws }) {
   const [newDomain, setNewDomain] = useState('');
   const [newNiche, setNewNiche] = useState('');
   const [newContent, setNewContent] = useState('');
-  const [isModalRecording, setIsModalRecording] = useState(false);
-
-  // To-Do Prompter States
-  const [todoInput, setTodoInput] = useState('');
-  const [isTodoRecording, setIsTodoRecording] = useState(false);
-  const [isAddingTodo, setIsAddingTodo] = useState(false);
-
-  // Speech Recognition Refs
-  const modalRecognitionRef = useRef(null);
-  const todoRecognitionRef = useRef(null);
 
   // Fetch all Vault markdown files from Base 1 daemon
   const fetchDocs = async () => {
@@ -83,6 +68,7 @@ export default function Tab13Docs({ ws }) {
   useEffect(() => {
     fetchDocs();
 
+    // Listen for the custom event from Tab 12 Review
     const handleExternalPush = () => {
       console.log("External push detected. Refreshing vault...");
       fetchDocs();
@@ -91,8 +77,6 @@ export default function Tab13Docs({ ws }) {
     window.addEventListener('MCNC_PUSH_TO_DOCS', handleExternalPush);
     return () => {
       window.removeEventListener('MCNC_PUSH_TO_DOCS', handleExternalPush);
-      if (modalRecognitionRef.current) modalRecognitionRef.current.abort();
-      if (todoRecognitionRef.current) todoRecognitionRef.current.abort();
     };
   }, []);
 
@@ -103,13 +87,6 @@ export default function Tab13Docs({ ws }) {
     setEditedDomain(doc.domain || '');
     setEditedNiche(doc.niche || '');
     setEditedContent(doc.content || '');
-  };
-
-  const handleCopyDocContent = () => {
-    if (!selectedDoc || !selectedDoc.content) return;
-    navigator.clipboard.writeText(selectedDoc.content);
-    setCopiedDoc(true);
-    setTimeout(() => setCopiedDoc(false), 2000);
   };
 
   // Commit updates to existing document
@@ -141,7 +118,7 @@ export default function Tab13Docs({ ws }) {
 
   // Create new dossier in the Obsidian Vault
   const handleCreateNewDoc = async (e) => {
-    if (e) e.preventDefault();
+    e.preventDefault();
     if (!newTitle.trim()) return;
     setIsSaving(true);
     try {
@@ -163,8 +140,6 @@ export default function Tab13Docs({ ws }) {
         setNewDomain('');
         setNewNiche('');
         setNewContent('');
-        if (modalRecognitionRef.current) modalRecognitionRef.current.abort();
-        setIsModalRecording(false);
         await fetchDocs();
       }
     } catch (err) {
@@ -173,153 +148,6 @@ export default function Tab13Docs({ ws }) {
       setIsSaving(false);
     }
   };
-
-  // Speech Recognition for New Doc Modal
-  const toggleModalMic = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Speech Recognition not supported in this browser.');
-      return;
-    }
-
-    if (isModalRecording) {
-      if (modalRecognitionRef.current) modalRecognitionRef.current.stop();
-      setIsModalRecording(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          setNewContent((prev) => {
-            const spacer = prev && !prev.endsWith(' ') && !prev.endsWith('\n') ? ' ' : '';
-            return prev + spacer + event.results[i][0].transcript;
-          });
-        }
-      }
-    };
-
-    recognition.onerror = () => setIsModalRecording(false);
-    recognition.onend = () => setIsModalRecording(false);
-
-    modalRecognitionRef.current = recognition;
-    recognition.start();
-    setIsModalRecording(true);
-  };
-
-  // Speech Recognition for To-Do Quick Prompter
-  const toggleTodoMic = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Speech Recognition not supported in this browser.');
-      return;
-    }
-
-    if (isTodoRecording) {
-      if (todoRecognitionRef.current) todoRecognitionRef.current.stop();
-      setIsTodoRecording(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          setTodoInput((prev) => {
-            const spacer = prev && !prev.endsWith(' ') ? ' ' : '';
-            return prev + spacer + event.results[i][0].transcript;
-          });
-        }
-      }
-    };
-
-    recognition.onerror = () => setIsTodoRecording(false);
-    recognition.onend = () => setIsTodoRecording(false);
-
-    todoRecognitionRef.current = recognition;
-    recognition.start();
-    setIsTodoRecording(true);
-  };
-
-  // Formatted date string generator (e.g. "03 Oct 2026")
-  const getTodayDateHeading = () => {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = now.toLocaleString('en-US', { month: 'short' });
-    const year = now.getFullYear();
-    return `${day} ${month} ${year}`;
-  };
-
-  // Add Item to WASP_ToDo_List with Automatic Date Header
-  const handleAddTodoItem = async () => {
-    if (!todoInput.trim() || !selectedDoc) return;
-    setIsAddingTodo(true);
-
-    const todayHeading = getTodayDateHeading();
-    let currentBody = selectedDoc.content || '';
-    const cleanItem = todoInput.trim().replace(/^[•\-\*]\s*/, '');
-    const formattedBullet = `• ${cleanItem}`;
-
-    let updatedContent = '';
-    if (currentBody.includes(todayHeading)) {
-      // Heading exists: append bullet under today's block
-      const dateIndex = currentBody.indexOf(todayHeading);
-      const afterDate = currentBody.slice(dateIndex);
-      const nextDateMatch = afterDate.slice(todayHeading.length).search(/\n\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i);
-
-      if (nextDateMatch !== -1) {
-        const insertPos = dateIndex + todayHeading.length + nextDateMatch;
-        updatedContent = currentBody.slice(0, insertPos).trimEnd() + '\n' + formattedBullet + '\n\n' + currentBody.slice(insertPos).trimStart();
-      } else {
-        updatedContent = currentBody.trimEnd() + '\n' + formattedBullet;
-      }
-    } else {
-      // New day: prepend or append new date section
-      const newSection = `\n\n${todayHeading}\n${formattedBullet}`;
-      updatedContent = currentBody.trim() ? `${currentBody.trim()}${newSection}` : `${todayHeading}\n${formattedBullet}`;
-    }
-
-    try {
-      const res = await fetch('http://localhost:8081/api/docs/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: selectedDoc.filename,
-          title: selectedDoc.title || selectedDoc.filename.replace('.md', ''),
-          domain: selectedDoc.domain || 'Vault',
-          niche: selectedDoc.niche || 'General',
-          content: updatedContent
-        })
-      });
-
-      if (res.ok) {
-        setTodoInput('');
-        if (isTodoRecording && todoRecognitionRef.current) {
-          todoRecognitionRef.current.stop();
-          setIsTodoRecording(false);
-        }
-        await fetchDocs();
-      }
-    } catch (err) {
-      console.error('Failed to append todo item:', err);
-    } finally {
-      setIsAddingTodo(false);
-    }
-  };
-
-  const isCurrentDocTodo = selectedDoc && (
-    selectedDoc.filename.toLowerCase().includes('todo') || 
-    (selectedDoc.title && selectedDoc.title.toLowerCase().includes('todo'))
-  );
 
   // Derive unique filters
   const domains = ['ALL', ...new Set(docs.map(d => d.domain).filter(Boolean))];
@@ -392,7 +220,7 @@ export default function Tab13Docs({ ws }) {
             <span>+ NEW DOC</span>
           </button>
 
-          <div style={{ padding: '4px 10px', border: '1px solid #1f242d', backgroundColor: '#101318', borderRadius: '3px', fontSize: '0.7rem' }}>
+          <div style={{ padding: '4px 10px', border: '1px solid #1f242e', backgroundColor: '#101318', borderRadius: '3px', fontSize: '0.7rem' }}>
             <span style={{ color: 'var(--text-mist)' }}>ARCHIVE CAPACITY: </span>
             <span style={{ color: 'var(--gold-core)', fontWeight: 'bold' }}>{docs.length} LIVE DOSSIERS</span>
           </div>
@@ -505,7 +333,7 @@ export default function Tab13Docs({ ws }) {
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ fontSize: '0.68rem', color: 'var(--text-mist)' }}>
                     DOMAIN: <span style={{ color: 'var(--gold-core)' }}>{selectedDoc.domain || 'Unassigned'}</span>
                     {' • '}
@@ -516,30 +344,8 @@ export default function Tab13Docs({ ws }) {
                     <CheckCircle style={{ width: '12px', height: '12px' }} /> AUTHENTIC FILE
                   </span>
 
-                  {/* READ DOSSIER SPEAKER */}
+                  {/* TACTICAL SPEAKER BUTTON */}
                   <SpeakerBtn text={selectedDoc.content} label="READ DOSSIER" />
-
-                  {/* COPY BUTTON */}
-                  <button
-                    onClick={handleCopyDocContent}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '3px 8px',
-                      backgroundColor: '#161a22',
-                      border: copiedDoc ? '1px solid var(--emerald-core)' : '1px solid var(--wire-border)',
-                      color: copiedDoc ? 'var(--emerald-core)' : '#cbd5e1',
-                      fontSize: '0.68rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      borderRadius: '3px',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <Copy style={{ width: '11px', height: '11px' }} />
-                    <span>{copiedDoc ? '✓ COPIED' : 'COPY'}</span>
-                  </button>
 
                   {/* EDIT / SAVE CONTROLS */}
                   {isEditing ? (
@@ -562,7 +368,7 @@ export default function Tab13Docs({ ws }) {
                         }}
                       >
                         {isSaving ? <Loader2 className="animate-spin" style={{ width: '11px', height: '11px' }} /> : <Save style={{ width: '11px', height: '11px' }} />}
-                        <span>{isSaving ? 'COMMITTING...' : 'SAVE CHANGES'}</span>
+                        <span>{isSaving ? 'COMMITTING TO DISK...' : 'SAVE CHANGES'}</span>
                       </button>
                       <button
                         onClick={() => setIsEditing(false)}
@@ -607,88 +413,6 @@ export default function Tab13Docs({ ws }) {
                   )}
                 </div>
               </div>
-
-              {/* TO-DO LIST QUICK PROMPTER (ACTIVE WHEN WASP_TODO_LIST IS LOADED) */}
-              {isCurrentDocTodo && !isEditing && (
-                <div style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#0c0f14',
-                  borderBottom: '1px solid var(--wire-border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: 'var(--gold-core)', fontWeight: 'bold' }}>
-                    <Calendar style={{ width: '12px', height: '12px' }} />
-                    <span>TODAY ({getTodayDateHeading()}):</span>
-                  </div>
-
-                  <input 
-                    type="text"
-                    value={todoInput}
-                    onChange={(e) => setTodoInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddTodoItem();
-                    }}
-                    placeholder={isTodoRecording ? 'Listening for todo task...' : 'Enter new task bullet (auto-stamps today\'s date)...'}
-                    style={{
-                      flex: 1,
-                      backgroundColor: '#12161f',
-                      border: isTodoRecording ? '1px solid #ef4444' : '1px solid var(--wire-border)',
-                      color: '#e2e8f0',
-                      padding: '6px 10px',
-                      fontSize: '0.75rem',
-                      borderRadius: '3px',
-                      outline: 'none',
-                      fontFamily: "'JetBrains Mono', monospace"
-                    }}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={toggleTodoMic}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '6px 10px',
-                      backgroundColor: isTodoRecording ? '#2b0d0d' : '#161a22',
-                      border: isTodoRecording ? '1px solid #ef4444' : '1px solid var(--wire-border)',
-                      color: isTodoRecording ? '#ef4444' : 'var(--gold-core)',
-                      fontSize: '0.68rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      borderRadius: '3px'
-                    }}
-                  >
-                    <Mic style={{ width: '11px', height: '11px' }} />
-                    <span>{isTodoRecording ? 'STOP' : 'MIC'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAddTodoItem}
-                    disabled={isAddingTodo || !todoInput.trim()}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '6px 12px',
-                      backgroundColor: 'rgba(0, 255, 102, 0.15)',
-                      border: '1px solid var(--emerald-core)',
-                      color: 'var(--emerald-core)',
-                      fontSize: '0.68rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      borderRadius: '3px',
-                      opacity: (!todoInput.trim() || isAddingTodo) ? 0.5 : 1
-                    }}
-                  >
-                    {isAddingTodo ? <Loader2 className="animate-spin" style={{ width: '11px', height: '11px' }} /> : <Send style={{ width: '11px', height: '11px' }} />}
-                    <span>ADD ITEM</span>
-                  </button>
-                </div>
-              )}
 
               {/* DOSSIER BODY (PREVIEW OR IN-PLACE EDITOR) */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }} className="custom-scrollbar">
@@ -760,7 +484,7 @@ export default function Tab13Docs({ ws }) {
 
       </div>
 
-      {/* NEW DOSSIER MODAL WITH MICROPHONE DICTATION */}
+      {/* NEW DOSSIER MODAL */}
       {showNewDocModal && (
         <div style={{
           position: 'fixed',
@@ -788,11 +512,7 @@ export default function Tab13Docs({ ws }) {
                 INITIALIZE NEW VAULT DOSSIER
               </span>
               <button 
-                onClick={() => {
-                  if (modalRecognitionRef.current) modalRecognitionRef.current.abort();
-                  setIsModalRecording(false);
-                  setShowNewDocModal(false);
-                }}
+                onClick={() => setShowNewDocModal(false)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-mist)', cursor: 'pointer' }}
               >
                 <X style={{ width: '16px', height: '16px' }} />
@@ -836,56 +556,20 @@ export default function Tab13Docs({ ws }) {
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)' }}>DOSSIER CONTENT (MARKDOWN)</label>
-                  <button
-                    type="button"
-                    onClick={toggleModalMic}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '2px 8px',
-                      backgroundColor: isModalRecording ? '#2b0d0d' : '#161a22',
-                      border: isModalRecording ? '1px solid #ef4444' : '1px solid var(--wire-border)',
-                      color: isModalRecording ? '#ef4444' : 'var(--gold-core)',
-                      fontSize: '0.65rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      borderRadius: '3px'
-                    }}
-                  >
-                    <Mic style={{ width: '10px', height: '10px' }} />
-                    <span>{isModalRecording ? 'REC [STOP]' : 'MIC DICTATE'}</span>
-                  </button>
-                </div>
+                <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>DOSSIER CONTENT (MARKDOWN)</label>
                 <textarea 
                   rows={8}
-                  placeholder={isModalRecording ? 'Listening... dictating markdown text...' : '# System Specifications\nDistilled intelligence notes...'}
+                  placeholder="# System Specifications&#10;Distilled intelligence notes..."
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px 10px', 
-                    backgroundColor: '#101318', 
-                    border: isModalRecording ? '1px solid #ef4444' : '1px solid var(--wire-border)', 
-                    color: '#fff', 
-                    fontSize: '0.75rem', 
-                    borderRadius: '3px', 
-                    boxSizing: 'border-box', 
-                    fontFamily: "'JetBrains Mono', monospace" 
-                  }}
+                  style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box', fontFamily: "'JetBrains Mono', monospace" }}
                 />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (modalRecognitionRef.current) modalRecognitionRef.current.abort();
-                    setIsModalRecording(false);
-                    setShowNewDocModal(false);
-                  }}
+                  onClick={() => setShowNewDocModal(false)}
                   style={{ padding: '6px 12px', backgroundColor: '#161a22', border: '1px solid var(--wire-border)', color: '#cbd5e1', fontSize: '0.72rem', cursor: 'pointer', borderRadius: '3px' }}
                 >
                   CANCEL

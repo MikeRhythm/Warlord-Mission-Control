@@ -1,5 +1,26 @@
 @import "tailwindcss";
 
+:root {
+  /* ========================================================
+     FLUID BASE TYPOGRAPHY (SCALES WITH ANY SCREEN SIZE)
+     Min: 11px (mobile/tablet), Fluid: 0.75vw + 3px, Max: 15px (ultrawide/desktop)
+     ======================================================== */
+  font-size: clamp(11px, 0.72vw + 2.5px, 15px);
+
+  /* Fluid typography scale tokens based on root rem */
+  --fs-micro: clamp(0.58rem, 0.62vw, 0.68rem);
+  --fs-meta: clamp(0.68rem, 0.74vw, 0.78rem);
+  --fs-nav: clamp(0.74rem, 0.82vw, 0.88rem);
+  --fs-body: clamp(0.80rem, 0.88vw, 0.95rem);
+  --fs-title: clamp(0.92rem, 1.05vw, 1.25rem);
+  --fs-metric: clamp(1.25rem, 1.6vw, 1.85rem);
+
+  /* Fluid height and padding tokens */
+  --nav-btn-h: clamp(28px, 2.2vw + 10px, 38px);
+  --header-pad-y: clamp(6px, 0.6vw, 12px);
+  --header-pad-x: clamp(10px, 1vw, 20px);
+}
+
 @theme {
   --color-obsidian: #080a0c;
   --color-panel: #0d0f12;
@@ -14,16 +35,25 @@
   --color-ruby-dark: #592525;
 }
 
-body {
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
   margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
   background-color: var(--color-obsidian);
   color: #e2e8f0;
   font-family: 'Consolas', 'Courier New', monospace;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ========================================================
-   UNIVERSAL TACTICAL SPINNER & SEQUENCE LOCK (WARLORD MCNC)
+   UNIVERSAL TACTICAL SPINNERS & STATUS BANNERS (MCNC MASTER)
    ======================================================== */
 
 @keyframes mcnc-spin {
@@ -38,27 +68,25 @@ body {
 
 /* Inline Spinner for Buttons and Headers */
 .mcnc-spinner {
-  width: 13px;
-  height: 13px;
+  width: clamp(11px, 0.8vw, 14px);
+  height: clamp(11px, 0.8vw, 14px);
   border: 2px solid var(--color-gold-muted);
   border-top: 2px solid var(--color-gold-core);
   border-radius: 50%;
   animation: mcnc-spin 0.75s linear infinite;
   display: inline-block;
   vertical-align: middle;
-  box-sizing: border-box;
 }
 
 /* Larger Variant for Card / Overlay Views */
 .mcnc-spinner-lg {
-  width: 22px;
-  height: 22px;
+  width: clamp(18px, 1.4vw, 24px);
+  height: clamp(18px, 1.4vw, 24px);
   border: 2.5px solid var(--color-gold-muted);
   border-top: 2.5px solid var(--color-gold-core);
   border-radius: 50%;
   animation: mcnc-spin 0.75s linear infinite;
   display: inline-block;
-  box-sizing: border-box;
 }
 
 /* Sequence Execution Banner */
@@ -68,19 +96,18 @@ body {
   justify-content: space-between;
   background-color: var(--color-frame);
   border: 1px solid var(--color-gold-core);
-  padding: 6px 12px;
+  padding: clamp(4px, 0.4vw, 8px) clamp(8px, 0.8vw, 14px);
   border-radius: 2px;
   margin-bottom: 8px;
-  font-size: 0.75rem;
+  font-size: var(--fs-meta);
   color: var(--color-gold-core);
   letter-spacing: 0.05em;
-  box-sizing: border-box;
 }
 
 .sequence-pulse {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: clamp(6px, 0.5vw, 8px);
+  height: clamp(6px, 0.5vw, 8px);
   background-color: #00e676;
   border-radius: 50%;
   box-shadow: 0 0 6px #00e676;
