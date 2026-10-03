@@ -154,7 +154,7 @@ function resolveReferencedFiles(rawText) {
     if (!rawText || typeof rawText !== 'string') return '';
     
     // Match absolute paths, relative paths, or named files with extensions
-    const fileRegex = /([a-zA-Z]:\\[\w\-\.\\]+\.\w+|[\w\-_\\\/]+\.(css|js|jsx|json|md|txt|py|html))/gi;
+    const fileRegex = /([a-zA-Z]:\\[\w\-\.\\]+\.\w+|[\w\-_\\\/]+\.(css|js|jsx|json|md|txt|py|html|mq4|mq5))/gi;
     const matches = rawText.match(fileRegex) || [];
     
     let injectedContext = '';
@@ -167,10 +167,13 @@ function resolveReferencedFiles(rawText) {
         const target = path.isAbsolute(match) ? match : path.join(WORKSPACE_ROOT, match);
         if (isPathSafe(target) && fs.existsSync(target)) {
             try {
-                const data = fs.readFileSync(target, 'utf8');
-                console.log(`[AUTONOMOUS TOOL] Read disk file: ${path.basename(target)}`);
-                broadcast('TRACE', `[TOOL INGEST] Real disk read: ${path.basename(target)} (${(data.length / 1024).toFixed(1)} KB)`);
-                injectedContext += `\n\n=== [AUTONOMOUS FILE INGEST: ${match}] ===\n${data}\n=== [END FILE: ${match}] ===\n`;
+                const stat = fs.statSync(target);
+                if (stat.isFile()) {
+                    const data = fs.readFileSync(target, 'utf8');
+                    console.log(`[AUTONOMOUS TOOL] Read disk file: ${path.basename(target)}`);
+                    broadcast('TRACE', `[TOOL INGEST] Real disk read: ${path.basename(target)} (${(data.length / 1024).toFixed(1)} KB)`);
+                    injectedContext += `\n\n=== [AUTONOMOUS FILE INGEST: ${match}] ===\n${data}\n=== [END FILE: ${match}] ===\n`;
+                }
             } catch (err) {
                 console.warn(`[TOOL WARN] Could not read ${match}:`, err.message);
             }
@@ -480,7 +483,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
             userContent = [
                 { 
                     type: "text", 
-                    text: `[STRICT VISION DIRECTIVE]: Inspect and analyze ONLY the visual pixels contained in the attached image payload. Do not recite system doctrine colors or boilerplate presets unless they are explicitly visible in the rendered image.\n\nCommander's Inquiry: ${validContent}` 
+                    text: `You are an automated technical UI/UX code and design inspector. Analyze the visual layout, color palette (hex codes), typography, and UI elements visible in the attached image.\n\nTask: ${validContent}`
                 },
                 ...imageAttachments.map(img => ({
                     type: "image_url",
@@ -581,8 +584,10 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 }
 
 // ==========================================
-// WARLORD AGENT TOOL ENGINE: FS READ/WRITE
+// WARLORD AGENT TOOL ENGINE: FS DIRECTORY / SEARCH / READ / WRITE / STAT
 // ==========================================
+
+// 1. FS:READ (Read single file content)
 app.post('/api/tools/read', async (req, res) => {
     try {
         const { filePath } = req.body;
@@ -598,13 +603,19 @@ app.post('/api/tools/read', async (req, res) => {
             return res.status(404).json({ status: 'ERROR', message: `File not found: ${filePath}` });
         }
 
+        const stat = fs.statSync(target);
+        if (!stat.isFile()) {
+            return res.status(400).json({ status: 'ERROR', message: 'Target is a directory, not a file. Use /api/tools/list.' });
+        }
+
         const content = fs.readFileSync(target, 'utf8');
-        res.json({ status: 'SUCCESS', filePath: target, content });
+        res.json({ status: 'SUCCESS', filePath: target, size: stat.size, content });
     } catch (err) {
         res.status(500).json({ status: 'ERROR', message: err.message });
     }
 });
 
+// 2. FS:WRITE (Write file with backup and safety check)
 app.post('/api/tools/write', async (req, res) => {
     try {
         const { filePath, content, confirmed } = req.body;
@@ -620,6 +631,11 @@ app.post('/api/tools/write', async (req, res) => {
             return res.status(403).json({ status: 'ERROR', message: 'Access denied: path outside workspace root.' });
         }
 
+        const parentDir = path.dirname(target);
+        if (!fs.existsSync(parentDir)) {
+            fs.mkdirSync(parentDir, { recursive: true });
+        }
+
         if (fs.existsSync(target)) {
             const backupPath = `${target}.bak_${Date.now()}`;
             fs.copyFileSync(target, backupPath);
@@ -627,7 +643,193 @@ app.post('/api/tools/write', async (req, res) => {
 
         fs.writeFileSync(target, content, 'utf8');
         broadcast('TRACE', `[TOOL EXEC] File modified with Commander authorization: ${path.basename(target)}`);
-        res.json({ status: 'SUCCESS', message: `Successfully saved: ${path.basename(target)}` });
+        res.json({ status: 'SUCCESS', message: `Successfully saved: ${path.basename(target)}`, filePath: target });
+    } catch (err) {
+        res.status(500).json({ status: 'ERROR', message: err.message });
+    }
+});
+
+// 3. FS:LIST_DIR (/api/tools/list)
+app.post('/api/tools/list', async (req, res) => {
+    try {
+        const { dirPath, recursive, maxDepth } = req.body;
+        const target = dirPath 
+            ? (path.isAbsolute(dirPath) ? dirPath : path.join(WORKSPACE_ROOT, dirPath))
+            : WORKSPACE_ROOT;
+
+        if (!isPathSafe(target)) {
+            return res.status(403).json({ status: 'ERROR', message: 'Access denied: path outside workspace root.' });
+        }
+
+        if (!fs.existsSync(target)) {
+            return res.status(404).json({ status: 'ERROR', message: `Directory not found: ${dirPath || '/'}` });
+        }
+
+        const depthLimit = typeof maxDepth === 'number' ? maxDepth : 3;
+
+        const scanDirectory = (currentDir, currentDepth = 0) => {
+            const items = [];
+            const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+
+            for (const entry of entries) {
+                if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.obsidian') continue;
+
+                const fullPath = path.join(currentDir, entry.name);
+                const relPath = path.relative(WORKSPACE_ROOT, fullPath);
+
+                if (entry.isDirectory()) {
+                    const dirObj = {
+                        name: entry.name,
+                        type: 'directory',
+                        path: fullPath,
+                        relativePath: relPath
+                    };
+                    if (recursive && currentDepth < depthLimit) {
+                        dirObj.children = scanDirectory(fullPath, currentDepth + 1);
+                    }
+                    items.push(dirObj);
+                } else if (entry.isFile()) {
+                    try {
+                        const stat = fs.statSync(fullPath);
+                        items.push({
+                            name: entry.name,
+                            type: 'file',
+                            path: fullPath,
+                            relativePath: relPath,
+                            size: stat.size,
+                            modified: stat.mtime.toISOString(),
+                            extension: path.extname(entry.name).toLowerCase()
+                        });
+                    } catch (e) {}
+                }
+            }
+            return items;
+        };
+
+        const results = scanDirectory(target);
+        res.json({
+            status: 'SUCCESS',
+            baseDirectory: target,
+            count: results.length,
+            entries: results
+        });
+    } catch (err) {
+        res.status(500).json({ status: 'ERROR', message: err.message });
+    }
+});
+
+// 4. FS:SEARCH (/api/tools/search)
+app.post('/api/tools/search', async (req, res) => {
+    try {
+        const { query, subDir, extensions, maxResults } = req.body;
+        if (!query || typeof query !== 'string') {
+            return res.status(400).json({ status: 'ERROR', message: 'Search query is required.' });
+        }
+
+        const searchRoot = subDir 
+            ? (path.isAbsolute(subDir) ? subDir : path.join(WORKSPACE_ROOT, subDir))
+            : WORKSPACE_ROOT;
+
+        if (!isPathSafe(searchRoot)) {
+            return res.status(403).json({ status: 'ERROR', message: 'Access denied: path outside workspace root.' });
+        }
+
+        const allowedExts = Array.isArray(extensions) && extensions.length > 0 
+            ? extensions.map(e => e.toLowerCase().startsWith('.') ? e.toLowerCase() : `.${e.toLowerCase()}`)
+            : ['.md', '.txt', '.json', '.js', '.jsx', '.py', '.html', '.css', '.mq4', '.mq5', '.csv'];
+
+        const limit = typeof maxResults === 'number' ? maxResults : 50;
+        const matches = [];
+        const lowerQuery = query.toLowerCase();
+
+        const searchRecursive = (dir) => {
+            if (matches.length >= limit) return;
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+            for (const entry of entries) {
+                if (matches.length >= limit) break;
+                if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.obsidian' || entry.name.endsWith('.bak')) continue;
+
+                const fullPath = path.join(dir, entry.name);
+
+                if (entry.isDirectory()) {
+                    searchRecursive(fullPath);
+                } else if (entry.isFile()) {
+                    const ext = path.extname(entry.name).toLowerCase();
+                    const nameMatch = entry.name.toLowerCase().includes(lowerQuery);
+
+                    if (allowedExts.includes(ext)) {
+                        let contentMatch = false;
+                        let lineSnippet = '';
+
+                        try {
+                            const content = fs.readFileSync(fullPath, 'utf8');
+                            const lines = content.split('\n');
+                            for (let i = 0; i < lines.length; i++) {
+                                if (lines[i].toLowerCase().includes(lowerQuery)) {
+                                    contentMatch = true;
+                                    lineSnippet = `Line ${i + 1}: ${lines[i].trim().slice(0, 140)}`;
+                                    break;
+                                }
+                            }
+                        } catch (e) {}
+
+                        if (nameMatch || contentMatch) {
+                            const stat = fs.statSync(fullPath);
+                            matches.push({
+                                filename: entry.name,
+                                relativePath: path.relative(WORKSPACE_ROOT, fullPath),
+                                path: fullPath,
+                                size: stat.size,
+                                matchType: nameMatch && contentMatch ? 'NAME_AND_CONTENT' : (nameMatch ? 'FILENAME' : 'CONTENT'),
+                                snippet: lineSnippet
+                            });
+                        }
+                    }
+                }
+            }
+        };
+
+        searchRecursive(searchRoot);
+        res.json({
+            status: 'SUCCESS',
+            query,
+            totalFound: matches.length,
+            results: matches
+        });
+    } catch (err) {
+        res.status(500).json({ status: 'ERROR', message: err.message });
+    }
+});
+
+// 5. FS:STAT (/api/tools/stat)
+app.post('/api/tools/stat', async (req, res) => {
+    try {
+        const { targetPath } = req.body;
+        if (!targetPath) return res.status(400).json({ status: 'ERROR', message: 'targetPath is required.' });
+
+        const target = path.isAbsolute(targetPath) ? targetPath : path.join(WORKSPACE_ROOT, targetPath);
+
+        if (!isPathSafe(target)) {
+            return res.status(403).json({ status: 'ERROR', message: 'Access denied: path outside workspace root.' });
+        }
+
+        if (!fs.existsSync(target)) {
+            return res.json({ status: 'SUCCESS', exists: false, target });
+        }
+
+        const stat = fs.statSync(target);
+        res.json({
+            status: 'SUCCESS',
+            exists: true,
+            target,
+            relativePath: path.relative(WORKSPACE_ROOT, target),
+            isDirectory: stat.isDirectory(),
+            isFile: stat.isFile(),
+            size: stat.size,
+            created: stat.birthtime.toISOString(),
+            modified: stat.mtime.toISOString()
+        });
     } catch (err) {
         res.status(500).json({ status: 'ERROR', message: err.message });
     }
@@ -1308,7 +1510,7 @@ server.listen(PORT, () => {
     console.log(`[COMPUTE ARCHITECTURE]   : Kaggle Dual-T4 (Handshake Probed) -> Multi-Cluster -> OpenRouter Shield`);
     console.log(`[INTELLIGENCE MATRIX]    : 16-Director Capability Matrix Active`);
     console.log(`[OBSIDIAN VAULT]         : ${VAULT_PATH}`);
-    console.log(`[AGENT TOOLS]            : /api/tools/read, /api/tools/write`);
+    console.log(`[AGENT FS TOOLS]         : /api/tools/{read,write,list,search,stat}`);
     console.log(`[AUTONOMOUS RESOLVER]    : Auto-Ingest Referenced Workspace Files`);
     console.log(`[VISION CLUSTER]         : meta/llama-3.2-90b-vision-instruct`);
     console.log(`====================================================`);
