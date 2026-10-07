@@ -1,0 +1,42 @@
+{
+  "activeProjectId": "proj_1791208571729",
+  "projects": [
+    {
+      "id": "proj_1791208571729",
+      "slug": "cummings_group_annex",
+      "name": "CUMMINGS GROUP ANNEX",
+      "ceo": "Andrew Tanton",
+      "email": "",
+      "sector": "Commercial Construction PM & Cost Consultancy",
+      "status": "ACTIVE",
+      "progress": 0,
+      "portalStatus": "Have Existing",
+      "channels": [
+        "LinkedIn",
+        "Email Marketing",
+        "WhatsApp Channel"
+      ],
+      "modules": [
+        "Site Telemetry",
+        "BIM / CAD Viewer",
+        "Contract Pipeline",
+        "Supplier Ledger"
+      ],
+      "palette": [
+        "#58111A",
+        "#C28B38",
+        "#1E232A",
+        "#EFE8DA"
+      ],
+      "objective": "",
+      "dominantMetric": "Absolute Precision",
+      "dod": "",
+      "forbidden": "",
+      "paths": {
+        "workspace": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Projects\\cummings_group_annex",
+        "docs": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Docs\\cummings_group_annex"
+      },
+      "createdAt": "2026-10-05T13:56:11.729Z"
+    }
+  ]
+}

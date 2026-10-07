@@ -1,2 +1,17 @@
 
 vault/Keys/
+
+# OpenClaw runtime state & SQLite
+**/.openclaw/logs/
+**/.openclaw/state/
+**/.openclaw/update-check.json
+*.sqlite*
+
+# Backups & heavy vault binaries
+*.bak_*
+vault/Projects/*/06_ASSETS_GRAPHICS/
+*.mp4
+*.mov
+*.png
+*.jpg
+*.jpeg
