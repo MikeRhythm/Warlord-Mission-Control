@@ -1,392 +1,920 @@
-﻿import React, { useState } from 'react';
-import { Sparkles, Loader2, Database, AlertOctagon, CheckCircle, Trash2 } from 'lucide-react';
+﻿import React, { useState, useEffect, useRef } from 'react';
+import { 
+  RefreshCw, 
+  Search, 
+  PlusCircle, 
+  CheckCircle, 
+  Edit3, 
+  Save, 
+  X, 
+  Loader2, 
+  FileText,
+  Copy,
+  Mic,
+  Send,
+  Calendar
+} from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 
-const INITIAL_DOMAINS = [
-  'Market & Currency Pairs',
-  'System Architecture & Code',
-  'Hardware & Infrastructure',
-  'Tactical & Historical Archives',
-  'Cutting Edge AI',
-  'General Research'
-];
+export default function Tab13Docs({ ws }) {
+  const [docs, setDocs] = useState([]);
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [domainFilter, setDomainFilter] = useState('ALL');
+  const [nicheFilter, setNicheFilter] = useState('ALL');
+  const [loading, setLoading] = useState(false);
 
-const INITIAL_SPECIALIZATIONS = {
-  'Market & Currency Pairs': ['EURUSD Volatility & London/NY Overlap', 'GBPUSD Flow & Liquidity', 'Cross-Asset Momentum'],
-  'System Architecture & Code': ['MQL5 / Node.js Bridges', 'React Vite Interfaces', 'OpenClaw Agent Routing'],
-  'Hardware & Infrastructure': ['Dell PowerEdge R520 Logs', 'Base 1 Server Setup', 'Network & Power Routing'],
-  'Tactical & Historical Archives': ['Caprivi Patrol Memoirs', 'Zanzibar Operations', 'Riverine Navigation'],
-  'Cutting Edge AI': ['Hermes', 'Ollama Runtimes', 'Local LLM Ingestion'],
-  'General Research': ['General Intelligence', 'Open Source Tooling', 'Literature & Excerpts']
-};
-
-export default function Tab12Review() {
-  const [topicDomains, setTopicDomains] = useState(INITIAL_DOMAINS);
-  const [specializationsMap, setSpecializationsMap] = useState(INITIAL_SPECIALIZATIONS);
-
-  const [url, setUrl] = useState('');
-  const [contentDump, setContentDump] = useState('');
-  const [topicDomain, setTopicDomain] = useState('Hardware & Infrastructure');
-  const [specialization, setSpecialization] = useState('Kaggle');
-  const [pruneAndMerge, setPruneAndMerge] = useState(true);
-
-  const [harvestedNugget, setHarvestedNugget] = useState(
-    '// Paste videos, notes, or raw discussions on the left, then click \'HARVEST PURE NUGGET\'.\n// The gauge above will calculate the exact signal-to-noise ratio and time saved.\n// Click \'PUSH TO 13 DOCS LIBRARY\' to merge and synthesize the payload into the canonical master dossier.'
-  );
-  const [isHarvesting, setIsHarvesting] = useState(false);
+  // Editor and Save States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+  const [editedDomain, setEditedDomain] = useState('');
+  const [editedNiche, setEditedNiche] = useState('');
+  const [editedContent, setEditedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [signalRatio, setSignalRatio] = useState({ nuggetInt: 28, fluffInt: 72 });
+  const [copiedDoc, setCopiedDoc] = useState(false);
 
-  const handleDomainChange = (e) => {
-    const newDomain = e.target.value;
-    setTopicDomain(newDomain);
-    const specs = specializationsMap[newDomain] || ['General'];
-    setSpecialization(specs[0]);
-  };
+  // Modal / New Doc States
+  const [showNewDocModal, setShowNewDocModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDomain, setNewDomain] = useState('');
+  const [newNiche, setNewNiche] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [isModalRecording, setIsModalRecording] = useState(false);
 
-  const handleAddDomain = () => {
-    const newDomain = window.prompt("ENTER NEW TOPIC DOMAIN:");
-    if (newDomain && newDomain.trim() !== '') {
-      const cleanDomain = newDomain.trim();
-      if (!topicDomains.includes(cleanDomain)) {
-        setTopicDomains([...topicDomains, cleanDomain]);
-        setSpecializationsMap({ ...specializationsMap, [cleanDomain]: ['General'] });
-      }
-      setTopicDomain(cleanDomain);
-      setSpecialization('General');
-    }
-  };
+  // To-Do Prompter States
+  const [todoInput, setTodoInput] = useState('');
+  const [isTodoRecording, setIsTodoRecording] = useState(false);
+  const [isAddingTodo, setIsAddingTodo] = useState(false);
 
-  const handleAddSpecialization = () => {
-    const newSpec = window.prompt(`ENTER NEW SPECIALIZATION FOR [${topicDomain}]:`);
-    if (newSpec && newSpec.trim() !== '') {
-      const cleanSpec = newSpec.trim();
-      const currentSpecs = specializationsMap[topicDomain] || [];
-      if (!currentSpecs.includes(cleanSpec)) {
-        setSpecializationsMap({
-          ...specializationsMap,
-          [topicDomain]: [...currentSpecs, cleanSpec]
-        });
-      }
-      setSpecialization(cleanSpec);
-    }
-  };
+  // Speech Recognition Refs
+  const modalRecognitionRef = useRef(null);
+  const todoRecognitionRef = useRef(null);
 
-  const handleCls = () => {
-    setUrl('');
-    setContentDump('');
-    setHarvestedNugget('// Paste videos, notes, or raw discussions on the left, then click \'HARVEST PURE NUGGET\'.\n// The gauge above will calculate the exact signal-to-noise ratio and time saved.\n// Click \'PUSH TO 13 DOCS LIBRARY\' to merge and synthesize the payload into the canonical master dossier.');
-    setHasError(false);
-    setSaveSuccess(false);
-    setSignalRatio({ nuggetInt: 28, fluffInt: 72 });
-  };
-
-  const handleHarvest = async () => {
-    if (!url.trim() && !contentDump.trim()) return;
-
-    setIsHarvesting(true);
-    setHasError(false);
-    setSaveSuccess(false);
-    setHarvestedNugget('// Executing multi-tier extraction pipeline...\n// Scraping source vectors and stripping narrative fluff...');
-
+  // Fetch all Vault markdown files from Base 1 daemon (armored against both array and object formats)
+  const fetchDocs = async () => {
+    setLoading(true);
     try {
-      const inputLength = contentDump.trim().length || 15000; 
-
-      const response = await fetch('http://127.0.0.1:8081/api/harvest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: url.trim(),
-          contentDump: contentDump.trim(),
-          topicDomain,
-          specialization
-        })
-      });
-
-      const data = await response.json();
+      let docArray = [];
+      const res = await fetch('http://localhost:8081/api/docs');
       
-      if (data.error) {
-        setHasError(true);
-        setHarvestedNugget(`[HARVEST ERROR]: ${data.error}`);
-        setSignalRatio({ nuggetInt: 0, fluffInt: 100 });
+      if (res.ok) {
+        const data = await res.json();
+        docArray = Array.isArray(data) ? data : (data.documents || []);
       } else {
-        const outputLength = (data.nugget || '').length;
-        let retainedPct = Math.round((outputLength / inputLength) * 100);
-        if (retainedPct < 1) retainedPct = 1;
-        if (retainedPct > 99) retainedPct = 99;
+        const fallbackRes = await fetch('http://localhost:8081/api/docs/refresh');
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          docArray = Array.isArray(fallbackData) ? fallbackData : (fallbackData.documents || []);
+        }
+      }
 
-        setHarvestedNugget(data.nugget || 'Extraction complete. No payload returned.');
-        setSignalRatio({ nuggetInt: retainedPct, fluffInt: 100 - retainedPct });
+      setDocs(docArray);
+
+      if (docArray.length > 0) {
+        if (!selectedDoc) {
+          handleSelectDoc(docArray[0]);
+        } else {
+          const updated = docArray.find(d => d.filename === selectedDoc.filename);
+          if (updated) {
+            setSelectedDoc(updated);
+            if (!isEditing) {
+              setEditedContent(updated.content || '');
+              setEditedTitle(updated.title || updated.filename);
+              setEditedDomain(updated.domain || '');
+              setEditedNiche(updated.niche || '');
+            }
+          }
+        }
       }
     } catch (err) {
-      setHasError(true);
-      setHarvestedNugget(`[DAEMON CONNECTION FAILURE]: ${err.message}`);
-      setSignalRatio({ nuggetInt: 0, fluffInt: 100 });
+      console.error('Failed to load Vault docs:', err);
     } finally {
-      setIsHarvesting(false);
+      setLoading(false);
     }
   };
 
-  const handlePushToDocs = async () => {
-    if (hasError || isHarvesting || isSaving || saveSuccess) return;
-    
+  useEffect(() => {
+    fetchDocs();
+
+    const handleExternalPush = () => {
+      console.log("External push detected. Refreshing vault...");
+      fetchDocs();
+    };
+
+    window.addEventListener('MCNC_PUSH_TO_DOCS', handleExternalPush);
+    return () => {
+      window.removeEventListener('MCNC_PUSH_TO_DOCS', handleExternalPush);
+      if (modalRecognitionRef.current) modalRecognitionRef.current.abort();
+      if (todoRecognitionRef.current) todoRecognitionRef.current.abort();
+    };
+  }, []);
+
+  const handleSelectDoc = (doc) => {
+    setSelectedDoc(doc);
+    setIsEditing(false);
+    setEditedTitle(doc.title || doc.filename.replace(/\.(md|txt)$/i, ''));
+    setEditedDomain(doc.domain || '');
+    setEditedNiche(doc.niche || '');
+    setEditedContent(doc.content || '');
+  };
+
+  const handleCopyDocContent = () => {
+    if (!selectedDoc || !selectedDoc.content) return;
+    navigator.clipboard.writeText(selectedDoc.content);
+    setCopiedDoc(true);
+    setTimeout(() => setCopiedDoc(false), 2000);
+  };
+
+  const handleSaveExistingDoc = async () => {
+    if (!selectedDoc) return;
     setIsSaving(true);
-    
     try {
-      const fetchPromise = fetch('http://127.0.0.1:8081/api/docs/save', {
+      const res = await fetch('http://localhost:8081/api/docs/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          domain: topicDomain,
-          specialization: specialization,
-          content: harvestedNugget,
-          pruneAndMerge: pruneAndMerge
+          filename: selectedDoc.filename,
+          title: editedTitle,
+          domain: editedDomain,
+          niche: editedNiche,
+          content: editedContent
         })
       });
-
-      const [response] = await Promise.all([
-        fetchPromise,
-        new Promise(resolve => setTimeout(resolve, 800))
-      ]);
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        setHasError(true);
-        setHarvestedNugget((prev) => `[VAULT WRITE ERROR]: ${data.error}\n\n${prev}`);
-      } else {
-        setSaveSuccess(true);
-        setHarvestedNugget(`// [VAULT SYNTHESIS SUCCESS]: ${data.message}\n// Payload securely routed to 13 DOCS LIBRARY.\n\n// Base 1 standing by for next extraction.`);
-        
-        window.dispatchEvent(new CustomEvent('MCNC_PUSH_TO_DOCS'));
-        
-        setTimeout(() => {
-          setUrl('');
-          setContentDump('');
-        }, 1500);
-
-        setTimeout(() => {
-          setSaveSuccess(false);
-        }, 4000);
+      if (res.ok) {
+        setIsEditing(false);
+        await fetchDocs();
       }
     } catch (err) {
-      setHasError(true);
-      setHarvestedNugget((prev) => `[NETWORK ERROR]: ${err.message}\n\n${prev}`);
+      console.error('Failed to commit doc to disk:', err);
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handleCreateNewDoc = async (e) => {
+    if (e) e.preventDefault();
+    if (!newTitle.trim()) return;
+    setIsSaving(true);
+    try {
+      const cleanFilename = newTitle.trim().replace(/[^a-zA-Z0-9_-]/g, '_') + '.md';
+      const res = await fetch('http://localhost:8081/api/docs/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: cleanFilename,
+          title: newTitle.trim(),
+          domain: newDomain.trim() || 'General',
+          niche: newNiche.trim() || 'Vault',
+          content: newContent
+        })
+      });
+      if (res.ok) {
+        setShowNewDocModal(false);
+        setNewTitle('');
+        setNewDomain('');
+        setNewNiche('');
+        setNewContent('');
+        if (modalRecognitionRef.current) modalRecognitionRef.current.abort();
+        setIsModalRecording(false);
+        await fetchDocs();
+      }
+    } catch (err) {
+      console.error('Failed to create new doc:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const toggleModalMic = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition not supported in this browser.');
+      return;
+    }
+
+    if (isModalRecording) {
+      if (modalRecognitionRef.current) modalRecognitionRef.current.stop();
+      setIsModalRecording(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.resultIndex >= 0 && event.results[i].isFinal) {
+          setNewContent((prev) => {
+            const spacer = prev && !prev.endsWith(' ') && !prev.endsWith('\n') ? ' ' : '';
+            return prev + spacer + event.results[i][0].transcript;
+          });
+        }
+      }
+    };
+
+    recognition.onerror = () => setIsModalRecording(false);
+    recognition.onend = () => setIsModalRecording(false);
+
+    modalRecognitionRef.current = recognition;
+    recognition.start();
+    setIsModalRecording(true);
+  };
+
+  const toggleTodoMic = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition not supported in this browser.');
+      return;
+    }
+
+    if (isTodoRecording) {
+      if (todoRecognitionRef.current) todoRecognitionRef.current.stop();
+      setIsTodoRecording(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          setTodoInput((prev) => {
+            const spacer = prev && !prev.endsWith(' ') ? ' ' : '';
+            return prev + spacer + event.results[i][0].transcript;
+          });
+        }
+      }
+    };
+
+    recognition.onerror = () => setIsTodoRecording(false);
+    recognition.onend = () => setIsTodoRecording(false);
+
+    todoRecognitionRef.current = recognition;
+    recognition.start();
+    setIsTodoRecording(true);
+  };
+
+  const getTodayDateHeading = () => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = now.toLocaleString('en-US', { month: 'short' });
+    const year = now.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
+
+  const handleAddTodoItem = async () => {
+    if (!todoInput.trim() || !selectedDoc) return;
+    setIsAddingTodo(true);
+
+    const todayHeading = getTodayDateHeading();
+    let currentBody = selectedDoc.content || '';
+    const cleanItem = todoInput.trim().replace(/^[•\-\*]\s*/, '');
+    const formattedBullet = `• ${cleanItem}`;
+
+    let updatedContent = '';
+    if (currentBody.includes(todayHeading)) {
+      const dateIndex = currentBody.indexOf(todayHeading);
+      const afterDate = currentBody.slice(dateIndex);
+      const nextDateMatch = afterDate.slice(todayHeading.length).search(/\n\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i);
+
+      if (nextDateMatch !== -1) {
+        const insertPos = dateIndex + todayHeading.length + nextDateMatch;
+        updatedContent = currentBody.slice(0, insertPos).trimEnd() + '\n' + formattedBullet + '\n\n' + currentBody.slice(insertPos).trimStart();
+      } else {
+        updatedContent = currentBody.trimEnd() + '\n' + formattedBullet;
+      }
+    } else {
+      const newSection = `\n\n${todayHeading}\n${formattedBullet}`;
+      updatedContent = currentBody.trim() ? `${currentBody.trim()}${newSection}` : `${todayHeading}\n${formattedBullet}`;
+    }
+
+    try {
+      const res = await fetch('http://localhost:8081/api/docs/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: selectedDoc.filename,
+          title: selectedDoc.title || selectedDoc.filename.replace(/\.(md|txt)$/i, ''),
+          domain: selectedDoc.domain || 'Vault',
+          niche: selectedDoc.niche || 'General',
+          content: updatedContent
+        })
+      });
+
+      if (res.ok) {
+        setTodoInput('');
+        if (isTodoRecording && todoRecognitionRef.current) {
+          todoRecognitionRef.current.stop();
+          setIsTodoRecording(false);
+        }
+        await fetchDocs();
+      }
+    } catch (err) {
+      console.error('Failed to append todo item:', err);
+    } finally {
+      setIsAddingTodo(false);
+    }
+  };
+
+  const isCurrentDocTodo = selectedDoc && (
+    selectedDoc.filename.toLowerCase().includes('todo') || 
+    (selectedDoc.title && selectedDoc.title.toLowerCase().includes('todo'))
+  );
+
+  const domains = ['ALL', ...new Set(docs.map(d => d.domain).filter(Boolean))];
+  const niches = ['ALL', ...new Set(docs.map(d => d.niche).filter(Boolean))];
+
+  const filteredDocs = docs.filter(doc => {
+    const matchesDomain = domainFilter === 'ALL' || doc.domain === domainFilter;
+    const matchesNiche = nicheFilter === 'ALL' || doc.niche === nicheFilter;
+    const matchesSearch = 
+      (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (doc.content && doc.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (doc.filename && doc.filename.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    return matchesDomain && matchesNiche && matchesSearch;
+  });
+
   return (
-    <div className="relative flex flex-col h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', padding: '16px', boxSizing: 'border-box', gap: '14px', backgroundColor: '#090b0e', color: '#e2e8f0', fontFamily: "'JetBrains Mono', monospace" }}>
       
-      {/* EXCITING FULL-SCREEN SPINNER OVERLAY */}
-      {(isHarvesting || isSaving) && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#080a0c]/85 backdrop-blur-sm rounded">
-          <div className="relative flex items-center justify-center w-28 h-28 mb-5">
-            <div className="absolute w-full h-full border-4 border-t-[#ffb800] border-r-transparent border-b-[#10b981] border-l-transparent rounded-full animate-spin" style={{ animationDuration: '1.2s' }}></div>
-            <div className="absolute w-20 h-20 border-4 border-t-transparent border-r-[#38bdf8] border-b-transparent border-l-[#ffb800] rounded-full animate-spin" style={{ animationDuration: '0.8s', animationDirection: 'reverse' }}></div>
-            <Sparkles className="w-8 h-8 text-[#ffb800] animate-pulse" />
+      {/* HEADER BAR */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--wire-border, #1f242d)', paddingBottom: '12px' }}>
+        <div>
+          <div style={{ color: '#DAA520', fontSize: '1.05rem', fontWeight: 'bold', letterSpacing: '1px' }}>
+            13 DOCS // THE OBSIDIAN VAULT & KNOWLEDGE STUDY
           </div>
-          <div className="text-[#ffb800] font-bold text-sm tracking-widest animate-pulse drop-shadow-[0_0_8px_rgba(255,184,0,0.5)]">
-            {isHarvesting ? 'EXTRACTING VECTORS & SCRAPING TRANSCRIPT...' : 'SYNTHESIZING TO OBSIDIAN VAULT...'}
+          <div style={{ fontSize: '0.72rem', color: '#8fa0b5', marginTop: '4px' }}>
+            Live Filesystem Telemetry • Distilled Intelligence • Active Base 1 Repositories
           </div>
-          <div className="text-[#5c6b7f] text-[10px] mt-3 font-mono tracking-widest">
-            PROCESS CONTINUES IN BACKGROUND IF NAVIGATING AWAY
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button 
+            onClick={fetchDocs}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              backgroundColor: '#12151b',
+              border: '1px solid #1f242d',
+              color: '#DAA520',
+              fontSize: '0.72rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              borderRadius: '3px'
+            }}
+          >
+            <RefreshCw className={loading ? 'animate-spin' : ''} style={{ width: '13px', height: '13px' }} />
+            <span>REFRESH DISK</span>
+          </button>
+
+          <button 
+            onClick={() => setShowNewDocModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              backgroundColor: 'rgba(0, 255, 102, 0.1)',
+              border: '1px solid #00FF66',
+              color: '#00FF66',
+              fontSize: '0.72rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              borderRadius: '3px'
+            }}
+          >
+            <PlusCircle style={{ width: '13px', height: '13px' }} />
+            <span>+ NEW DOC</span>
+          </button>
+
+          <div style={{ padding: '4px 10px', border: '1px solid #1f242d', backgroundColor: '#101318', borderRadius: '3px', fontSize: '0.7rem' }}>
+            <span style={{ color: '#8fa0b5' }}>ARCHIVE CAPACITY: </span>
+            <span style={{ color: '#DAA520', fontWeight: 'bold' }}>{docs.length} LIVE DOSSIERS</span>
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER & SEARCH ROW */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '12px', alignItems: 'center' }}>
+        <div>
+          <label style={{ fontSize: '0.65rem', color: '#8fa0b5', display: 'block', marginBottom: '4px' }}>1. KNOWLEDGE DOMAIN</label>
+          <select 
+            value={domainFilter} 
+            onChange={(e) => setDomainFilter(e.target.value)}
+            style={{ width: '100%', padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+          >
+            {domains.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ fontSize: '0.65rem', color: '#8fa0b5', display: 'block', marginBottom: '4px' }}>2. SUBJECT / NICHE</label>
+          <select 
+            value={nicheFilter} 
+            onChange={(e) => setNicheFilter(e.target.value)}
+            style={{ width: '100%', padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+          >
+            {niches.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ fontSize: '0.65rem', color: '#8fa0b5', display: 'block', marginBottom: '4px' }}>QUICK SEARCH ACROSS VAULT</label>
+          <div style={{ position: 'relative' }}>
+            <Search style={{ position: 'absolute', left: '10px', top: '8px', width: '13px', height: '13px', color: '#8fa0b5' }} />
+            <input 
+              type="text" 
+              placeholder="Search vectors, filenames, models, ROEs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ width: '100%', padding: '6px 10px 6px 30px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* CORE WORKSPACE GRID */}
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '14px', flex: 1, minHeight: 0 }}>
+        
+        {/* SIDEBAR DOSSIER LIST */}
+        <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#0d1015', border: '1px solid #1f242d', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #1f242d', backgroundColor: '#11141a' }}>
+            <span style={{ fontSize: '0.72rem', color: '#DAA520', fontWeight: 'bold' }}>
+              AVAILABLE DOSSIERS ({filteredDocs.length})
+            </span>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }} className="custom-scrollbar">
+            {filteredDocs.length === 0 ? (
+              <div style={{ fontSize: '0.72rem', color: '#8fa0b5', padding: '16px', textAlign: 'center' }}>
+                No matching files found.
+              </div>
+            ) : (
+              filteredDocs.map((doc) => {
+                const isSelected = selectedDoc && selectedDoc.filename === doc.filename;
+                return (
+                  <div
+                    key={doc.filename}
+                    onClick={() => handleSelectDoc(doc)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px',
+                      marginBottom: '6px',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      border: isSelected ? '1px solid #00FF66' : '1px solid #1a1e27',
+                      backgroundColor: isSelected ? 'rgba(0, 255, 102, 0.05)' : '#101319',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div style={{ overflow: 'hidden', paddingRight: '8px' }}>
+                      <div style={{ fontSize: '0.78rem', color: isSelected ? '#00FF66' : '#fff', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {doc.title || doc.filename.replace(/\.(md|txt)$/i, '')}
+                      </div>
+                      <div style={{ fontSize: '0.65rem', color: '#8fa0b5', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {doc.domain || 'Vault'} &gt; {doc.niche || 'General'}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.6rem', color: '#DAA520', border: '1px solid #2a313d', padding: '2px 5px', borderRadius: '2px', flexShrink: 0 }}>
+                      MD
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* MAIN DOSSIER VIEWER & EDITOR */}
+        <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#0d1015', border: '1px solid #1f242d', borderRadius: '4px', overflow: 'hidden' }}>
+          {selectedDoc ? (
+            <>
+              {/* DOSSIER CONTROL STRIP */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #1f242d', backgroundColor: '#11141a' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FileText style={{ width: '14px', height: '14px', color: '#DAA520' }} />
+                  <span style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 'bold' }}>
+                    {isEditing ? editedTitle : (selectedDoc.title || selectedDoc.filename)}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#8fa0b5' }}>
+                    DOMAIN: <span style={{ color: '#DAA520' }}>{selectedDoc.domain || 'Unassigned'}</span>
+                    {' • '}
+                    NICHE: <span style={{ color: '#DAA520' }}>{selectedDoc.niche || 'Unassigned'}</span>
+                  </div>
+
+                  <span style={{ fontSize: '0.68rem', color: '#00FF66', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <CheckCircle style={{ width: '12px', height: '12px' }} /> AUTHENTIC FILE
+                  </span>
+
+                  <SpeakerBtn text={selectedDoc.content} label="READ DOSSIER" />
+
+                  <button
+                    onClick={handleCopyDocContent}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 8px',
+                      backgroundColor: '#161a22',
+                      border: copiedDoc ? '1px solid #00FF66' : '1px solid #1f242d',
+                      color: copiedDoc ? '#00FF66' : '#cbd5e1',
+                      fontSize: '0.68rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      borderRadius: '3px'
+                    }}
+                  >
+                    <Copy style={{ width: '11px', height: '11px' }} />
+                    <span>{copiedDoc ? '✓ COPIED' : 'COPY'}</span>
+                  </button>
+
+                  {isEditing ? (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        onClick={handleSaveExistingDoc}
+                        disabled={isSaving}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          backgroundColor: 'rgba(0, 255, 102, 0.15)',
+                          border: '1px solid #00FF66',
+                          color: '#00FF66',
+                          fontSize: '0.68rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          borderRadius: '3px'
+                        }}
+                      >
+                        {isSaving ? <Loader2 className="animate-spin" style={{ width: '11px', height: '11px' }} /> : <Save style={{ width: '11px', height: '11px' }} />}
+                        <span>{isSaving ? 'COMMITTING...' : 'SAVE CHANGES'}</span>
+                      </button>
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        disabled={isSaving}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          backgroundColor: '#161a22',
+                          border: '1px solid #1f242d',
+                          color: '#ef4444',
+                          fontSize: '0.68rem',
+                          cursor: 'pointer',
+                          borderRadius: '3px'
+                        }}
+                      >
+                        <X style={{ width: '11px', height: '11px' }} />
+                        <span>CANCEL</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 8px',
+                        backgroundColor: '#161a22',
+                        border: '1px solid #1f242d',
+                        color: '#DAA520',
+                        fontSize: '0.68rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        borderRadius: '3px'
+                      }}
+                    >
+                      <Edit3 style={{ width: '11px', height: '11px' }} />
+                      <span>EDIT FILE</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* TO-DO LIST QUICK PROMPTER */}
+              {isCurrentDocTodo && !isEditing && (
+                <div style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#0c0f14',
+                  borderBottom: '1px solid #1f242d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: '#DAA520', fontWeight: 'bold' }}>
+                    <Calendar style={{ width: '12px', height: '12px' }} />
+                    <span>TODAY ({getTodayDateHeading()}):</span>
+                  </div>
+
+                  <input 
+                    type="text"
+                    value={todoInput}
+                    onChange={(e) => setTodoInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAddTodoItem();
+                    }}
+                    placeholder={isTodoRecording ? 'Listening for task...' : 'Enter new task bullet (auto-stamps date)...'}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#12161f',
+                      border: isTodoRecording ? '1px solid #ef4444' : '1px solid #1f242d',
+                      color: '#e2e8f0',
+                      padding: '6px 10px',
+                      fontSize: '0.75rem',
+                      borderRadius: '3px',
+                      outline: 'none',
+                      fontFamily: "'JetBrains Mono', monospace"
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={toggleTodoMic}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 10px',
+                      backgroundColor: isTodoRecording ? '#2b0d0d' : '#161a22',
+                      border: isTodoRecording ? '1px solid #ef4444' : '1px solid #1f242d',
+                      color: isTodoRecording ? '#ef4444' : '#DAA520',
+                      fontSize: '0.68rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      borderRadius: '3px'
+                    }}
+                  >
+                    <Mic style={{ width: '11px', height: '11px' }} />
+                    <span>{isTodoRecording ? 'STOP' : 'MIC'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddTodoItem}
+                    disabled={isAddingTodo || !todoInput.trim()}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 12px',
+                      backgroundColor: 'rgba(0, 255, 102, 0.15)',
+                      border: '1px solid #00FF66',
+                      color: '#00FF66',
+                      fontSize: '0.68rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      borderRadius: '3px',
+                      opacity: (!todoInput.trim() || isAddingTodo) ? 0.5 : 1
+                    }}
+                  >
+                    {isAddingTodo ? <Loader2 className="animate-spin" style={{ width: '11px', height: '11px' }} /> : <Send style={{ width: '11px', height: '11px' }} />}
+                    <span>ADD ITEM</span>
+                  </button>
+                </div>
+              )}
+
+              {/* DOSSIER BODY */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }} className="custom-scrollbar">
+                {isEditing ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                      <input 
+                        type="text" 
+                        value={editedTitle}
+                        onChange={(e) => setEditedTitle(e.target.value)}
+                        placeholder="Document Title"
+                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+                      />
+                      <input 
+                        type="text" 
+                        value={editedDomain}
+                        onChange={(e) => setEditedDomain(e.target.value)}
+                        placeholder="Domain"
+                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+                      />
+                      <input 
+                        type="text" 
+                        value={editedNiche}
+                        onChange={(e) => setEditedNiche(e.target.value)}
+                        placeholder="Niche"
+                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+                      />
+                    </div>
+                    <textarea 
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      style={{ 
+                        flex: 1, 
+                        width: '100%', 
+                        minHeight: '380px', 
+                        padding: '12px', 
+                        backgroundColor: '#101318', 
+                        border: '1px solid #1f242d', 
+                        color: '#cbd5e1', 
+                        fontSize: '0.78rem', 
+                        fontFamily: "'JetBrains Mono', monospace", 
+                        borderRadius: '3px', 
+                        resize: 'none', 
+                        boxSizing: 'border-box' 
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <pre style={{ 
+                    fontFamily: "'JetBrains Mono', monospace", 
+                    fontSize: '0.78rem', 
+                    color: '#cbd5e1', 
+                    lineHeight: '1.6', 
+                    whiteSpace: 'pre-wrap', 
+                    wordBreak: 'break-word', 
+                    margin: 0 
+                  }}>
+                    {selectedDoc.content}
+                  </pre>
+                )}
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8fa0b5', fontSize: '0.78rem' }}>
+              Select a dossier from the sidebar repository to view its contents.
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* NEW DOSSIER MODAL */}
+      {showNewDocModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            width: '600px',
+            backgroundColor: '#0d1015',
+            border: '1px solid #1f242d',
+            borderRadius: '4px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #1f242d', backgroundColor: '#11141a' }}>
+              <span style={{ fontSize: '0.85rem', color: '#DAA520', fontWeight: 'bold' }}>
+                INITIALIZE NEW VAULT DOSSIER
+              </span>
+              <button 
+                onClick={() => {
+                  if (modalRecognitionRef.current) modalRecognitionRef.current.abort();
+                  setIsModalRecording(false);
+                  setShowNewDocModal(false);
+                }}
+                style={{ background: 'transparent', border: 'none', color: '#8fa0b5', cursor: 'pointer' }}
+              >
+                <X style={{ width: '16px', height: '16px' }} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewDoc} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.65rem', color: '#8fa0b5', display: 'block', marginBottom: '4px' }}>DOSSIER TITLE</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Master Operations Log"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.65rem', color: '#8fa0b5', display: 'block', marginBottom: '4px' }}>DOMAIN</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. System Architecture"
+                    value={newDomain}
+                    onChange={(e) => setNewDomain(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.65rem', color: '#8fa0b5', display: 'block', marginBottom: '4px' }}>NICHE</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Node Daemon"
+                    value={newNiche}
+                    onChange={(e) => setNewNiche(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '0.65rem', color: '#8fa0b5' }}>DOSSIER CONTENT (MARKDOWN)</label>
+                  <button
+                    type="button"
+                    onClick={toggleModalMic}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 8px',
+                      backgroundColor: isModalRecording ? '#2b0d0d' : '#161a22',
+                      border: isModalRecording ? '1px solid #ef4444' : '1px solid #1f242d',
+                      color: isModalRecording ? '#ef4444' : '#DAA520',
+                      fontSize: '0.65rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      borderRadius: '3px'
+                    }}
+                  >
+                    <Mic style={{ width: '10px', height: '10px' }} />
+                    <span>{isModalRecording ? 'REC [STOP]' : 'MIC DICTATE'}</span>
+                  </button>
+                </div>
+                <textarea 
+                  rows={8}
+                  placeholder={isModalRecording ? 'Listening... dictating markdown text...' : '# System Specifications\nDistilled intelligence notes...'}
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '8px 10px', 
+                    backgroundColor: '#101318', 
+                    border: isModalRecording ? '1px solid #ef4444' : '1px solid #1f242d', 
+                    color: '#fff', 
+                    fontSize: '0.75rem', 
+                    borderRadius: '3px', 
+                    boxSizing: 'border-box', 
+                    fontFamily: "'JetBrains Mono', monospace" 
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (modalRecognitionRef.current) modalRecognitionRef.current.abort();
+                    setIsModalRecording(false);
+                    setShowNewDocModal(false);
+                  }}
+                  style={{ padding: '6px 12px', backgroundColor: '#161a22', border: '1px solid #1f242d', color: '#cbd5e1', fontSize: '0.72rem', cursor: 'pointer', borderRadius: '3px' }}
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    padding: '6px 14px', 
+                    backgroundColor: 'rgba(0, 255, 102, 0.15)', 
+                    border: '1px solid #00FF66', 
+                    color: '#00FF66', 
+                    fontSize: '0.72rem', 
+                    fontWeight: 'bold', 
+                    cursor: 'pointer', 
+                    borderRadius: '3px' 
+                  }}
+                >
+                  {isSaving ? <Loader2 className="animate-spin" style={{ width: '12px', height: '12px' }} /> : <Save style={{ width: '12px', height: '12px' }} />}
+                  <span>{isSaving ? 'COMMITTING TO DISK...' : 'COMMIT NEW DOSSIER'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* HEADER BAR */}
-      <div className="flex items-center justify-between bg-[#0d0f12] border border-[#1f242d] px-4 py-2.5 rounded">
-        <div>
-          <div className="text-[#ffb800] font-bold text-sm tracking-wider">
-            12 REVIEW // RESEARCH & INTELLIGENCE REFINERY
-          </div>
-          <div className="text-[10px] text-[#5c6b7f]">
-            Fluff-to-nugget gauge • Universal domain classification • Canonical dossier synthesis
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {/* PROMINENT CLS BUTTON */}
-          <button 
-            onClick={handleCls} 
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#14171c] hover:bg-[#ef4444]/20 border border-[#ef4444]/40 hover:border-[#ef4444] text-[whitesmoke] hover:text-[#fca5a5] rounded text-[11px] font-extrabold transition-all cursor-pointer shadow-[0_0_10px_rgba(239,68,68,0.1)]"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> CLS TERMINAL
-          </button>
-          <div className="flex items-center gap-2 border-l border-[#1f242d] pl-4">
-            <span className="text-[10px] text-[whitesmoke]">TRIAGE JUDGE:</span>
-            <span className="px-3 py-1.5 bg-[#14171c] border border-[#232832] text-[#ffb800] font-bold rounded text-[11px]">
-              01 MONTY
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* SIGNAL DENSITY METER */}
-      <div className="bg-[#0d0f12] border border-[#1f242d] p-3 rounded space-y-1.5">
-        <div className="flex justify-between items-center text-[11px]">
-          <span className="text-[#5c6b7f] font-bold tracking-wide">SIGNAL DENSITY // FLUFF-TO-NUGGET RATIO</span>
-          <div className="space-x-3">
-            <span className={hasError ? "text-[#ef4444] font-bold" : "text-[#10b981] font-bold"}>
-              NUGGET: {signalRatio.nuggetInt}%
-            </span>
-            <span className="text-[#5c6b7f]">STRIPPED FLUFF: {signalRatio.fluffInt}%</span>
-          </div>
-        </div>
-        <div className="w-full h-2 bg-[#14171c] rounded overflow-hidden border border-[#1f242d]">
-          <div 
-            className={`h-full transition-all duration-500 ${hasError ? 'bg-[#ef4444]' : 'bg-gradient-to-r from-[#10b981]/40 to-[#10b981]'}`}
-            style={{ width: `${hasError ? 100 : signalRatio.nuggetInt}%` }}
-          />
-        </div>
-        <div className="flex justify-between items-center text-[10px] text-[#5c6b7f] pt-1">
-          <span className={hasError ? "text-[#ef4444]" : saveSuccess ? "text-[#10b981] font-bold" : ""}>
-            STATUS: {isHarvesting ? 'EXTRACTING VECTORS...' : isSaving ? 'SYNTHESIZING TO VAULT...' : saveSuccess ? 'SYNTHESIS COMPLETE' : hasError ? 'ERROR ENCOUNTERED' : 'AWAITING CONTENT SCAN'}
-          </span>
-          <span>ESTIMATED READING/WATCH TIME SAVED: ~{Math.round(signalRatio.fluffInt * 0.3)} MINS</span>
-        </div>
-      </div>
-
-      {/* DUAL PANE WORKSPACE */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-0">
-        
-        {/* LEFT PANE: INTAKE & HARVESTING */}
-        <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-3 space-y-3 overflow-y-auto custom-scrollbar">
-          <div className="flex justify-between items-center text-[11px] text-[#ffb800] font-bold border-b border-[#14181f] pb-2">
-            <span>INTAKE & HARVESTING</span>
-            <span className="text-[10px] text-[#5c6b7f] font-normal">AI GUIDED</span>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] text-[#5c6b7f] font-bold uppercase">Video or Article Link</label>
-            <input
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=..."
-              className="w-full bg-[#101317] text-[#e2e8f0] border border-[#1f242d] rounded p-2 text-xs focus:outline-none focus:border-[#ffb800]"
-            />
-          </div>
-
-          <div className="flex-1 flex flex-col space-y-1 min-h-[140px]">
-            <label className="text-[10px] text-[#5c6b7f] font-bold uppercase">Conversation, Code, or Document Dump</label>
-            <textarea
-              value={contentDump}
-              onChange={(e) => setContentDump(e.target.value)}
-              placeholder="Paste research transcripts, code notes, or discussion logs here..."
-              className="flex-1 w-full bg-[#101317] text-[#e2e8f0] border border-[#1f242d] rounded p-2 text-xs focus:outline-none focus:border-[#ffb800] resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <div className="flex justify-between items-center">
-                <label className="text-[10px] text-[#5c6b7f] font-bold uppercase">1. Topic Domain</label>
-                <button onClick={handleAddDomain} className="text-[9px] text-[#ffb800] hover:underline cursor-pointer">+ Add</button>
-              </div>
-              <select
-                value={topicDomain}
-                onChange={handleDomainChange}
-                className="w-full bg-[#101317] text-[#e2e8f0] border border-[#1f242d] rounded p-1.5 text-xs outline-none focus:border-[#ffb800] cursor-pointer"
-              >
-                {topicDomains.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between items-center">
-                <label className="text-[10px] text-[#5c6b7f] font-bold uppercase">2. Specialization / Sub-Niche</label>
-                <button onClick={handleAddSpecialization} className="text-[9px] text-[#ffb800] hover:underline cursor-pointer">+ Add</button>
-              </div>
-              <select
-                value={specialization}
-                onChange={(e) => setSpecialization(e.target.value)}
-                className="w-full bg-[#101317] text-[#e2e8f0] border border-[#1f242d] rounded p-1.5 text-xs outline-none focus:border-[#ffb800] cursor-pointer"
-              >
-                {(specializationsMap[topicDomain] || ['General']).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <input 
-              type="checkbox" 
-              checked={pruneAndMerge} 
-              onChange={(e) => setPruneAndMerge(e.target.checked)}
-              id="pruneCheck" 
-              className="accent-[#ffb800] cursor-pointer" 
-            />
-            <label htmlFor="pruneCheck" className="text-[10px] text-[#5c6b7f] cursor-pointer">
-              Prune & merge into canonical master dossier (Eliminates duplicates)
-            </label>
-          </div>
-
-          <button
-            onClick={handleHarvest}
-            disabled={isHarvesting || (!url.trim() && !contentDump.trim())}
-            className={`w-full py-2 font-bold rounded text-xs flex items-center justify-center gap-2 transition-all ${
-              isHarvesting || (!url.trim() && !contentDump.trim())
-                ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'
-                : 'bg-[#ffb800] hover:bg-[#e6a600] text-black cursor-pointer'
-            }`}
-          >
-            {isHarvesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            <span>{isHarvesting ? 'HARVESTING VECTORS...' : 'HARVEST PURE NUGGET'}</span>
-          </button>
-        </div>
-
-        {/* RIGHT PANE: HARVESTED NUGGET */}
-        <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-3 space-y-3">
-          <div className={`flex justify-between items-center text-[11px] font-bold border-b border-[#14181f] pb-2 ${hasError ? 'text-[#ef4444]' : saveSuccess ? 'text-[#10b981]' : 'text-[#10b981]'}`}>
-            <span>THE HARVESTED NUGGET (EDITABLE)</span>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-[#5c6b7f] font-normal">
-                {isHarvesting ? 'PROCESSING...' : isSaving ? 'SYNTHESIZING...' : saveSuccess ? 'SUCCESS' : hasError ? 'ERROR' : 'IDLE // READY'}
-              </span>
-              <SpeakerBtn text={harvestedNugget} label="VOICE NUGGET" />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 bg-[#101317] border border-[#1f242d] p-2 rounded text-[10px]">
-            <span className="text-[#5c6b7f]">CANONICAL FILE:</span>
-            <span className="text-[#ffb800] font-bold">{topicDomain}</span>
-            <span className="text-[#5c6b7f]">&gt;</span>
-            <span className="text-[#38bdf8] font-bold">{specialization.replace(/\s+/g, '_')}.md</span>
-          </div>
-
-          <textarea
-            value={harvestedNugget}
-            onChange={(e) => setHarvestedNugget(e.target.value)}
-            className={`flex-1 w-full bg-[#101317] border rounded p-3 text-xs focus:outline-none resize-none font-mono leading-relaxed whitespace-pre-wrap ${
-              hasError 
-                ? 'text-[#fca5a5] border-[#ef4444]/30 focus:border-[#ef4444]' 
-                : saveSuccess
-                ? 'text-[#10b981] border-[#10b981]/50 focus:border-[#10b981]'
-                : 'text-[#d1d5db] border-[#1f242d] focus:border-[#10b981]'
-            }`}
-          />
-
-          <button
-            onClick={handlePushToDocs}
-            disabled={hasError || isHarvesting || isSaving || saveSuccess}
-            className={`w-full py-2 font-bold rounded text-xs flex items-center justify-center gap-2 transition-colors ${
-              saveSuccess
-                ? 'bg-[#10b981] text-black border border-[#10b981] cursor-default'
-                : hasError || isHarvesting || isSaving
-                ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'
-                : 'bg-[#10b981]/20 hover:bg-[#10b981]/30 text-[#34d399] border border-[#10b981]/50 cursor-pointer'
-            }`}
-          >
-            {isSaving ? <Loader2 className="w-4 h-4 text-[#10b981] animate-spin" /> : saveSuccess ? <CheckCircle className="w-4 h-4 text-black" /> : hasError ? <AlertOctagon className="w-4 h-4 text-[#ef4444]" /> : <Database className="w-4 h-4 text-[#10b981]" />}
-            <span>{isSaving ? 'SYNTHESIZING TO VAULT...' : saveSuccess ? 'SYNTHESIS COMPLETE' : 'PUSH TO 13 DOCS LIBRARY'}</span>
-          </button>
-        </div>
-
-      </div>
     </div>
   );
 }

@@ -14,6 +14,14 @@ const INITIAL_NIM_KEYS = Array.from({ length: 16 }).map((_, i) => ({
   credits: 1000
 }));
 
+// Default 4 Gemini Keys (AI Studio Cluster)
+const INITIAL_GEMINI_KEYS = [
+  { id: 'gem-1', key: 'AIzaSyCDpCFKoarV5EG-cJlhlgplRudVdK2rwYA', status: 'VALID', lastChecked: 'ONLINE', credits: 'STANDARD' },
+  { id: 'gem-2', key: 'AIzaSyAPFAYVOzSp3HhFc3LVoS0TPy8DQdKAwyw', status: 'VALID', lastChecked: 'ONLINE', credits: 'STANDARD' },
+  { id: 'gem-3', key: 'AIzaSyDhT4tqA1X90gzDnSh5Vmd9WboMr9WYZ-I', status: 'VALID', lastChecked: 'ONLINE', credits: 'STANDARD' },
+  { id: 'gem-4', key: 'AIzaSyDoPxC17g8Ec22p6huxMEtJIS613RJtTzg', status: 'VALID', lastChecked: 'ONLINE', credits: 'STANDARD' }
+];
+
 const INITIAL_PROVIDERS = [
   {
     id: 'nvidia_nim',
@@ -21,7 +29,7 @@ const INITIAL_PROVIDERS = [
     badge: 'PRIORITY 1',
     badgeColor: 'border-[#DAA520] text-[#DAA520] bg-[#DAA520]/10',
     tier: 'Llama 3.3 70B & DeepSeek Reasoning Core',
-    storageKey: 'MCNC_POOL_NVIDIA_NIM_V8',
+    storageKey: 'MCNC_POOL_NVIDIA_NIM_V9',
     endpoint: 'https://integrate.api.nvidia.com/v1',
     quotaInfo: '1,000 Inferences / Key',
     latency: '24ms',
@@ -29,12 +37,25 @@ const INITIAL_PROVIDERS = [
     keys: INITIAL_NIM_KEYS
   },
   {
+    id: 'gemini',
+    name: 'Google Gemini Pro / Flash',
+    badge: 'PRIORITY 1B (STUDIO)',
+    badgeColor: 'border-[#DAA520] text-[#DAA520] bg-[#DAA520]/10',
+    tier: 'Vertex / AI Studio Multi-Modal & 1M Context Node',
+    storageKey: 'MCNC_POOL_GEMINI_V9',
+    endpoint: 'https://generativelanguage.googleapis.com',
+    quotaInfo: '15 RPM / Key Pool',
+    latency: '145ms',
+    status: 'ACTIVE',
+    keys: INITIAL_GEMINI_KEYS
+  },
+  {
     id: 'groq',
     name: 'Groq Cloud',
     badge: 'PRIORITY 2',
     badgeColor: 'border-[#1E90FF] text-[#1E90FF] bg-[#1E90FF]/10',
     tier: 'High-Speed LPU Inference (Llama 3.1 8B/70B)',
-    storageKey: 'MCNC_POOL_GROQ_V8',
+    storageKey: 'MCNC_POOL_GROQ_V9',
     endpoint: 'https://api.groq.com/openai/v1',
     quotaInfo: 'Tier 1 Unlimited LPU',
     latency: '14ms',
@@ -49,7 +70,7 @@ const INITIAL_PROVIDERS = [
     badge: 'PRIORITY 3',
     badgeColor: 'border-[#00FF66] text-[#00FF66] bg-[#00FF66]/10',
     tier: 'Dynamic Routing (DeepSeek-R1 / Claude 3.5)',
-    storageKey: 'MCNC_POOL_OPENROUTER_V8',
+    storageKey: 'MCNC_POOL_OPENROUTER_V9',
     endpoint: 'https://openrouter.ai/api/v1',
     quotaInfo: '$14.20 Prepaid Pool',
     latency: '110ms',
@@ -64,7 +85,7 @@ const INITIAL_PROVIDERS = [
     badge: 'AUDIO SYNTHESIS',
     badgeColor: 'border-[#f59e0b] text-[#f59e0b] bg-[#f59e0b]/10',
     tier: 'Neural Voice Synthesis / 16 Warlord Profiles',
-    storageKey: 'MCNC_POOL_ELEVENLABS_V8',
+    storageKey: 'MCNC_POOL_ELEVENLABS_V9',
     endpoint: 'https://api.elevenlabs.io/v1',
     quotaInfo: '~2.0 Hours / 100k Chars Pool',
     latency: '62ms',
@@ -86,27 +107,12 @@ const INITIAL_PROVIDERS = [
     }
   },
   {
-    id: 'gemini',
-    name: 'Google Gemini Pro',
-    badge: 'PRIORITY 4',
-    badgeColor: 'border-[#f59e0b] text-[#f59e0b] bg-[#f59e0b]/10',
-    tier: 'Vertex / AI Studio Multi-Modal & 1M Audit Node',
-    storageKey: 'MCNC_POOL_GEMINI_V8',
-    endpoint: 'https://generativelanguage.googleapis.com',
-    quotaInfo: 'Standard Production Quota',
-    latency: '145ms',
-    status: 'READY',
-    keys: [
-      { id: 'gem-1', key: 'AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P••••••••', status: 'VALID', lastChecked: '07:42', credits: 'STANDARD' }
-    ]
-  },
-  {
     id: 'kaggle',
     name: 'Kaggle GPU Cluster',
     badge: 'LOCAL BRIDGE',
     badgeColor: 'border-[#38bdf8] text-[#38bdf8] bg-[#38bdf8]/10',
     tier: 'Bridge 8081 Free Dual T4 / P100 Weights',
-    storageKey: 'MCNC_POOL_KAGGLE_V8',
+    storageKey: 'MCNC_POOL_KAGGLE_V9',
     endpoint: 'http://localhost:8081/v1',
     quotaInfo: '30h / week allocation',
     latency: '34ms',
@@ -137,10 +143,10 @@ const WARLORD_16_CALIBRATED_ROSTER = [
 ];
 
 export default function Tab14PipeLine({ ws }) {
-  const [activeTab, setActiveTab] = useState('VOICE_STUDIO'); // Direct view to voice studio
+  const [activeTab, setActiveTab] = useState('PROVIDERS');
   const [providers, setProviders] = useState(() => {
     try {
-      const stored = localStorage.getItem('MCNC_PROVIDER_KEY_POOLS_V8');
+      const stored = localStorage.getItem('MCNC_PROVIDER_KEY_POOLS_V9');
       return stored ? JSON.parse(stored) : INITIAL_PROVIDERS;
     } catch (e) {
       return INITIAL_PROVIDERS;
@@ -166,13 +172,13 @@ export default function Tab14PipeLine({ ws }) {
   });
 
   const [logs, setLogs] = useState([
-    { id: 1, time: '07:48:10', tag: 'VOICE', text: '16-Director Neural Audio Studio fully armed with Pitch, Speed, & Tone sliders.' },
-    { id: 2, time: '07:48:15', tag: 'AUDIO', text: 'Browser Web Audio Resampling & ElevenLabs TTS bridge connected.' }
+    { id: 1, time: '07:48:10', tag: 'CLUSTER', text: 'Multi-Key Provider Deck initialized. NIM & Gemini pool managers ready.' },
+    { id: 2, time: '07:48:15', tag: 'BACKEND', text: 'Bridge Port 8081 cluster synchronization active.' }
   ]);
 
   const saveProviders = (updated) => {
     setProviders(updated);
-    localStorage.setItem('MCNC_PROVIDER_KEY_POOLS_V8', JSON.stringify(updated));
+    localStorage.setItem('MCNC_PROVIDER_KEY_POOLS_V9', JSON.stringify(updated));
   };
 
   const updateAgentVoice = (id, field, val) => {
@@ -181,16 +187,45 @@ export default function Tab14PipeLine({ ws }) {
     localStorage.setItem('MCNC_VOICE_ROSTER_CALIBRATED_V8', JSON.stringify(updated));
   };
 
-  // High-fidelity speech test execution (Browser Speech Synthesis + Audio Resampling)
-  const executeVoiceTest = async (agent) => {
-    setPlayingAgentId(agent.id);
+  const auditProviderCluster = async (providerId) => {
+    setIsAuditing(true);
     setLogs(prev => [
-      { id: Date.now(), time: new Date().toLocaleTimeString(), tag: 'VOICE', text: `Testing [${agent.name}]: "${agent.testPhrase}" | Pitch: ${agent.pitch}x, Speed: ${agent.speed}x, Tone: ${agent.tone}` },
+      { id: Date.now(), time: new Date().toLocaleTimeString(), tag: 'AUDIT', text: `Triggering health audit for [${providerId.toUpperCase()}] cluster...` },
       ...prev.slice(0, 30)
     ]);
 
     try {
-      // 1. If live ElevenLabs API key is present, attempt live TTS endpoint
+      let endpoint = '';
+      if (providerId === 'gemini') endpoint = 'http://localhost:8081/api/cluster/gemini/audit';
+      else if (providerId === 'nvidia_nim') endpoint = 'http://localhost:8081/api/cluster/nim/audit';
+      else if (providerId === 'groq') endpoint = 'http://localhost:8081/api/cluster/groq/audit';
+
+      if (endpoint) {
+        const res = await fetch(endpoint, { method: 'POST' });
+        const data = await res.json();
+        setLogs(prev => [
+          { id: Date.now(), time: new Date().toLocaleTimeString(), tag: 'AUDIT', text: `Audit completed: ${data.remainingActive || 0} active keys verified.` },
+          ...prev.slice(0, 30)
+        ]);
+      }
+    } catch (err) {
+      setLogs(prev => [
+        { id: Date.now(), time: new Date().toLocaleTimeString(), tag: 'ERROR', text: `Cluster audit failed: ${err.message}` },
+        ...prev.slice(0, 30)
+      ]);
+    } finally {
+      setIsAuditing(false);
+    }
+  };
+
+  const executeVoiceTest = async (agent) => {
+    setPlayingAgentId(agent.id);
+    setLogs(prev => [
+      { id: Date.now(), time: new Date().toLocaleTimeString(), tag: 'VOICE', text: `Testing [${agent.name}]: "${agent.testPhrase}"` },
+      ...prev.slice(0, 30)
+    ]);
+
+    try {
       if (elevenApiKey && elevenApiKey.length > 20 && !elevenApiKey.includes('••••')) {
         const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${agent.voiceId}`, {
           method: 'POST',
@@ -218,18 +253,15 @@ export default function Tab14PipeLine({ ws }) {
         }
       }
 
-      // 2. Hardware fallback: High-fidelity Web Speech API with real pitch and rate modulation
       if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); // Stop any pending speech
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(agent.testPhrase);
         utterance.pitch = agent.pitch;
         utterance.rate = agent.speed;
         
-        // Select an appropriate voice matching timbre if available
         const systemVoices = window.speechSynthesis.getVoices();
         if (systemVoices.length > 0) {
-          // Give male/female variety based on agent
-          const preferred = agent.id === 'roxy' || agent.id === 'tess' || agent.id === 'amber' || agent.id === 'valkyrie'
+          const preferred = ['roxy', 'tess', 'amber', 'valkyrie'].includes(agent.id)
             ? systemVoices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('samantha'))
             : systemVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('george'));
           if (preferred) utterance.voice = preferred;
@@ -242,7 +274,6 @@ export default function Tab14PipeLine({ ws }) {
         setPlayingAgentId(null);
       }
     } catch (err) {
-      console.error(err);
       setPlayingAgentId(null);
     }
   };
@@ -250,6 +281,9 @@ export default function Tab14PipeLine({ ws }) {
   const nimProvider = providers.find(p => p.id === 'nvidia_nim');
   const nimValidCount = nimProvider?.keys.filter(k => k.status === 'VALID').length || 0;
   const nimTotalQuota = nimValidCount * 1000;
+
+  const geminiProvider = providers.find(p => p.id === 'gemini');
+  const geminiValidCount = geminiProvider?.keys.filter(k => k.status === 'VALID').length || 0;
 
   const totalKeysAll = providers.reduce((acc, p) => acc + p.keys.length, 0);
   const totalValidAll = providers.reduce((acc, p) => acc + p.keys.filter(k => k.status === 'VALID').length, 0);
@@ -315,6 +349,17 @@ export default function Tab14PipeLine({ ws }) {
           </button>
         </div>
 
+        {/* Google Gemini Cluster Box */}
+        <div className="border border-[#1f242d] bg-[#080a0c] p-2.5 rounded flex flex-col gap-1">
+          <div className="flex justify-between items-center text-[8px] text-[#8fa0b5]">
+            <span className="text-[#DAA520] font-bold">GEMINI AI STUDIO POOL:</span>
+            <span className="text-[#00FF66] font-mono font-bold">{geminiValidCount} KEYS</span>
+          </div>
+          <div className="text-base font-mono font-bold text-white tracking-wider">
+            {geminiValidCount * 15} <span className="text-[9px] text-[#DAA520]">RPM POOLED</span>
+          </div>
+        </div>
+
         {/* NVIDIA NIM Stat Box */}
         <div className="border border-[#1f242d] bg-[#080a0c] p-2.5 rounded flex flex-col gap-1">
           <div className="flex justify-between items-center text-[8px] text-[#8fa0b5]">
@@ -342,180 +387,36 @@ export default function Tab14PipeLine({ ws }) {
         </div>
       </div>
 
-      {/* 2. CENTER STAGE: VOICE STUDIO OR PROVIDER CARDS */}
+      {/* 2. CENTER STAGE: PROVIDER CARDS OR VOICE STUDIO */}
       <div className="flex-1 flex flex-col border border-[#1f242d] rounded bg-[#0d0f12] overflow-hidden">
         
         {/* Top Status Strip */}
         <div className="p-2.5 bg-[#0a0c0e] border-b border-[#1f242d] flex justify-between items-center select-none">
           <div className="flex items-center gap-2">
-            <Volume2 className="w-3.5 h-3.5 text-[#DAA520]" />
+            <Key className="w-3.5 h-3.5 text-[#DAA520]" />
             <span className="text-[#DAA520] font-bold text-[10px] uppercase tracking-wider">
-              {activeTab === 'VOICE_STUDIO' && '16-DIRECTOR NEURAL VOICE MATRIX // PITCH, SPEED & TONE CALIBRATION'}
               {activeTab === 'PROVIDERS' && 'HIGH-FINANCE PROVIDER CARDS // INFERENCE & AUDIO DECK'}
+              {activeTab === 'VOICE_STUDIO' && '16-DIRECTOR NEURAL VOICE MATRIX // PITCH, SPEED & TONE CALIBRATION'}
               {activeTab === 'ROLLOVER' && 'FAILOVER CASCADE // AUTOMATED ROTATION'}
             </span>
           </div>
 
           <div className="flex items-center gap-2 text-[9px]">
-            <span className="text-[#8fa0b5]">AUDIO ENGINE:</span>
-            <span className="text-[#00FF66] font-mono font-bold">ARMED (16 DIRECTORS)</span>
+            <span className="text-[#8fa0b5]">CLUSTER ENGINE:</span>
+            <span className="text-[#00FF66] font-mono font-bold">ARMED ({totalValidAll} ACTIVE KEYS)</span>
           </div>
         </div>
 
         {/* Dynamic Content Pane */}
         <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
           
-          {/* TAB 3: 16-DIRECTOR CALIBRATED VOICE MATRIX WITH SLIDERS */}
-          {activeTab === 'VOICE_STUDIO' && (
-            <div className="space-y-3">
-              
-              {/* ElevenLabs Master Key Input Bar */}
-              <div className="bg-[#080a0c] border border-[#1f242d] rounded p-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-1">
-                  <Volume2 className="w-4 h-4 text-[#DAA520]" />
-                  <span className="text-[10px] font-bold text-white uppercase">ELEVENLABS API KEY:</span>
-                  <input
-                    type="password"
-                    value={elevenApiKey}
-                    onChange={(e) => {
-                      setElevenApiKey(e.target.value);
-                      localStorage.setItem('MCNC_ELEVENLABS_KEY', e.target.value);
-                    }}
-                    placeholder="Enter ElevenLabs API key for direct neural streaming..."
-                    className="bg-[#14171c] border border-[#1f242d] rounded px-2.5 py-1 text-[9px] text-gray-200 font-mono w-96 outline-none focus:border-[#DAA520]"
-                  />
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('MCNC_ELEVENLABS_KEY', elevenApiKey);
-                      setLogs(prev => [
-                        { id: Date.now(), time: new Date().toLocaleTimeString(), tag: 'VAULT', text: 'ElevenLabs master API key verified and locked in persistent vault.' },
-                        ...prev.slice(0, 30)
-                      ]);
-                    }}
-                    className="px-2.5 py-1 rounded bg-[#14171c] hover:bg-[#DAA520] text-[#DAA520] hover:text-black border border-[#DAA520]/40 text-[9px] font-bold cursor-pointer transition-all"
-                  >
-                    LOCK KEY
-                  </button>
-                </div>
-                <span className="text-[8px] text-[#00FF66] font-mono font-bold">16 VOICES PROVISIONED</span>
-              </div>
-
-              {/* 16 Agents Calibration Grid (2 Columns, Complete Sliders) */}
-              <div className="grid grid-cols-2 gap-2.5">
-                {agents.map((agent) => {
-                  const isPlaying = playingAgentId === agent.id;
-
-                  return (
-                    <div 
-                      key={agent.id} 
-                      className={`bg-[#080a0c] border rounded p-3 flex flex-col gap-2 transition-all ${
-                        isPlaying 
-                          ? 'border-[#00FF66] shadow-[0_0_12px_rgba(0,255,102,0.2)] bg-gradient-to-b from-[#0a140f] to-[#080a0c]' 
-                          : 'border-[#1f242d] hover:border-gray-500'
-                      }`}
-                    >
-                      {/* Agent Header & Test Audio Trigger */}
-                      <div className="flex justify-between items-center border-b border-[#1f242d]/80 pb-1.5">
-                        <div>
-                          <span className="text-[11px] font-bold text-white tracking-wide">{agent.name}</span>
-                          <span className="text-[9px] text-[#DAA520] ml-1.5 font-bold">({agent.role})</span>
-                        </div>
-                        <button
-                          onClick={() => executeVoiceTest(agent)}
-                          disabled={isPlaying}
-                          className={`px-2.5 py-1 rounded border text-[8px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                            isPlaying
-                              ? 'bg-[#00FF66] text-black border-[#00FF66] animate-pulse'
-                              : 'bg-[#14171c] hover:bg-[#00FF66] text-[#00FF66] hover:text-black border-[#00FF66]/40'
-                          }`}
-                        >
-                          <Play className="w-2.5 h-2.5" />
-                          <span>{isPlaying ? 'PLAYING...' : 'TEST VOICE'}</span>
-                        </button>
-                      </div>
-
-                      {/* Voice ID Input */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] text-[#8fa0b5] font-bold w-14">VOICE ID:</span>
-                        <input
-                          type="text"
-                          value={agent.voiceId}
-                          onChange={(e) => updateAgentVoice(agent.id, 'voiceId', e.target.value)}
-                          className="bg-[#14171c] border border-[#1f242d] focus:border-[#DAA520] rounded px-2 py-0.5 text-[8px] text-gray-200 font-mono flex-1 outline-none"
-                        />
-                      </div>
-
-                      {/* 3 Interactive Sliders: Pitch, Speed, Tone */}
-                      <div className="grid grid-cols-3 gap-2 text-[8px] pt-1 border-t border-[#1f242d]/40">
-                        {/* Pitch */}
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[#8fa0b5]">
-                            <span>PITCH:</span>
-                            <span className="text-[#1E90FF] font-bold font-mono">{agent.pitch}x</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="1.5"
-                            step="0.05"
-                            value={agent.pitch}
-                            onChange={(e) => updateAgentVoice(agent.id, 'pitch', parseFloat(e.target.value))}
-                            className="w-full h-1 bg-[#14171c] rounded accent-[#1E90FF] cursor-pointer"
-                          />
-                        </div>
-
-                        {/* Speed */}
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[#8fa0b5]">
-                            <span>SPEED:</span>
-                            <span className="text-[#DAA520] font-bold font-mono">{agent.speed}x</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="1.5"
-                            step="0.05"
-                            value={agent.speed}
-                            onChange={(e) => updateAgentVoice(agent.id, 'speed', parseFloat(e.target.value))}
-                            className="w-full h-1 bg-[#14171c] rounded accent-[#DAA520] cursor-pointer"
-                          />
-                        </div>
-
-                        {/* Tone / Stability */}
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[#8fa0b5]">
-                            <span>TONE:</span>
-                            <span className="text-[#00FF66] font-bold font-mono">{agent.tone}</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.0"
-                            max="1.0"
-                            step="0.05"
-                            value={agent.tone}
-                            onChange={(e) => updateAgentVoice(agent.id, 'tone', parseFloat(e.target.value))}
-                            className="w-full h-1 bg-[#14171c] rounded accent-[#00FF66] cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Test Phrase Caption */}
-                      <div className="text-[7.5px] text-[#5c6b7f] truncate italic">
-                        "{agent.testPhrase}"
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* TAB 1: PROVIDER CARDS */}
           {activeTab === 'PROVIDERS' && (
             <div className="grid grid-cols-2 gap-3">
               {providers.map((provider) => {
                 const validKeys = provider.keys.filter(k => k.status === 'VALID').length;
                 const isNim = provider.id === 'nvidia_nim';
+                const isGemini = provider.id === 'gemini';
                 const isEleven = provider.id === 'elevenlabs';
 
                 return (
@@ -524,6 +425,8 @@ export default function Tab14PipeLine({ ws }) {
                     className={`bg-[#080a0c] border rounded p-3 flex flex-col justify-between transition-all ${
                       isNim 
                         ? 'col-span-2 border-[#DAA520]/60 shadow-[0_0_12px_rgba(218,165,32,0.15)] bg-gradient-to-b from-[#0e1117] to-[#080a0c]' 
+                        : isGemini
+                        ? 'col-span-2 border-[#DAA520]/60 shadow-[0_0_12px_rgba(218,165,32,0.15)] bg-gradient-to-b from-[#0e1117] to-[#080a0c]'
                         : isEleven
                         ? 'border-[#f59e0b]/50 bg-gradient-to-b from-[#120f09] to-[#080a0c]'
                         : 'border-[#1f242d] hover:border-gray-500'
@@ -546,7 +449,11 @@ export default function Tab14PipeLine({ ws }) {
                             {validKeys} / {provider.keys.length} VALID
                           </span>
                           <span className="text-[8px] font-mono text-[#8fa0b5]">
-                            {isNim ? `~${(validKeys * 1000).toLocaleString()} CALLS` : provider.quotaInfo}
+                            {isNim 
+                              ? `~${(validKeys * 1000).toLocaleString()} CALLS` 
+                              : isGemini 
+                              ? `${validKeys * 15} RPM POOLED` 
+                              : provider.quotaInfo}
                           </span>
                         </div>
                       </div>
@@ -587,10 +494,12 @@ export default function Tab14PipeLine({ ws }) {
                         <span className="text-[8px] text-[#8fa0b5] uppercase font-bold block">
                           ACTIVE POOLED KEY SLOTS ({provider.keys.length}):
                         </span>
-                        <div className={`space-y-1 overflow-y-auto custom-scrollbar ${isNim ? 'max-h-36 grid grid-cols-2 gap-1.5 space-y-0' : 'max-h-24'}`}>
+                        <div className={`space-y-1 overflow-y-auto custom-scrollbar ${isNim || isGemini ? 'max-h-36 grid grid-cols-2 gap-1.5 space-y-0' : 'max-h-24'}`}>
                           {provider.keys.map((kObj, idx) => (
                             <div key={kObj.id || idx} className="bg-[#14171c] border border-[#1f242d] rounded px-2 py-1 flex items-center justify-between text-[8px] font-mono">
-                              <span className="text-[#DAA520] truncate mr-2">#{idx + 1}: {kObj.key}</span>
+                              <span className="text-[#DAA520] truncate mr-2">
+                                #{idx + 1}: {kObj.key.length > 20 ? `${kObj.key.slice(0, 10)}••••••••${kObj.key.slice(-4)}` : kObj.key}
+                              </span>
                               <span className="text-[#00FF66] font-bold flex-shrink-0">&bull; {kObj.status}</span>
                             </div>
                           ))}
@@ -602,13 +511,25 @@ export default function Tab14PipeLine({ ws }) {
                       <span className="text-[8px] text-[#8fa0b5]">
                         Auto-failover target engaged
                       </span>
-                      <button
-                        onClick={() => setActiveModalProvider(provider)}
-                        className="px-3 py-1 bg-[#14171c] hover:bg-[#DAA520] text-[#DAA520] hover:text-black border border-[#DAA520]/40 rounded text-[9px] font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Plus className="w-3 h-3" />
-                        MANAGE & INJECT KEYS
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {(isNim || isGemini) && (
+                          <button
+                            onClick={() => auditProviderCluster(provider.id)}
+                            disabled={isAuditing}
+                            className="px-2.5 py-1 bg-[#14171c] hover:bg-[#1f242d] text-gray-300 border border-[#1f242d] rounded text-[9px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                          >
+                            <RefreshCw className={`w-2.5 h-2.5 ${isAuditing ? 'animate-spin text-[#DAA520]' : ''}`} />
+                            AUDIT POOL
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setActiveModalProvider(provider)}
+                          className="px-3 py-1 bg-[#14171c] hover:bg-[#DAA520] text-[#DAA520] hover:text-black border border-[#DAA520]/40 rounded text-[9px] font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3 h-3" />
+                          MANAGE & INJECT KEYS
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -620,14 +541,15 @@ export default function Tab14PipeLine({ ws }) {
           {activeTab === 'ROLLOVER' && (
             <div className="space-y-3">
               <div className="text-[10px] text-[#8fa0b5] mb-2 uppercase tracking-wider">
-                AUTONOMOUS CASCADE // 16-KEY POOL FAILOVER ENGINE:
+                AUTONOMOUS CASCADE // MULTI-TIER POOL FAILOVER ENGINE:
               </div>
 
               {[
-                { priority: 'PRIORITY 1', target: 'NVIDIA NIM (Llama 3.3 70B)', desc: 'Sequentially cycles through all 16 valid keys (16,000 free inferences). When key #N hits 429 rate limit or zero balance, instant seamless rollover to key #N+1.', badge: '16 KEYS POOLED', color: 'border-[#DAA520] text-[#DAA520]' },
+                { priority: 'PRIORITY 1A', target: 'NVIDIA NIM Cluster (Llama 3.3 70B & Vision)', desc: 'Sequentially cycles through 16 valid keys (16,000 free inferences). When key #N hits 429 rate limit or zero balance, instant seamless rollover to key #N+1.', badge: '16 KEYS POOLED', color: 'border-[#DAA520] text-[#DAA520]' },
+                { priority: 'PRIORITY 1B', target: 'Google Gemini Pro / Flash AI Studio Cluster', desc: 'Direct multi-key round-robin pool. Ingests large PRD files, documents, and 1M+ context window audits without running into single-project quota limits.', badge: `${geminiValidCount} KEYS POOLED`, color: 'border-[#DAA520] text-[#DAA520]' },
                 { priority: 'PRIORITY 2', target: 'Groq Cloud LPU', desc: 'Ultra-low latency sub-20ms fallback if all NIM keys are exhausted or network socket drops.', badge: 'HIGH SPEED', color: 'border-[#1E90FF] text-[#1E90FF]' },
                 { priority: 'PRIORITY 3', target: 'OpenRouter Gateway', desc: 'Routes complex UI/UX builds, dossier writing, and high-reasoning tasks to Claude 3.5 Sonnet / DeepSeek-R1.', badge: 'DYNAMIC', color: 'border-[#00FF66] text-[#00FF66]' },
-                { priority: 'PRIORITY 4', target: 'Google Gemini Pro', desc: 'Terminal fallback node. Massive 1M+ context window for deconstruction, multi-modal vision, and final audit checks.', badge: 'ANCHOR', color: 'border-[#f59e0b] text-[#f59e0b]' }
+                { priority: 'PRIORITY 4', target: 'Kaggle Dual-T4 Free Cloud Bridge', desc: 'Terminal offline-resilient node running local weights on port 8081.', badge: 'LOCAL BRIDGE', color: 'border-[#38bdf8] text-[#38bdf8]' }
               ].map((step, idx) => (
                 <div key={idx} className="bg-[#080a0c] border border-[#1f242d] rounded p-3 flex justify-between items-start">
                   <div>
@@ -640,6 +562,141 @@ export default function Tab14PipeLine({ ws }) {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* TAB 3: 16-DIRECTOR CALIBRATED VOICE MATRIX WITH SLIDERS */}
+          {activeTab === 'VOICE_STUDIO' && (
+            <div className="space-y-3">
+              <div className="bg-[#080a0c] border border-[#1f242d] rounded p-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-1">
+                  <Volume2 className="w-4 h-4 text-[#DAA520]" />
+                  <span className="text-[10px] font-bold text-white uppercase">ELEVENLABS API KEY:</span>
+                  <input
+                    type="password"
+                    value={elevenApiKey}
+                    onChange={(e) => {
+                      setElevenApiKey(e.target.value);
+                      localStorage.setItem('MCNC_ELEVENLABS_KEY', e.target.value);
+                    }}
+                    placeholder="Enter ElevenLabs API key for direct neural streaming..."
+                    className="bg-[#14171c] border border-[#1f242d] rounded px-2.5 py-1 text-[9px] text-gray-200 font-mono w-96 outline-none focus:border-[#DAA520]"
+                  />
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('MCNC_ELEVENLABS_KEY', elevenApiKey);
+                      setLogs(prev => [
+                        { id: Date.now(), time: new Date().toLocaleTimeString(), tag: 'VAULT', text: 'ElevenLabs master API key verified and locked in persistent vault.' },
+                        ...prev.slice(0, 30)
+                      ]);
+                    }}
+                    className="px-2.5 py-1 rounded bg-[#14171c] hover:bg-[#DAA520] text-[#DAA520] hover:text-black border border-[#DAA520]/40 text-[9px] font-bold cursor-pointer transition-all"
+                  >
+                    LOCK KEY
+                  </button>
+                </div>
+                <span className="text-[8px] text-[#00FF66] font-mono font-bold">16 VOICES PROVISIONED</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {agents.map((agent) => {
+                  const isPlaying = playingAgentId === agent.id;
+
+                  return (
+                    <div 
+                      key={agent.id} 
+                      className={`bg-[#080a0c] border rounded p-3 flex flex-col gap-2 transition-all ${
+                        isPlaying 
+                          ? 'border-[#00FF66] shadow-[0_0_12px_rgba(0,255,102,0.2)] bg-gradient-to-b from-[#0a140f] to-[#080a0c]' 
+                          : 'border-[#1f242d] hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center border-b border-[#1f242d]/80 pb-1.5">
+                        <div>
+                          <span className="text-[11px] font-bold text-white tracking-wide">{agent.name}</span>
+                          <span className="text-[9px] text-[#DAA520] ml-1.5 font-bold">({agent.role})</span>
+                        </div>
+                        <button
+                          onClick={() => executeVoiceTest(agent)}
+                          disabled={isPlaying}
+                          className={`px-2.5 py-1 rounded border text-[8px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            isPlaying
+                              ? 'bg-[#00FF66] text-black border-[#00FF66] animate-pulse'
+                              : 'bg-[#14171c] hover:bg-[#00FF66] text-[#00FF66] hover:text-black border-[#00FF66]/40'
+                          }`}
+                        >
+                          <Play className="w-2.5 h-2.5" />
+                          <span>{isPlaying ? 'PLAYING...' : 'TEST VOICE'}</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[8px] text-[#8fa0b5] font-bold w-14">VOICE ID:</span>
+                        <input
+                          type="text"
+                          value={agent.voiceId}
+                          onChange={(e) => updateAgentVoice(agent.id, 'voiceId', e.target.value)}
+                          className="bg-[#14171c] border border-[#1f242d] focus:border-[#DAA520] rounded px-2 py-0.5 text-[8px] text-gray-200 font-mono flex-1 outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-[8px] pt-1 border-t border-[#1f242d]/40">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-[#8fa0b5]">
+                            <span>PITCH:</span>
+                            <span className="text-[#1E90FF] font-bold font-mono">{agent.pitch}x</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="1.5"
+                            step="0.05"
+                            value={agent.pitch}
+                            onChange={(e) => updateAgentVoice(agent.id, 'pitch', parseFloat(e.target.value))}
+                            className="w-full h-1 bg-[#14171c] rounded accent-[#1E90FF] cursor-pointer"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-[#8fa0b5]">
+                            <span>SPEED:</span>
+                            <span className="text-[#DAA520] font-bold font-mono">{agent.speed}x</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="1.5"
+                            step="0.05"
+                            value={agent.speed}
+                            onChange={(e) => updateAgentVoice(agent.id, 'speed', parseFloat(e.target.value))}
+                            className="w-full h-1 bg-[#14171c] rounded accent-[#DAA520] cursor-pointer"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-[#8fa0b5]">
+                            <span>TONE:</span>
+                            <span className="text-[#00FF66] font-bold font-mono">{agent.tone}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.0"
+                            max="1.0"
+                            step="0.05"
+                            value={agent.tone}
+                            onChange={(e) => updateAgentVoice(agent.id, 'tone', parseFloat(e.target.value))}
+                            className="w-full h-1 bg-[#14171c] rounded accent-[#00FF66] cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="text-[7.5px] text-[#5c6b7f] truncate italic">
+                        "{agent.testPhrase}"
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -667,7 +724,7 @@ export default function Tab14PipeLine({ ws }) {
               <div className="flex justify-between items-center text-[8px]">
                 <span className="text-[#8fa0b5]">{log.time}</span>
                 <span className={`font-bold ${
-                  log.tag === 'VOICE' ? 'text-[#f59e0b]' : log.tag === 'AUDIO' ? 'text-[#00FF66]' : 'text-[#1E90FF]'
+                  log.tag === 'VOICE' ? 'text-[#f59e0b]' : log.tag === 'AUDIT' ? 'text-[#00FF66]' : 'text-[#1E90FF]'
                 }`}>
                   [{log.tag}]
                 </span>
@@ -680,9 +737,9 @@ export default function Tab14PipeLine({ ws }) {
         <div className="border-t border-[#1f242d] pt-2 flex items-center justify-between text-[8px] text-[#8fa0b5]">
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-3 h-3 text-[#00FF66]" />
-            AUDIO ENGINE VERIFIED
+            CLUSTER CONTROLLER
           </span>
-          <span className="font-mono text-gray-400">16 DIRECTORS READY</span>
+          <span className="font-mono text-gray-400">{totalValidAll} KEYS ACTIVE</span>
         </div>
       </div>
 
@@ -712,7 +769,9 @@ export default function Tab14PipeLine({ ws }) {
                 <div key={kObj.id || idx} className="bg-[#080a0c] border border-[#1f242d] rounded p-2 flex items-center justify-between text-[9px] font-mono">
                   <div className="flex items-center gap-2">
                     <span className="text-[#DAA520]">#{idx + 1}</span>
-                    <span className="text-gray-200">{kObj.key}</span>
+                    <span className="text-gray-200">
+                      {kObj.key.length > 28 ? `${kObj.key.slice(0, 14)}••••••••${kObj.key.slice(-4)}` : kObj.key}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[#00FF66] text-[8px] font-bold">{kObj.status}</span>
@@ -747,16 +806,16 @@ export default function Tab14PipeLine({ ws }) {
                 rows={3}
                 value={batchKeyInput}
                 onChange={(e) => setBatchKeyInput(e.target.value)}
-                placeholder="Paste keys here..."
+                placeholder="Paste AIza... or nvapi-... or gsk-... keys here..."
                 className="w-full bg-[#14171c] border border-[#1f242d] focus:border-[#DAA520] rounded p-2 text-[9px] text-gray-200 font-mono outline-none resize-none"
               />
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (batchKeyInput.trim()) {
                     const incoming = batchKeyInput
                       .split(/[\n,]+/)
                       .map(k => k.trim())
-                      .filter(k => k.length > 5);
+                      .filter(k => k.length > 10);
 
                     if (incoming.length > 0) {
                       const updated = providers.map(p => {
@@ -777,6 +836,25 @@ export default function Tab14PipeLine({ ws }) {
                       });
 
                       saveProviders(updated);
+
+                      // Direct Sync with Base 1 Server daemon
+                      try {
+                        let syncUrl = '';
+                        if (activeModalProvider.id === 'gemini') syncUrl = 'http://localhost:8081/api/cluster/gemini/add';
+                        else if (activeModalProvider.id === 'nvidia_nim') syncUrl = 'http://localhost:8081/api/cluster/nim/add';
+                        else if (activeModalProvider.id === 'groq') syncUrl = 'http://localhost:8081/api/cluster/groq/add';
+
+                        if (syncUrl) {
+                          await fetch(syncUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ rawKeys: incoming.join('\n') })
+                          });
+                        }
+                      } catch (e) {
+                        console.warn("Backend sync failed:", e.message);
+                      }
+
                       setBatchKeyInput('');
                     }
                   }
@@ -785,7 +863,7 @@ export default function Tab14PipeLine({ ws }) {
                 className="w-full py-2 bg-[#DAA520] hover:bg-[#ffb800] text-black rounded text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
-                CONFIRM & INJECT INTO POOL
+                CONFIRM & INJECT INTO CLUSTER
               </button>
             </div>
           </div>
