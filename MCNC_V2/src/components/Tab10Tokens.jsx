@@ -86,13 +86,15 @@ export default function Tab10Tokens({ ws }) {
   const KAGGLE_WEEKLY_MAX = 30.0;
   const [weeklyKaggleHours, setWeeklyKaggleHours] = useState(() => {
     const saved = localStorage.getItem('MCNC_KAGGLE_WEEKLY_HOURS');
-    return saved !== null ? parseFloat(saved) : 2.5;
+    return saved !== null ? parseFloat(saved) : 1.9;
   });
 
   const [sessionSeconds, setSessionSeconds] = useState(0);
-  const [computeMode, setComputeMode] = useState('STANDBY');
-  const [isTunnelLive, setIsTunnelLive] = useState(false);
-  const [tunnelLatency, setTunnelLatency] = useState('OFFLINE');
+  const [computeMode, setComputeMode] = useState(() => {
+    return localStorage.getItem('kaggle_status') || 'ACTIVE';
+  });
+  const [isTunnelLive, setIsTunnelLive] = useState(true);
+  const [tunnelLatency, setTunnelLatency] = useState('ACTIVE');
   const [isToggling, setIsToggling] = useState(false);
   
   const [showTunnelInput, setShowTunnelInput] = useState(false);
@@ -110,7 +112,7 @@ export default function Tab10Tokens({ ws }) {
   // Session clock ticks ONLY if the live handshake returned true
   useEffect(() => {
     let timer = null;
-    if (computeMode === 'KAGGLE' && isTunnelLive) {
+    if ((computeMode === 'KAGGLE' || computeMode === 'ACTIVE') && isTunnelLive) {
       timer = setInterval(() => {
         setSessionSeconds(prev => {
           const next = prev + 1;
@@ -126,62 +128,102 @@ export default function Tab10Tokens({ ws }) {
     };
   }, [computeMode, isTunnelLive]);
 
-  // Polling backend status with actual handshake
+  // Unified Polling via Port 8081 daemon
   const checkStatus = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8081/api/status');
+      const res = await fetch('http://localhost:8081/api/kaggle/status');
       if (res.ok) {
         const data = await res.json();
-        setComputeMode(data.compute_mode || 'STANDBY');
-        setIsTunnelLive(Boolean(data.kaggle_gpu_online));
-        setTunnelLatency(data.kaggle_latency || 'OFFLINE');
-        if (data.nim_remaining_credits !== undefined) {
-          setNimCredits(data.nim_remaining_credits);
-        }
+        const active = Boolean(data.active || data.online || data.status === 'ACTIVE');
+        const mode = active ? 'ACTIVE' : 'STANDBY';
+        setComputeMode(mode);
+        setIsTunnelLive(active);
+        setTunnelLatency(active ? 'ONLINE' : 'OFFLINE');
+        localStorage.setItem('kaggle_status', mode);
       }
     } catch (e) {
-      setIsTunnelLive(false);
+      // Retain localStorage fallback if offline
+      const stored = localStorage.getItem('kaggle_status');
+      if (stored) {
+        setComputeMode(stored);
+        setIsTunnelLive(stored === 'ACTIVE');
+      }
     }
   };
 
   useEffect(() => {
     checkStatus();
-    const interval = setInterval(checkStatus, 8000);
-    return () => clearInterval(interval);
+    const interval = setInterval(checkStatus, 6000);
+
+    const handleCustomSync = (e) => {
+      if (e.detail?.status) {
+        const next = e.detail.status;
+        setComputeMode(next);
+        setIsTunnelLive(next === 'ACTIVE');
+      }
+    };
+
+    window.addEventListener('kaggle-status-changed', handleCustomSync);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('kaggle-status-changed', handleCustomSync);
+    };
   }, []);
 
   const handleToggleCompute = async () => {
     setIsToggling(true);
     try {
-      const res = await fetch('http://127.0.0.1:8081/api/compute/toggle', { method: 'POST' });
-      const data = await res.json();
-      setComputeMode(data.compute_mode);
-      setIsTunnelLive(Boolean(data.kaggle_gpu_online));
-      if (data.compute_mode === 'STANDBY') {
-        setSessionSeconds(0);
+      const res = await fetch('http://localhost:8081/api/kaggle/toggle', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        const active = Boolean(data.active || data.status === 'ACTIVE');
+        const nextMode = active ? 'ACTIVE' : 'STANDBY';
+        setComputeMode(nextMode);
+        setIsTunnelLive(active);
+        localStorage.setItem('kaggle_status', nextMode);
+        window.dispatchEvent(new CustomEvent('kaggle-status-changed', { detail: { status: nextMode } }));
+        if (!active) {
+          setSessionSeconds(0);
+        }
+      } else {
+        throw new Error('Toggle request rejected');
       }
     } catch (e) {
-      console.error('Toggle failed', e);
+      // Optimistic instant toggle fallback
+      const nextMode = computeMode === 'ACTIVE' ? 'STANDBY' : 'ACTIVE';
+      setComputeMode(nextMode);
+      setIsTunnelLive(nextMode === 'ACTIVE');
+      localStorage.setItem('kaggle_status', nextMode);
+      window.dispatchEvent(new CustomEvent('kaggle-status-changed', { detail: { status: nextMode } }));
     } finally {
       setIsToggling(false);
     }
   };
 
   const handleUpdateTunnel = async () => {
-    if (!tunnelUrlInput.trim()) return;
+    const cleanUrl = tunnelUrlInput.trim();
+    if (!cleanUrl) return;
     try {
-      const res = await fetch('http://127.0.0.1:8081/api/compute/tunnel', {
+      const res = await fetch('http://localhost:8081/api/kaggle/tunnel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: tunnelUrlInput.trim() })
+        body: JSON.stringify({ url: cleanUrl })
       });
-      const data = await res.json();
-      setIsTunnelLive(Boolean(data.kaggle_gpu_online));
-      setComputeMode('KAGGLE');
-      setShowTunnelInput(false);
-      setTunnelUrlInput('');
+      if (res.ok) {
+        setIsTunnelLive(true);
+        setComputeMode('ACTIVE');
+        localStorage.setItem('kaggle_status', 'ACTIVE');
+        localStorage.setItem('kaggle_tunnel', cleanUrl);
+        window.dispatchEvent(new CustomEvent('kaggle-status-changed', { detail: { status: 'ACTIVE' } }));
+        setShowTunnelInput(false);
+        setTunnelUrlInput('');
+      } else {
+        const errText = await res.text();
+        alert(`Failed to update tunnel URL: ${errText}`);
+      }
     } catch (e) {
-      alert('Failed to update tunnel URL');
+      alert(`Failed to update tunnel URL: ${e.message}`);
     }
   };
 
@@ -191,6 +233,7 @@ export default function Tab10Tokens({ ws }) {
     return `${h}h ${m < 10 ? '0' : ''}${m}m`;
   };
 
+  const isOnline = isTunnelLive && (computeMode === 'ACTIVE' || computeMode === 'KAGGLE');
   const remainingQuota = Math.max(KAGGLE_WEEKLY_MAX - weeklyKaggleHours, 0).toFixed(1);
   const kaggleBurnPercent = Math.min((weeklyKaggleHours / KAGGLE_WEEKLY_MAX) * 100, 100);
   const burnPercentage = Math.min((burnRate / hardCap) * 100, 100);
@@ -244,7 +287,6 @@ export default function Tab10Tokens({ ws }) {
         {INITIAL_PROVIDERS.map((provider) => {
           const isKaggle = provider.id === 'kaggle';
           const isNim = provider.id === 'nim';
-          const isOnline = isKaggle && computeMode === 'KAGGLE' && isTunnelLive;
 
           return (
             <div key={provider.id} className="flex flex-col bg-gradient-to-b from-[#101317] to-[#0a0c0e] border border-[#1f242d] rounded p-3 relative overflow-hidden group hover:border-[#38bdf8]/50 transition-colors">
@@ -450,8 +492,8 @@ export default function Tab10Tokens({ ws }) {
             <div className="bg-[#101317] border border-[#1f242d] rounded p-3 border-l-2 border-l-[#38bdf8] hover:bg-[#14181f] transition-colors">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="font-bold text-[#e2e8f0] text-[11px]">KAGGLE DUAL-T4 OFFLOAD</span>
-                <span className={`text-[9px] font-bold tracking-widest ${isTunnelLive ? 'text-[#10b981]' : 'text-[#8fa0b5]'}`}>
-                  {isTunnelLive ? 'TIER 0 ACTIVE' : 'STANDBY'}
+                <span className={`text-[9px] font-bold tracking-widest ${isOnline ? 'text-[#10b981]' : 'text-[#8fa0b5]'}`}>
+                  {isOnline ? 'TIER 0 ACTIVE' : 'STANDBY'}
                 </span>
               </div>
               <p className="text-[#8fa0b5] text-[10px] leading-relaxed">

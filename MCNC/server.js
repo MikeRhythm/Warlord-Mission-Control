@@ -39,6 +39,7 @@ const NIM_CLUSTER_FILE = path.join(KEYS_DIR, 'nim_cluster.json');
 const GROQ_CLUSTER_FILE = path.join(KEYS_DIR, 'groq_cluster.json');
 const GEMINI_CLUSTER_FILE = path.join(KEYS_DIR, 'gemini_cluster.json');
 const PROJECTS_MANIFEST_FILE = path.join(VAULT_PATH, 'projects_manifest.json');
+const ENV_FILE_PATH = path.join(__dirname, '.env');
 
 [LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH, PROJECTS_PATH, DOCS_PATH].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -147,7 +148,7 @@ function scaffoldProjectWorkspace(projectData) {
 function logTelemetry(action, details) {
     try {
         if (!fs.existsSync(TELEMETRY_DIR)) fs.mkdirSync(TELEMETRY_DIR, { recursive: true });
-        const entry = `\n- [${new Date().toISOString()}] **${action}**: ${details}`;
+        const entry = `\n- [${new Date().toISOString()}] **${action}**:${details}`;
         fs.appendFileSync(TELEMETRY_FILE, entry, 'utf8');
     } catch (e) {}
 }
@@ -332,7 +333,7 @@ const readNimCluster = () => readClusterFile(NIM_CLUSTER_FILE, "nvidia_nim");
 const writeNimCluster = (data) => writeClusterFile(NIM_CLUSTER_FILE, data);
 const getActiveNimKeys = () => {
     const fromVault = readNimCluster().keys.filter(k => k.status === 'ACTIVE' || k.status === 'VALID').map(k => k.key);
-    const envKeys = [process.env.NVIDIA_API_KEY, process.env.NIM_API_KEY, process.env.VITE_NVIDIA_API_KEY].filter(Boolean);
+    const envKeys = [process.env.NVIDIA_API_KEY, process.env.NIM_API_KEY, process.env.VITE_NVIDIA_API_KEY, process.env.NVIDIA_NIM_KEY].filter(Boolean);
     return Array.from(new Set([...fromVault, ...envKeys]));
 };
 
@@ -353,7 +354,125 @@ const getActiveGeminiKeys = () => {
 };
 
 // ==========================================
-// ROUTING ENGINE (GEMINI -> NIM -> GROQ -> OPENROUTER)
+// REAL-TIME KAGGLE HANDSHAKE ENGINE
+// ==========================================
+let kaggleComputeActive = true;
+
+async function verifyKaggleReachability(tunnelUrl) {
+    if (!tunnelUrl) return false;
+    try {
+        const cleanUrl = tunnelUrl.trim().replace(/\/+$/, '');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        
+        const testRes = await fetch(cleanUrl, { 
+            method: 'GET',
+            signal: controller.signal 
+        }).catch(async () => {
+            return await fetch(`${cleanUrl}/v1`, { signal: controller.signal });
+        });
+        
+        clearTimeout(timeoutId);
+        return Boolean(testRes && testRes.status < 500);
+    } catch (e) {
+        return false;
+    }
+}
+
+const handleTunnelUpdate = (req, res) => {
+    try {
+        const rawUrl = req.body.url || req.body.tunnelUrl || req.body.endpoint || req.body.target || req.query.url;
+        if (!rawUrl) {
+            return res.status(400).json({ success: false, status: 'ERROR', message: 'Tunnel URL is required.' });
+        }
+
+        const cleanUrl = rawUrl.trim().replace(/\/+$/, '');
+        process.env.KAGGLE_TUNNEL_URL = cleanUrl;
+        kaggleComputeActive = true;
+
+        if (fs.existsSync(ENV_FILE_PATH)) {
+            let envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
+            if (envContent.includes('KAGGLE_TUNNEL_URL=')) {
+                envContent = envContent.replace(/KAGGLE_TUNNEL_URL=.*/g, `KAGGLE_TUNNEL_URL=${cleanUrl}`);
+            } else {
+                envContent += `\nKAGGLE_TUNNEL_URL=${cleanUrl}`;
+            }
+            fs.writeFileSync(ENV_FILE_PATH, envContent, 'utf8');
+        }
+
+        broadcast('KAGGLE_STATUS', { active: true, status: 'ACTIVE', url: cleanUrl });
+        broadcast('TRACE', `[KAGGLE TUNNEL] Active URL set to: ${cleanUrl}`);
+        logTelemetry('KAGGLE_TUNNEL_SET', `Kaggle tunnel endpoint updated to: ${cleanUrl}`);
+
+        return res.json({
+            success: true,
+            status: 'SUCCESS',
+            active: true,
+            tunnelUrl: cleanUrl,
+            url: cleanUrl
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, status: 'ERROR', message: err.message });
+    }
+};
+
+const handleTunnelGet = async (req, res) => {
+    const tunnelUrl = process.env.KAGGLE_TUNNEL_URL || '';
+    let isPhysicallyAlive = false;
+
+    if (kaggleComputeActive && tunnelUrl) {
+        isPhysicallyAlive = await verifyKaggleReachability(tunnelUrl);
+    }
+
+    const currentStatus = (kaggleComputeActive && isPhysicallyAlive) ? 'ACTIVE' : 'STANDBY';
+
+    res.json({
+        success: true,
+        active: isPhysicallyAlive && kaggleComputeActive,
+        online: isPhysicallyAlive && kaggleComputeActive,
+        status: currentStatus,
+        tunnelUrl: tunnelUrl,
+        url: tunnelUrl
+    });
+};
+
+const handleToggleKaggle = async (req, res) => {
+    kaggleComputeActive = !kaggleComputeActive;
+    let isPhysicallyAlive = false;
+    const tunnelUrl = process.env.KAGGLE_TUNNEL_URL || '';
+
+    if (kaggleComputeActive && tunnelUrl) {
+        isPhysicallyAlive = await verifyKaggleReachability(tunnelUrl);
+    }
+
+    const currentStatus = (kaggleComputeActive && isPhysicallyAlive) ? 'ACTIVE' : 'STANDBY';
+    broadcast('KAGGLE_STATUS', { active: kaggleComputeActive && isPhysicallyAlive, status: currentStatus });
+    return res.json({ success: true, active: kaggleComputeActive && isPhysicallyAlive, status: currentStatus });
+};
+
+// URL setters
+app.post('/api/tunnel/set', handleTunnelUpdate);
+app.post('/api/tunnel', handleTunnelUpdate);
+app.post('/api/kaggle/tunnel', handleTunnelUpdate);
+app.post('/api/kaggle/tunnel/set', handleTunnelUpdate);
+app.post('/api/kaggle/set-tunnel', handleTunnelUpdate);
+app.post('/api/tokens/tunnel', handleTunnelUpdate);
+app.post('/api/compute/tunnel', handleTunnelUpdate);
+
+// Status queries & Toggle
+app.get('/api/tunnel/get', handleTunnelGet);
+app.get('/api/tunnel', handleTunnelGet);
+app.get('/api/kaggle/tunnel', handleTunnelGet);
+app.get('/api/kaggle/status', handleTunnelGet);
+app.get('/api/tokens/tunnel', handleTunnelGet);
+app.get('/api/status', handleTunnelGet);
+
+app.post('/api/kaggle/toggle', handleToggleKaggle);
+app.post('/api/tokens/kaggle/toggle', handleToggleKaggle);
+app.post('/api/compute/toggle', handleToggleKaggle);
+
+// ==========================================
+// ROUTING ENGINE (KAGGLE -> GEMINI -> NIM -> GROQ -> OPENROUTER)
 // ==========================================
 async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
     const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
@@ -390,6 +509,57 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 
     const referencedFiles = resolveReferencedFiles(validContent);
     if (referencedFiles) validContent += `\n\n[DIRECTOR TOOL NOTICE: Ingested files]:${referencedFiles}`;
+
+    const requestedModel = rawBody.model || '';
+
+    // ==========================================
+    // TIER 4: KAGGLE ROUTING (Zero-Cost Tunnel)
+    // ==========================================
+    if (requestedModel.startsWith('KAGGLE/')) {
+        const KAGGLE_MODEL_MAP = {
+            'KAGGLE/QWEN-2.5-VL-7B': 'Qwen/Qwen2.5-VL-7B-Instruct',
+            'KAGGLE/QWEN-2.5-14B': 'Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4',
+            'KAGGLE/QWEN-2.5-CODER': 'Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-Int4',
+            'KAGGLE/LLAMA-3.1-8B': 'meta-llama/Llama-3.1-8B-Instruct'
+        };
+        const targetModel = KAGGLE_MODEL_MAP[requestedModel] || 'Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4';
+        
+        let baseUrl = (process.env.KAGGLE_TUNNEL_URL || 'http://localhost:5000').trim().replace(/\/+$/, '');
+        const targetEndpoint = baseUrl.endsWith('/v1') 
+            ? `${baseUrl}/chat/completions` 
+            : `${baseUrl}/v1/chat/completions`;
+
+        try {
+            const response = await fetch(targetEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: targetModel,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: validContent }
+                    ],
+                    temperature: 0.2,
+                    max_tokens: 4096
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.choices?.[0]?.message?.content?.trim();
+                if (text) return { reply: text, modelUsed: `${targetModel} (Tier 4: Kaggle T4 Compute)` };
+            }
+            
+            const errData = await response.text();
+            throw new Error(`Kaggle Tunnel HTTP ${response.status}: ${errData}`);
+        } catch (err) {
+            console.error("Kaggle Route Error:", err.message);
+            return { 
+                reply: `[KAGGLE TUNNEL ERROR]: Failed to reach Kaggle GPU endpoint at ${targetEndpoint}.\n\nEnsure your Kaggle notebook is active, Ollama/vLLM is running, and the URL is set.\n\nDetails: ${err.message}`, 
+                modelUsed: 'KAGGLE OFFLINE' 
+            };
+        }
+    }
 
     // TIER 1: GEMINI
     const activeGeminiKeys = getActiveGeminiKeys();
@@ -682,7 +852,7 @@ app.post('/api/cluster/gemini/add', (req, res) => {
 // ==========================================
 app.post('/api/harvest', async (req, res) => {
     try {
-        const { url, contentDump, topicDomain, specialization } = req.body;
+        const { url, contentDump, topicDomain, specialization, model } = req.body;
         let rawContent = (contentDump || '').trim();
 
         if (url && url.trim()) {
@@ -717,7 +887,11 @@ Format:
 Zero marketing filler. Pure high-signal engineering nuggets only.`;
 
         broadcast('TRACE', `[REFINERY] Executing fluff-stripping across ${topicDomain} > ${specialization}...`);
-        const { reply, modelUsed } = await dispatchToBrain(systemPrompt, { text: rawContent });
+        
+        const { reply, modelUsed } = await dispatchToBrain(systemPrompt, { 
+            text: rawContent, 
+            model: model || process.env.DEFAULT_BRAIN || '' 
+        });
 
         res.json({ success: true, nugget: reply, modelUsed, domain: topicDomain, specialization });
     } catch (err) {
@@ -871,8 +1045,11 @@ server.listen(PORT, () => {
     console.log(`[WORKSPACE ROOT]         : ${WORKSPACE_ROOT}`);
     console.log(`[DOCS REPOSITORY]        : ${DOCS_PATH}`);
     console.log(`[AGENT FS TOOLS]         : /api/tools/{read,write,list,search,stat}`);
+    console.log(`[DYNAMIC TUNNEL ENGINE]  : /api/tunnel/{get,set} & /api/kaggle/* ONLINE`);
+    console.log(`[HANDSHAKE HEARTBEAT]    : 2000ms AbortController Active`);
     console.log(`[REFINERY ENGINE]        : /api/harvest & /api/docs/save ONLINE`);
     console.log(`[CLUSTER MANAGERS]       : NIM, GROQ, GEMINI ONLINE`);
+    console.log(`[ACTIVE KAGGLE TUNNEL]   : ${process.env.KAGGLE_TUNNEL_URL || 'NOT SET'}`);
     console.log(`[STATUS]                 : 100% OPERATIONAL // CLEAN`);
     console.log(`====================================================`);
 });

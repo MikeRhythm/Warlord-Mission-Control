@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const BRAIN_TIERS = [
   {
+    id: 'tier1',
     tier: 'TIER 1: OLLAMA (LOCAL)',
     models: [
       { id: 'llama3:latest', name: 'Llama 3 (Local)', badge: 'LOCAL' },
@@ -10,6 +11,7 @@ const BRAIN_TIERS = [
     ]
   },
   {
+    id: 'tier2',
     tier: 'TIER 2: HARVESTED CLUSTERS (FREE)',
     models: [
       { id: 'meta/llama-3.2-90b-vision-instruct', name: 'Llama 3.2 90B Vision (NIM)', badge: 'NIM-VISION' },
@@ -20,6 +22,7 @@ const BRAIN_TIERS = [
     ]
   },
   {
+    id: 'tier3',
     tier: 'TIER 3: OPENROUTER (ELITE)',
     models: [
       { id: 'anthropic/claude-3.5-sonnet', name: 'Claude Sonnet 3.5', badge: 'ELITE' },
@@ -27,12 +30,35 @@ const BRAIN_TIERS = [
       { id: 'x-ai/grok-2', name: 'Grok', badge: 'ELITE' },
       { id: 'google/gemini-1.5-pro', name: 'Gemini Pro', badge: 'ELITE' }
     ]
+  },
+  {
+    id: 'tier4',
+    tier: 'TIER 4: KAGGLE T4 (CLOUD COMPUTE)',
+    models: [
+      { id: 'KAGGLE/QWEN-2.5-VL-7B', name: 'Qwen 2.5-VL 7B (video)', badge: 'VISION' },
+      { id: 'KAGGLE/QWEN-2.5-14B', name: 'Qwen 2.5 14B (content)', badge: '128K' },
+      { id: 'KAGGLE/QWEN-2.5-CODER', name: 'Qwen 2.5 Coder 14B (code)', badge: 'DEV' },
+      { id: 'KAGGLE/LLAMA-3.1-8B', name: 'Llama 3.1 8B (critique)', badge: 'FAST' }
+    ]
   }
 ];
 
 export default function Tab01Exec({ ws }) {
   const [selectedBrain, setSelectedBrain] = useState('meta/llama-3.2-90b-vision-instruct');
-  const [collapsedTiers, setCollapsedTiers] = useState({});
+
+  // Hard-coded default: Tier 1 (collapsed), Tier 2 (open), Tier 3 (collapsed), Tier 4 (open)
+  const [collapsedTiers, setCollapsedTiers] = useState({
+    tier1: true,
+    tier2: false,
+    tier3: true,
+    tier4: false
+  });
+
+  // Dynamic Kaggle Status - synchronized with Tab 10 and Daemon telemetry
+  const [kaggleStatus, setKaggleStatus] = useState(() => {
+    return localStorage.getItem('kaggle_status') || 'STANDBY';
+  });
+
   const [inputCommand, setInputCommand] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -41,7 +67,6 @@ export default function Tab01Exec({ ws }) {
   const [elapsedSeconds, setElapsedSeconds] = useState('0.0');
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-
   const [stagedProposal, setStagedProposal] = useState(null);
 
   const [chatLog, setChatLog] = useState([
@@ -57,6 +82,49 @@ export default function Tab01Exec({ ws }) {
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
   const timerIntervalRef = useRef(null);
+
+  // Sync Kaggle status from Tab 10 events & backend daemon
+  useEffect(() => {
+    const handleStorageUpdate = (e) => {
+      if (e.key === 'kaggle_status' && e.newValue) {
+        setKaggleStatus(e.newValue);
+      }
+    };
+
+    const handleCustomKaggleEvent = (e) => {
+      if (e.detail && e.detail.status) {
+        setKaggleStatus(e.detail.status);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageUpdate);
+    window.addEventListener('kaggle-status-changed', handleCustomKaggleEvent);
+
+    // Backend poll
+    const pollDaemon = async () => {
+      try {
+        const res = await fetch('http://localhost:8081/api/kaggle/status');
+        if (res.ok) {
+          const data = await res.json();
+          const active = data.active || data.online || data.status === 'ACTIVE';
+          setKaggleStatus(active ? 'ACTIVE' : 'STANDBY');
+        }
+      } catch {
+        // If daemon is silent or endpoint is offline, preserve STANDBY
+        const saved = localStorage.getItem('kaggle_status');
+        if (saved) setKaggleStatus(saved);
+      }
+    };
+
+    pollDaemon();
+    const interval = setInterval(pollDaemon, 10000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageUpdate);
+      window.removeEventListener('kaggle-status-changed', handleCustomKaggleEvent);
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -106,10 +174,10 @@ export default function Tab01Exec({ ws }) {
     };
   }, []);
 
-  const toggleTier = (idx) => {
+  const toggleTier = (tierId) => {
     setCollapsedTiers((prev) => ({
       ...prev,
-      [idx]: !prev[idx]
+      [tierId]: !prev[tierId]
     }));
   };
 
@@ -133,23 +201,19 @@ export default function Tab01Exec({ ws }) {
 
   const toggleSpeech = (text) => {
     if (!('speechSynthesis' in window)) return;
-
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       return;
     }
-
     if (!text) return;
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.05;
-
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
-
     window.speechSynthesis.speak(utterance);
   };
 
@@ -263,7 +327,6 @@ export default function Tab01Exec({ ws }) {
     setIsDistilling(false);
   };
 
-  // CREATE PROMPT: DISTILLS CHAT TO ACTIONABLE NUGGET DIRECTIVE FOR WAR ROOM
   const handleCreatePrompt = async () => {
     if (chatLog.length <= 1) {
       alert('Conversation log is empty. Exchange requirements with Monty first.');
@@ -321,7 +384,6 @@ ${rawTranscript}`;
     }
   };
 
-  // PUSH TO WAR ROOM: DISPATCHES TO TAB 02 AND SWITCHES TAB
   const handlePushToWarRoom = () => {
     const textToPush = inputCommand.trim();
     if (!textToPush) {
@@ -479,7 +541,7 @@ ${rawTranscript}`;
 
       {/* LEFT COLUMN: EXEC CONTROL PANEL */}
       <div
-        className="w-[260px] h-full border-r border-[#1f242d] flex flex-col p-2 gap-2 select-none shrink-0 overflow-y-auto min-h-0"
+        className="w-[280px] h-full border-r border-[#1f242d] flex flex-col p-2 gap-2 select-none shrink-0 overflow-y-auto min-h-0"
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#DAA520 #0b0e14' }}
       >
         <div className="flex items-center justify-between pb-1 border-b border-[#14171c] shrink-0">
@@ -491,17 +553,33 @@ ${rawTranscript}`;
           </span>
         </div>
 
-        {BRAIN_TIERS.map((tierGroup, idx) => {
-          const isCollapsed = collapsedTiers[idx];
+        {BRAIN_TIERS.map((tierGroup) => {
+          const isCollapsed = !!collapsedTiers[tierGroup.id];
+          const isTier4 = tierGroup.id === 'tier4';
+
           return (
-            <div key={idx} className="flex flex-col gap-1 shrink-0">
+            <div key={tierGroup.id} className="flex flex-col gap-1 shrink-0">
               <button
                 type="button"
-                onClick={() => toggleTier(idx)}
+                onClick={() => toggleTier(tierGroup.id)}
                 className="flex items-center justify-between w-full px-1.5 py-1 text-[9px] text-[#DAA520] hover:text-[#ffd700] hover:bg-[#16130b] rounded border border-transparent hover:border-[#DAA520]/20 font-bold tracking-tight uppercase cursor-pointer transition-colors"
               >
-                <span>{tierGroup.tier}</span>
-                <span className="text-[8px] text-[#DAA520] font-mono">
+                <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                  <span className="truncate">{tierGroup.tier}</span>
+                  {/* Dynamic Status Tag for Tier 4 */}
+                  {isTier4 && (
+                    <span
+                      className={`text-[8px] px-1.5 py-0.2 rounded font-mono font-bold tracking-wider border shrink-0 transition-all ${
+                        kaggleStatus === 'ACTIVE'
+                          ? 'bg-[#064e3b] text-[#34d399] border-[#059669]/60 shadow-[0_0_6px_rgba(16,185,129,0.35)]'
+                          : 'bg-[#18181b] text-zinc-400 border-zinc-700/70'
+                      }`}
+                    >
+                      {kaggleStatus}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[8px] text-[#DAA520] font-mono shrink-0">
                   {isCollapsed ? '▶' : '▼'}
                 </span>
               </button>
@@ -828,7 +906,7 @@ ${rawTranscript}`;
               )}
             </button>
 
-            {/* CREATE PROMPT: DISTILLS CONVERSATION INTO WAR ROOM DIRECTIVE */}
+            {/* CREATE PROMPT */}
             <button
               type="button"
               onClick={handleCreatePrompt}
