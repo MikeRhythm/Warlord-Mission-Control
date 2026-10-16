@@ -1,22 +1,19 @@
 {
-  "last_synced": "2026-09-11T15:01:12.998Z",
+  "last_synced": "2026-10-11T14:15:21.205Z",
   "providers": {
     "groq": {
       "active_models": [
-        "whisper-large-v3",
-        "meta-llama/llama-prompt-guard-2-22m",
-        "groq/compound-mini",
-        "qwen/qwen3.8-27b",
-        "groq/compound",
-        "allam-2-7b",
-        "meta-llama/llama-prompt-guard-2-86m",
-        "canopylabs/orpheus-arabic-saudi",
-        "whisper-large-v3-turbo",
-        "openai/gpt-oss-120b",
         "canopylabs/orpheus-v1-english",
+        "whisper-large-v3-turbo",
+        "allam-2-7b",
+        "openai/gpt-oss-120b",
+        "canopylabs/orpheus-arabic-saudi",
+        "meta-llama/llama-prompt-guard-2-22m",
+        "meta-llama/llama-prompt-guard-2-86m",
+        "openai/gpt-oss-safeguard-20b",
         "openai/gpt-oss-20b",
-        "qwen/qwen3.6-27b",
-        "openai/gpt-oss-safeguard-20b"
+        "qwen/qwen3.8-27b",
+        "whisper-large-v3"
       ],
       "tiers": {
         "REASONING_TIER": "qwen/qwen3.8-27b",

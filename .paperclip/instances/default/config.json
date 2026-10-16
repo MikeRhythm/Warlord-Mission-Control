@@ -1,23 +1,23 @@
 {
   "$meta": {
     "version": 1,
-    "updatedAt": "2026-06-03T13:25:10.875Z",
+    "updatedAt": "2026-10-12T11:21:21.919Z",
     "source": "onboard"
   },
   "database": {
     "mode": "embedded-postgres",
-    "embeddedPostgresDataDir": "C:\\Warlord_Inc\\Warlord_WASP\\.paperclip\\instances\\default\\db",
+    "embeddedPostgresDataDir": "C:\\Users\\Administrator\\.paperclip\\instances\\default\\db",
     "embeddedPostgresPort": 54329,
     "backup": {
       "enabled": true,
       "intervalMinutes": 60,
       "retentionDays": 30,
-      "dir": "C:\\Warlord_Inc\\Warlord_WASP\\.paperclip\\instances\\default\\data\\backups"
+      "dir": "C:\\Users\\Administrator\\.paperclip\\instances\\default\\data\\backups"
     }
   },
   "logging": {
     "mode": "file",
-    "logDir": "C:\\Warlord_Inc\\Warlord_WASP\\.paperclip\\instances\\default\\logs"
+    "logDir": "C:\\Users\\Administrator\\.paperclip\\instances\\default\\logs"
   },
   "server": {
     "deploymentMode": "local_trusted",
@@ -28,17 +28,20 @@
     "allowedHostnames": [],
     "serveUi": true
   },
+  "telemetry": {
+    "enabled": true
+  },
+  "updates": {
+    "checkEnabled": true
+  },
   "auth": {
     "baseUrlMode": "auto",
     "disableSignUp": false
   },
-  "telemetry": {
-    "enabled": true
-  },
   "storage": {
     "provider": "local_disk",
     "localDisk": {
-      "baseDir": "C:\\Warlord_Inc\\Warlord_WASP\\.paperclip\\instances\\default\\data\\storage"
+      "baseDir": "C:\\Users\\Administrator\\.paperclip\\instances\\default\\data\\storage"
     },
     "s3": {
       "bucket": "paperclip",
@@ -51,7 +54,7 @@
     "provider": "local_encrypted",
     "strictMode": false,
     "localEncrypted": {
-      "keyFilePath": "C:\\Warlord_Inc\\Warlord_WASP\\.paperclip\\instances\\default\\secrets\\master.key"
+      "keyFilePath": "C:\\Users\\Administrator\\.paperclip\\instances\\default\\secrets\\master.key"
     }
   }
 }

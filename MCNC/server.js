@@ -354,31 +354,8 @@ const getActiveGeminiKeys = () => {
 };
 
 // ==========================================
-// REAL-TIME KAGGLE HANDSHAKE ENGINE
+// TAB 10 DYNAMIC TUNNEL HANDLERS (ALL VARIANTS)
 // ==========================================
-let kaggleComputeActive = true;
-
-async function verifyKaggleReachability(tunnelUrl) {
-    if (!tunnelUrl) return false;
-    try {
-        const cleanUrl = tunnelUrl.trim().replace(/\/+$/, '');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        
-        const testRes = await fetch(cleanUrl, { 
-            method: 'GET',
-            signal: controller.signal 
-        }).catch(async () => {
-            return await fetch(`${cleanUrl}/v1`, { signal: controller.signal });
-        });
-        
-        clearTimeout(timeoutId);
-        return Boolean(testRes && testRes.status < 500);
-    } catch (e) {
-        return false;
-    }
-}
-
 const handleTunnelUpdate = (req, res) => {
     try {
         const rawUrl = req.body.url || req.body.tunnelUrl || req.body.endpoint || req.body.target || req.query.url;
@@ -386,10 +363,10 @@ const handleTunnelUpdate = (req, res) => {
             return res.status(400).json({ success: false, status: 'ERROR', message: 'Tunnel URL is required.' });
         }
 
-        const cleanUrl = rawUrl.trim().replace(/\/+$/, '');
+        const cleanUrl = rawUrl.trim();
         process.env.KAGGLE_TUNNEL_URL = cleanUrl;
-        kaggleComputeActive = true;
 
+        // Persist to .env directly so it survives restarts
         if (fs.existsSync(ENV_FILE_PATH)) {
             let envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
             if (envContent.includes('KAGGLE_TUNNEL_URL=')) {
@@ -400,14 +377,13 @@ const handleTunnelUpdate = (req, res) => {
             fs.writeFileSync(ENV_FILE_PATH, envContent, 'utf8');
         }
 
-        broadcast('KAGGLE_STATUS', { active: true, status: 'ACTIVE', url: cleanUrl });
         broadcast('TRACE', `[KAGGLE TUNNEL] Active URL set to: ${cleanUrl}`);
         logTelemetry('KAGGLE_TUNNEL_SET', `Kaggle tunnel endpoint updated to: ${cleanUrl}`);
 
         return res.json({
             success: true,
             status: 'SUCCESS',
-            active: true,
+            message: 'Tunnel URL updated successfully.',
             tunnelUrl: cleanUrl,
             url: cleanUrl
         });
@@ -416,60 +392,84 @@ const handleTunnelUpdate = (req, res) => {
     }
 };
 
-const handleTunnelGet = async (req, res) => {
-    const tunnelUrl = process.env.KAGGLE_TUNNEL_URL || '';
-    let isPhysicallyAlive = false;
-
-    if (kaggleComputeActive && tunnelUrl) {
-        isPhysicallyAlive = await verifyKaggleReachability(tunnelUrl);
-    }
-
-    const currentStatus = (kaggleComputeActive && isPhysicallyAlive) ? 'ACTIVE' : 'STANDBY';
-
+const handleTunnelGet = (req, res) => {
     res.json({
         success: true,
-        active: isPhysicallyAlive && kaggleComputeActive,
-        online: isPhysicallyAlive && kaggleComputeActive,
-        status: currentStatus,
-        tunnelUrl: tunnelUrl,
-        url: tunnelUrl
+        status: process.env.KAGGLE_TUNNEL_URL ? 'ACTIVE' : 'STANDBY',
+        tunnelUrl: process.env.KAGGLE_TUNNEL_URL || '',
+        url: process.env.KAGGLE_TUNNEL_URL || ''
     });
 };
 
-const handleToggleKaggle = async (req, res) => {
-    kaggleComputeActive = !kaggleComputeActive;
-    let isPhysicallyAlive = false;
-    const tunnelUrl = process.env.KAGGLE_TUNNEL_URL || '';
-
-    if (kaggleComputeActive && tunnelUrl) {
-        isPhysicallyAlive = await verifyKaggleReachability(tunnelUrl);
-    }
-
-    const currentStatus = (kaggleComputeActive && isPhysicallyAlive) ? 'ACTIVE' : 'STANDBY';
-    broadcast('KAGGLE_STATUS', { active: kaggleComputeActive && isPhysicallyAlive, status: currentStatus });
-    return res.json({ success: true, active: kaggleComputeActive && isPhysicallyAlive, status: currentStatus });
-};
-
-// URL setters
+// Wire all route variations that Tab 10 might query
 app.post('/api/tunnel/set', handleTunnelUpdate);
 app.post('/api/tunnel', handleTunnelUpdate);
 app.post('/api/kaggle/tunnel', handleTunnelUpdate);
 app.post('/api/kaggle/tunnel/set', handleTunnelUpdate);
 app.post('/api/kaggle/set-tunnel', handleTunnelUpdate);
 app.post('/api/tokens/tunnel', handleTunnelUpdate);
-app.post('/api/compute/tunnel', handleTunnelUpdate);
 
-// Status queries & Toggle
 app.get('/api/tunnel/get', handleTunnelGet);
 app.get('/api/tunnel', handleTunnelGet);
 app.get('/api/kaggle/tunnel', handleTunnelGet);
-app.get('/api/kaggle/status', handleTunnelGet);
 app.get('/api/tokens/tunnel', handleTunnelGet);
-app.get('/api/status', handleTunnelGet);
 
-app.post('/api/kaggle/toggle', handleToggleKaggle);
-app.post('/api/tokens/kaggle/toggle', handleToggleKaggle);
-app.post('/api/compute/toggle', handleToggleKaggle);
+// ==========================================
+// NATIVE TOOL EXECUTION ENGINE
+// ==========================================
+const MCNC_TOOLS = [
+    {
+        type: "function",
+        function: {
+            name: "mcnc_read_file",
+            description: "Read the exact physical contents of a file on Base 1 disk. Use this to verify a file exists before modifying it or referencing its contents.",
+            parameters: {
+                type: "object",
+                properties: { targetPath: { type: "string", description: "Absolute path to the file (e.g., C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\scripts\\hvac.js)" } },
+                required: ["targetPath"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "mcnc_list_directory",
+            description: "List all files and folders in a physical directory on disk.",
+            parameters: {
+                type: "object",
+                properties: { dirPath: { type: "string", description: "Absolute path to the directory" } },
+                required: ["dirPath"]
+            }
+        }
+    }
+];
+
+async function executeNativeTool(toolCall) {
+    const name = toolCall.function.name;
+    let args = {};
+    try { args = JSON.parse(toolCall.function.arguments); } catch (e) {}
+
+    broadcast('TRACE', `[NATIVE TOOL EXECUTION] ${name} -> ${JSON.stringify(args)}`);
+
+    try {
+        if (name === 'mcnc_read_file') {
+            const target = path.isAbsolute(args.targetPath) ? args.targetPath : path.join(WORKSPACE_ROOT, args.targetPath);
+            if (!isPathSafe(target)) return JSON.stringify({ error: "Access denied. Path outside workspace." });
+            if (!fs.existsSync(target)) return JSON.stringify({ exists: false, error: "FILE DOES NOT EXIST ON DISK. Trigger SOP 11." });
+            return fs.readFileSync(target, 'utf8').slice(0, 12000); // Hard limit to prevent context memory overflow
+        }
+        if (name === 'mcnc_list_directory') {
+            const target = path.isAbsolute(args.dirPath) ? args.dirPath : path.join(WORKSPACE_ROOT, args.dirPath);
+            if (!isPathSafe(target)) return JSON.stringify({ error: "Access denied." });
+            if (!fs.existsSync(target)) return JSON.stringify({ exists: false, error: "DIRECTORY DOES NOT EXIST." });
+            const entries = fs.readdirSync(target, { withFileTypes: true });
+            return JSON.stringify(entries.map(e => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' })));
+        }
+        return JSON.stringify({ error: "Unknown tool." });
+    } catch (e) {
+        return JSON.stringify({ error: e.message });
+    }
+}
 
 // ==========================================
 // ROUTING ENGINE (KAGGLE -> GEMINI -> NIM -> GROQ -> OPENROUTER)
@@ -478,27 +478,60 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
     const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
     if (!openRouterKey) throw new Error("OPENROUTER_API_KEY missing from .env");
     
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${openRouterKey}`, 
-            'HTTP-Referer': 'http://localhost:5173', 
-            'X-Title': 'MCNC Master' 
-        },
-        body: JSON.stringify({ 
-            model: modelSlug || 'meta-llama/llama-3.3-70b-instruct', 
-            messages: [
-                { role: 'system', content: systemPrompt }, 
-                { role: 'user', content: userText }
-            ], 
-            temperature: 0.2, 
-            max_tokens: 4096 
-        })
-    });
-    if (!response.ok) throw new Error(`OpenRouter Error ${response.status}`);
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || "Empty response from OpenRouter.";
+    let messages = [
+        { role: 'system', content: systemPrompt }, 
+        { role: 'user', content: userText }
+    ];
+
+    let iteration = 0;
+    const maxIterations = 3;
+
+    // Autonomous Loop: Keep fetching until the AI stops calling tools and yields a final text answer
+    while (iteration < maxIterations) {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${openRouterKey}`, 
+                'HTTP-Referer': 'http://localhost:5173', 
+                'X-Title': 'MCNC Master' 
+            },
+            body: JSON.stringify({ 
+                model: modelSlug || 'meta-llama/llama-3.3-70b-instruct', 
+                messages: messages,
+                tools: MCNC_TOOLS,
+                tool_choice: "auto",
+                temperature: 0.2, 
+                max_tokens: 4096 
+            })
+        });
+        
+        if (!response.ok) throw new Error(`OpenRouter Error ${response.status}`);
+        const data = await response.json();
+        const message = data.choices?.[0]?.message;
+        
+        if (!message) throw new Error("Empty response from OpenRouter.");
+
+        messages.push(message); // Append AI response to context
+
+        // If the AI decides it needs to read a file, execute it cleanly in Node
+        if (message.tool_calls && message.tool_calls.length > 0) {
+            for (const toolCall of message.tool_calls) {
+                const toolResult = await executeNativeTool(toolCall);
+                messages.push({
+                    role: "tool",
+                    tool_call_id: toolCall.id,
+                    name: toolCall.function.name,
+                    content: toolResult
+                });
+            }
+            iteration++;
+            continue; // Loop back and send the physical file data to the AI
+        } else {
+            return message.content || "Empty response.";
+        }
+    }
+    return messages[messages.length - 1].content || "Max tool iterations reached.";
 }
 
 async function dispatchToBrain(systemPrompt, rawBody) {
@@ -888,6 +921,7 @@ Zero marketing filler. Pure high-signal engineering nuggets only.`;
 
         broadcast('TRACE', `[REFINERY] Executing fluff-stripping across ${topicDomain} > ${specialization}...`);
         
+        // Tab 12 now respects whatever model was requested (including Tier 4 Kaggle models)
         const { reply, modelUsed } = await dispatchToBrain(systemPrompt, { 
             text: rawContent, 
             model: model || process.env.DEFAULT_BRAIN || '' 
@@ -1018,17 +1052,77 @@ app.post('/api/docs/save', async (req, res) => {
 });
 
 // ==========================================
+// MECHANICAL JUDGE: WARLORD SOP INTERCEPTOR
+// ==========================================
+function warlordJudgeInterceptor(text) {
+    if (!text) return { passed: false, error: "Empty payload." };
+
+    // Banned Regex Patterns
+    const bannedPatterns = [
+        { rx: /\[.*?\]/g, name: "Brackets / Placeholders ([Client], [Insert])" },
+        { rx: /\{\{.*?\}\}/g, name: "Curly Braces / Template Tags ({{name}})" },
+        { rx: /555-\d{4}/g, name: "Fake Hollywood Phone Numbers (555-XXXX)" },
+        { rx: /\.{3,}/g, name: "Ellipses / Code Snippets (...)" },
+        { rx: /example\.com/gi, name: "Fake Placeholder Domains (example.com)" },
+        { rx: /<placeholder.*?>/gi, name: "XML/HTML Placeholders" }
+    ];
+
+    for (const rule of bannedPatterns) {
+        if (rule.rx.test(text)) {
+            return { 
+                passed: false, 
+                error: `VIOLATION DETECTED: Output contains banned pattern: ${rule.name}. You are in breach of the Warlord SOP. Remove this and output production-ready data only.` 
+            };
+        }
+    }
+    return { passed: true };
+}
+
+// ==========================================
 // CHAT & HEALTH
 // ==========================================
 app.post('/api/chat', async (req, res) => {
     try {
         const montySoul = loadSoul('monty');
         const liveTelemetry = getLiveSystemSnapshot();
-        const systemPrompt = liveTelemetry + "\n\n" + CORE_DIRECTIVE + (montySoul ? `\n\n=== PROTOCOL ===\n${montySoul}` : "");
-        const { reply, modelUsed } = await dispatchToBrain(systemPrompt, req.body);
-        broadcast('CHAT_COMPLETE', { reply, activeModelUsed: modelUsed });
-        res.json({ status: 'SUCCESS', reply, activeModelUsed: modelUsed });
-    } catch (err) { res.status(500).json({ status: 'ERROR', reply: err.message }); }
+        const baseSystemPrompt = liveTelemetry + "\n\n" + CORE_DIRECTIVE + (montySoul ? `\n\n=== PROTOCOL ===\n${montySoul}` : "");
+        
+        let currentPromptBody = req.body;
+        let attempt = 1;
+        const maxAttempts = 3;
+        let finalReply = "";
+        let finalModel = "";
+
+        while (attempt <= maxAttempts) {
+            // Dispatch to the routing engine
+            const { reply, modelUsed } = await dispatchToBrain(baseSystemPrompt, currentPromptBody);
+            finalModel = modelUsed;
+            
+            // Run the mechanical judge
+            const audit = warlordJudgeInterceptor(reply);
+            
+            if (audit.passed) {
+                finalReply = reply;
+                break; // Clean output, exit the loop
+            } else {
+                console.warn(`[JUDGE INTERCEPT - STRIKE ${attempt}] ${audit.error}`);
+                if (attempt === maxAttempts) {
+                    finalReply = `[SYSTEM ESCALATION]: Agent failed the Warlord SOP 3 times. Last error: ${audit.error}\n\nRaw Output:\n${reply}`;
+                    break;
+                }
+                // Append the failure to the prompt and force a retry
+                let previousText = extractPromptText(currentPromptBody);
+                let correctedText = `${previousText}\n\n[SYSTEM JUDGE REJECTION]: Your previous attempt failed. ${audit.error} REWRITE ENTIRELY WITHOUT PLACEHOLDERS OR SNIPPETS.`;
+                currentPromptBody = { ...currentPromptBody, text: correctedText, prompt: correctedText, message: correctedText };
+                attempt++;
+            }
+        }
+
+        broadcast('CHAT_COMPLETE', { reply: finalReply, activeModelUsed: finalModel });
+        res.json({ status: 'SUCCESS', reply: finalReply, activeModelUsed: finalModel });
+    } catch (err) { 
+        res.status(500).json({ status: 'ERROR', reply: err.message }); 
+    }
 });
 
 app.get('/api/health', (req, res) => {
@@ -1046,7 +1140,6 @@ server.listen(PORT, () => {
     console.log(`[DOCS REPOSITORY]        : ${DOCS_PATH}`);
     console.log(`[AGENT FS TOOLS]         : /api/tools/{read,write,list,search,stat}`);
     console.log(`[DYNAMIC TUNNEL ENGINE]  : /api/tunnel/{get,set} & /api/kaggle/* ONLINE`);
-    console.log(`[HANDSHAKE HEARTBEAT]    : 2000ms AbortController Active`);
     console.log(`[REFINERY ENGINE]        : /api/harvest & /api/docs/save ONLINE`);
     console.log(`[CLUSTER MANAGERS]       : NIM, GROQ, GEMINI ONLINE`);
     console.log(`[ACTIVE KAGGLE TUNNEL]   : ${process.env.KAGGLE_TUNNEL_URL || 'NOT SET'}`);
