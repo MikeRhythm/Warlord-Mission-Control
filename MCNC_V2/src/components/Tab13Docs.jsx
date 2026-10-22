@@ -271,7 +271,6 @@ export default function Tab13Docs({ ws }) {
 
     let updatedContent = '';
     if (currentBody.includes(todayHeading)) {
-      // Heading exists: append bullet under today's block
       const dateIndex = currentBody.indexOf(todayHeading);
       const afterDate = currentBody.slice(dateIndex);
       const nextDateMatch = afterDate.slice(todayHeading.length).search(/\n\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i);
@@ -283,7 +282,6 @@ export default function Tab13Docs({ ws }) {
         updatedContent = currentBody.trimEnd() + '\n' + formattedBullet;
       }
     } else {
-      // New day: prepend or append new date section
       const newSection = `\n\n${todayHeading}\n${formattedBullet}`;
       updatedContent = currentBody.trim() ? `${currentBody.trim()}${newSection}` : `${todayHeading}\n${formattedBullet}`;
     }
@@ -321,11 +319,52 @@ export default function Tab13Docs({ ws }) {
     (selectedDoc.title && selectedDoc.title.toLowerCase().includes('todo'))
   );
 
-  // Derive unique filters
+  // Derive unique domains across loaded documents
   const domains = ['ALL', ...new Set(docs.map(d => d.domain).filter(Boolean))];
-  const niches = ['ALL', ...new Set(docs.map(d => d.niche).filter(Boolean))];
 
-  // Filtering logic
+  // Derive contextual niches: show ONLY niches belonging to the selected domain
+  const relevantDocsForNiches = domainFilter === 'ALL' ? docs : docs.filter(d => d.domain === domainFilter);
+  const niches = ['ALL', ...new Set(relevantDocsForNiches.map(d => d.niche).filter(Boolean))];
+
+  // Handle Domain Switch with auto-selection of first matching dossier
+  const handleDomainFilterChange = (newDomain) => {
+    setDomainFilter(newDomain);
+    setNicheFilter('ALL');
+    
+    const matchingDocs = docs.filter(doc => {
+      const matchesDomain = newDomain === 'ALL' || doc.domain === newDomain;
+      const matchesSearch = !searchTerm || 
+        (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (doc.content && doc.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (doc.filename && doc.filename.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchesDomain && matchesSearch;
+    });
+
+    if (matchingDocs.length > 0) {
+      handleSelectDoc(matchingDocs[0]);
+    }
+  };
+
+  // Handle Niche Switch with auto-selection of first matching dossier
+  const handleNicheFilterChange = (newNiche) => {
+    setNicheFilter(newNiche);
+    
+    const matchingDocs = docs.filter(doc => {
+      const matchesDomain = domainFilter === 'ALL' || doc.domain === domainFilter;
+      const matchesNiche = newNiche === 'ALL' || doc.niche === newNiche;
+      const matchesSearch = !searchTerm || 
+        (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (doc.content && doc.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (doc.filename && doc.filename.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchesDomain && matchesNiche && matchesSearch;
+    });
+
+    if (matchingDocs.length > 0) {
+      handleSelectDoc(matchingDocs[0]);
+    }
+  };
+
+  // Filtering logic for the sidebar list
   const filteredDocs = docs.filter(doc => {
     const matchesDomain = domainFilter === 'ALL' || doc.domain === domainFilter;
     const matchesNiche = nicheFilter === 'ALL' || doc.niche === nicheFilter;
@@ -405,7 +444,7 @@ export default function Tab13Docs({ ws }) {
           <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>1. KNOWLEDGE DOMAIN</label>
           <select 
             value={domainFilter} 
-            onChange={(e) => setDomainFilter(e.target.value)}
+            onChange={(e) => handleDomainFilterChange(e.target.value)}
             style={{ width: '100%', padding: '6px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
           >
             {domains.map(d => <option key={d} value={d}>{d}</option>)}
@@ -416,7 +455,7 @@ export default function Tab13Docs({ ws }) {
           <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>2. SUBJECT / NICHE</label>
           <select 
             value={nicheFilter} 
-            onChange={(e) => setNicheFilter(e.target.value)}
+            onChange={(e) => handleNicheFilterChange(e.target.value)}
             style={{ width: '100%', padding: '6px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
           >
             {niches.map(n => <option key={n} value={n}>{n}</option>)}
@@ -608,7 +647,7 @@ export default function Tab13Docs({ ws }) {
                 </div>
               </div>
 
-              {/* TO-DO LIST QUICK PROMPTER (ACTIVE WHEN WASP_TODO_LIST IS LOADED) */}
+              {/* TO-DO LIST QUICK PROMPTER */}
               {isCurrentDocTodo && !isEditing && (
                 <div style={{
                   padding: '8px 16px',

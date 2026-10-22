@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { Sparkles, Loader2, Database, AlertOctagon, CheckCircle, Trash2 } from 'lucide-react';
+import { Sparkles, Loader2, Database, AlertOctagon, CheckCircle, Trash2, Copy, Check } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 
 const INITIAL_DOMAINS = [
@@ -26,8 +26,8 @@ export default function Tab12Review() {
 
   const [url, setUrl] = useState('');
   const [contentDump, setContentDump] = useState('');
-  const [topicDomain, setTopicDomain] = useState('Hardware & Infrastructure');
-  const [specialization, setSpecialization] = useState('Kaggle');
+  const [topicDomain, setTopicDomain] = useState('Cutting Edge AI');
+  const [specialization, setSpecialization] = useState('Hermes');
   const [pruneAndMerge, setPruneAndMerge] = useState(true);
 
   const [harvestedNugget, setHarvestedNugget] = useState(
@@ -37,6 +37,7 @@ export default function Tab12Review() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [signalRatio, setSignalRatio] = useState({ nuggetInt: 28, fluffInt: 72 });
 
   const handleDomainChange = (e) => {
@@ -74,12 +75,31 @@ export default function Tab12Review() {
     }
   };
 
+  const handleCopyNugget = async () => {
+    if (!harvestedNugget) return;
+    try {
+      await navigator.clipboard.writeText(harvestedNugget);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      const textArea = document.createElement('textarea');
+      textArea.value = harvestedNugget;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   const handleCls = () => {
     setUrl('');
     setContentDump('');
     setHarvestedNugget('// Paste videos, notes, or raw discussions on the left, then click \'HARVEST PURE NUGGET\'.\n// The gauge above will calculate the exact signal-to-noise ratio and time saved.\n// Click \'PUSH TO 13 DOCS LIBRARY\' to merge and synthesize the payload into the canonical master dossier.');
     setHasError(false);
     setSaveSuccess(false);
+    setCopied(false);
     setSignalRatio({ nuggetInt: 28, fluffInt: 72 });
   };
 
@@ -89,10 +109,11 @@ export default function Tab12Review() {
     setIsHarvesting(true);
     setHasError(false);
     setSaveSuccess(false);
-    setHarvestedNugget('// Executing multi-tier extraction pipeline...\n// Scraping source vectors and stripping narrative fluff...');
+    setCopied(false);
+    setHarvestedNugget('// Executing SOP 17 extraction pipeline via Gemini Cloud...\n// Scraping source vectors and verifying transcript payload...');
 
     try {
-      const inputLength = contentDump.trim().length || 15000; 
+      const inputLength = contentDump.trim().length || 15000;
 
       const response = await fetch('http://127.0.0.1:8081/api/harvest', {
         method: 'POST',
@@ -107,9 +128,9 @@ export default function Tab12Review() {
 
       const data = await response.json();
       
-      if (data.error) {
+      if (!response.ok || data.error) {
         setHasError(true);
-        setHarvestedNugget(`[HARVEST ERROR]: ${data.error}`);
+        setHarvestedNugget(`[HARVEST FAILED - SOP 11 BRAKE ENGAGED]: ${data.error || 'Unknown extraction failure'}`);
         setSignalRatio({ nuggetInt: 0, fluffInt: 100 });
       } else {
         const outputLength = (data.nugget || '').length;
@@ -210,7 +231,6 @@ export default function Tab12Review() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {/* PROMINENT CLS BUTTON */}
           <button 
             onClick={handleCls} 
             className="flex items-center gap-1.5 px-4 py-1.5 bg-[#14171c] hover:bg-[#ef4444]/20 border border-[#ef4444]/40 hover:border-[#ef4444] text-[whitesmoke] hover:text-[#fca5a5] rounded text-[11px] font-extrabold transition-all cursor-pointer shadow-[0_0_10px_rgba(239,68,68,0.1)]"
@@ -220,7 +240,7 @@ export default function Tab12Review() {
           <div className="flex items-center gap-2 border-l border-[#1f242d] pl-4">
             <span className="text-[10px] text-[whitesmoke]">TRIAGE JUDGE:</span>
             <span className="px-3 py-1.5 bg-[#14171c] border border-[#232832] text-[#ffb800] font-bold rounded text-[11px]">
-              01 MONTY
+              01 MONTY (GEMINI CLOUD)
             </span>
           </div>
         </div>
@@ -245,7 +265,7 @@ export default function Tab12Review() {
         </div>
         <div className="flex justify-between items-center text-[10px] text-[#5c6b7f] pt-1">
           <span className={hasError ? "text-[#ef4444]" : saveSuccess ? "text-[#10b981] font-bold" : ""}>
-            STATUS: {isHarvesting ? 'EXTRACTING VECTORS...' : isSaving ? 'SYNTHESIZING TO VAULT...' : saveSuccess ? 'SYNTHESIS COMPLETE' : hasError ? 'ERROR ENCOUNTERED' : 'AWAITING CONTENT SCAN'}
+            STATUS: {isHarvesting ? 'EXTRACTING VECTORS VIA GEMINI CLOUD...' : isSaving ? 'SYNTHESIZING TO VAULT...' : saveSuccess ? 'SYNTHESIS COMPLETE' : hasError ? 'ERROR ENCOUNTERED' : 'AWAITING CONTENT SCAN'}
           </span>
           <span>ESTIMATED READING/WATCH TIME SAVED: ~{Math.round(signalRatio.fluffInt * 0.3)} MINS</span>
         </div>
@@ -258,7 +278,7 @@ export default function Tab12Review() {
         <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-3 space-y-3 overflow-y-auto custom-scrollbar">
           <div className="flex justify-between items-center text-[11px] text-[#ffb800] font-bold border-b border-[#14181f] pb-2">
             <span>INTAKE & HARVESTING</span>
-            <span className="text-[10px] text-[#5c6b7f] font-normal">AI GUIDED</span>
+            <span className="text-[10px] text-[#5c6b7f] font-normal">SOP 17 ENFORCED</span>
           </div>
 
           <div className="space-y-1">
@@ -347,6 +367,18 @@ export default function Tab12Review() {
               <span className="text-[10px] text-[#5c6b7f] font-normal">
                 {isHarvesting ? 'PROCESSING...' : isSaving ? 'SYNTHESIZING...' : saveSuccess ? 'SUCCESS' : hasError ? 'ERROR' : 'IDLE // READY'}
               </span>
+              <button
+                onClick={handleCopyNugget}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                  copied
+                    ? 'bg-[#10b981] text-black border-[#10b981]'
+                    : 'bg-[#14171c] hover:bg-[#ffb800]/20 text-[#ffb800] border-[#ffb800]/40 hover:border-[#ffb800]'
+                }`}
+                title="Copy Harvested Nugget to Clipboard"
+              >
+                {copied ? <Check className="w-3 h-3 text-black" /> : <Copy className="w-3 h-3 text-[#ffb800]" />}
+                <span>{copied ? 'COPIED!' : 'COPY NUGGET'}</span>
+              </button>
               <SpeakerBtn text={harvestedNugget} label="VOICE NUGGET" />
             </div>
           </div>

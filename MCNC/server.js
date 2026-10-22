@@ -7,6 +7,8 @@ const fs = require('fs');
 const cors = require('cors');
 const multer = require('multer');
 const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 const { YoutubeTranscript } = require('youtube-transcript');
 
 const app = express();
@@ -199,6 +201,155 @@ function extractYouTubeId(urlStr) {
     return match ? match[1] : null;
 }
 
+function cleanVttToText(rawVtt) {
+    return (rawVtt || '')
+        .replace(/WEBVTT[\s\S]*?\n\n/, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}.*/g, '')
+        .replace(/align:start position:0%/g, '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter((line, idx, arr) => line.length > 0 && line !== arr[idx - 1])
+        .join(' ')
+        .trim();
+}
+
+// ==========================================
+// MULTI-VECTOR YOUTUBE EXTRACTION ENGINE (DATACENTER IP BYPASS)
+// ==========================================
+async function extractYouTubeTranscript(videoId) {
+    try {
+        console.log(`[REFINERY INGEST] Vector 1 (Tactiq Cloud Proxy) for: ${videoId}`);
+        const tacRes = await fetch('https://tactiq-apps-prod.tactiq.io/transcript', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            body: JSON.stringify({
+                videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+                langCode: 'en'
+            })
+        });
+        if (tacRes.ok) {
+            const tacData = await tacRes.json();
+            if (Array.isArray(tacData.captions) && tacData.captions.length > 0) {
+                const text = tacData.captions.map(c => c.text).join(' ').trim();
+                if (text.length >= 50) {
+                    console.log(`[REFINERY INGEST] Vector 1 (Tactiq Cloud) succeeded (${text.length} chars)`);
+                    return text;
+                }
+            }
+        }
+    } catch (err) {
+        console.warn(`[REFINERY INGEST] Vector 1 skipped: ${err.message}`);
+    }
+
+    try {
+        console.log(`[REFINERY INGEST] Vector 2 (Direct API) for: ${videoId}`);
+        const transcriptArr = await YoutubeTranscript.fetchTranscript(videoId);
+        if (Array.isArray(transcriptArr) && transcriptArr.length > 0) {
+            const text = transcriptArr.map(t => t.text).join(' ').trim();
+            if (text.length >= 50) {
+                console.log(`[REFINERY INGEST] Vector 2 succeeded (${text.length} chars)`);
+                return text;
+            }
+        }
+    } catch (err) {
+        console.warn(`[REFINERY INGEST] Vector 2 failed: ${err.message}`);
+    }
+
+    const relayInstances = [
+        'https://inv.tux.pizza',
+        'https://invidious.nerdvpn.de',
+        'https://yewtu.be',
+        'https://invidious.privacyredirect.com',
+        'https://iv.ggtyler.dev'
+    ];
+
+    for (const instance of relayInstances) {
+        try {
+            console.log(`[REFINERY INGEST] Vector 3 (Relay Proxy: ${instance}) for: ${videoId}`);
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 6000);
+            const capRes = await fetch(`${instance}/api/v1/captions/${videoId}`, { signal: controller.signal });
+            clearTimeout(timer);
+
+            if (capRes.ok) {
+                const capData = await capRes.json();
+                const captions = capData.captions || [];
+                const enTrack = captions.find(c => c.language_code && c.language_code.startsWith('en')) || captions[0];
+                if (enTrack && enTrack.url) {
+                    const trackUrl = enTrack.url.startsWith('http') ? enTrack.url : `${instance}${enTrack.url}`;
+                    const vttRes = await fetch(trackUrl);
+                    if (vttRes.ok) {
+                        const rawVtt = await vttRes.text();
+                        const cleaned = cleanVttToText(rawVtt);
+                        if (cleaned.length >= 50) {
+                            console.log(`[REFINERY INGEST] Vector 3 succeeded via ${instance} (${cleaned.length} chars)`);
+                            return cleaned;
+                        }
+                    }
+                }
+            }
+        } catch (relayErr) {}
+    }
+
+    return '';
+}
+
+// ==========================================
+// GEMINI NATIVE YOUTUBE VIDEO INGESTION (CLOUD-TO-CLOUD BYPASS)
+// ==========================================
+async function dispatchYouTubeDirectToGemini(systemPrompt, videoId, extraNotes) {
+    const activeGeminiKeys = getActiveGeminiKeys();
+    if (activeGeminiKeys.length === 0) {
+        throw new Error("No active Gemini API keys found in .env or cluster vault.");
+    }
+
+    const cleanYtUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const supportedModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-1.5-pro'];
+
+    for (const modelName of supportedModels) {
+        for (let i = 0; i < activeGeminiKeys.length; i++) {
+            const mask = `...${activeGeminiKeys[i].slice(-6)}`;
+            try {
+                console.log(`[REFINERY INGEST] Routing YouTube URL (${cleanYtUrl}) directly to Google Cloud via ${modelName} [${mask}]...`);
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeGeminiKeys[i]}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            role: "user",
+                            parts: [
+                                { fileData: { mimeType: "video/*", fileUri: cleanYtUrl } },
+                                { text: `${systemPrompt}\n\nWatch and analyze this YouTube video directly. Extract all technical facts, architecture, code implementations, and operational directives.${extraNotes ? '\n\nAdditional Notes:\n' + extraNotes : ''}` }
+                            ]
+                        }],
+                        generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                    if (text && text.length >= 50) {
+                        console.log(`[REFINERY INGEST] SUCCESS! ${modelName} natively digested YouTube video (${text.length} chars)`);
+                        return { reply: text, modelUsed: `${modelName} (Native YouTube Cloud Ingest [${mask}])` };
+                    }
+                } else {
+                    const errTxt = await response.text();
+                    console.warn(`[REFINERY INGEST] ${modelName} [${mask}] HTTP ${response.status}: ${errTxt.slice(0, 180)}`);
+                }
+            } catch (err) {
+                console.warn(`[REFINERY INGEST] ${modelName} error: ${err.message}`);
+            }
+        }
+    }
+
+    return null;
+}
+
 // ==========================================
 // AUTONOMOUS RUNTIME FILE/DIR INTERCEPTOR
 // ==========================================
@@ -354,7 +505,7 @@ const getActiveGeminiKeys = () => {
 };
 
 // ==========================================
-// TAB 10 DYNAMIC TUNNEL HANDLERS (ALL VARIANTS)
+// TAB 10 DYNAMIC TUNNEL HANDLERS
 // ==========================================
 const handleTunnelUpdate = (req, res) => {
     try {
@@ -366,7 +517,6 @@ const handleTunnelUpdate = (req, res) => {
         const cleanUrl = rawUrl.trim();
         process.env.KAGGLE_TUNNEL_URL = cleanUrl;
 
-        // Persist to .env directly so it survives restarts
         if (fs.existsSync(ENV_FILE_PATH)) {
             let envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
             if (envContent.includes('KAGGLE_TUNNEL_URL=')) {
@@ -401,7 +551,6 @@ const handleTunnelGet = (req, res) => {
     });
 };
 
-// Wire all route variations that Tab 10 might query
 app.post('/api/tunnel/set', handleTunnelUpdate);
 app.post('/api/tunnel', handleTunnelUpdate);
 app.post('/api/kaggle/tunnel', handleTunnelUpdate);
@@ -456,7 +605,7 @@ async function executeNativeTool(toolCall) {
             const target = path.isAbsolute(args.targetPath) ? args.targetPath : path.join(WORKSPACE_ROOT, args.targetPath);
             if (!isPathSafe(target)) return JSON.stringify({ error: "Access denied. Path outside workspace." });
             if (!fs.existsSync(target)) return JSON.stringify({ exists: false, error: "FILE DOES NOT EXIST ON DISK. Trigger SOP 11." });
-            return fs.readFileSync(target, 'utf8').slice(0, 12000); // Hard limit to prevent context memory overflow
+            return fs.readFileSync(target, 'utf8').slice(0, 12000);
         }
         if (name === 'mcnc_list_directory') {
             const target = path.isAbsolute(args.dirPath) ? args.dirPath : path.join(WORKSPACE_ROOT, args.dirPath);
@@ -486,7 +635,6 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
     let iteration = 0;
     const maxIterations = 3;
 
-    // Autonomous Loop: Keep fetching until the AI stops calling tools and yields a final text answer
     while (iteration < maxIterations) {
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -512,9 +660,8 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
         
         if (!message) throw new Error("Empty response from OpenRouter.");
 
-        messages.push(message); // Append AI response to context
+        messages.push(message);
 
-        // If the AI decides it needs to read a file, execute it cleanly in Node
         if (message.tool_calls && message.tool_calls.length > 0) {
             for (const toolCall of message.tool_calls) {
                 const toolResult = await executeNativeTool(toolCall);
@@ -526,7 +673,7 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
                 });
             }
             iteration++;
-            continue; // Loop back and send the physical file data to the AI
+            continue;
         } else {
             return message.content || "Empty response.";
         }
@@ -545,9 +692,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 
     const requestedModel = rawBody.model || '';
 
-    // ==========================================
-    // TIER 4: KAGGLE ROUTING (Zero-Cost Tunnel)
-    // ==========================================
+    // TIER 4: KAGGLE ROUTING
     if (requestedModel.startsWith('KAGGLE/')) {
         const KAGGLE_MODEL_MAP = {
             'KAGGLE/QWEN-2.5-VL-7B': 'Qwen/Qwen2.5-VL-7B-Instruct',
@@ -596,24 +741,27 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 
     // TIER 1: GEMINI
     const activeGeminiKeys = getActiveGeminiKeys();
+    const geminiModels = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
     if (activeGeminiKeys.length > 0) {
-        for (let i = 0; i < activeGeminiKeys.length; i++) {
-            const mask = `...${activeGeminiKeys[i].slice(-6)}`;
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${activeGeminiKeys[i]}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + validContent }] }],
-                        generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
-                    })
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                    if (text) return { reply: text, modelUsed: `gemini-1.5-pro (Tier 1: Gemini [${mask}])` };
-                }
-            } catch (err) {}
+        for (const gModel of geminiModels) {
+            for (let i = 0; i < activeGeminiKeys.length; i++) {
+                const mask = `...${activeGeminiKeys[i].slice(-6)}`;
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gModel}:generateContent?key=${activeGeminiKeys[i]}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + validContent }] }],
+                            generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+                        })
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                        if (text) return { reply: text, modelUsed: `${gModel} (Tier 1: Gemini [${mask}])` };
+                    }
+                } catch (err) {}
+            }
         }
     }
 
@@ -881,60 +1029,87 @@ app.post('/api/cluster/gemini/add', (req, res) => {
 });
 
 // ==========================================
-// TAB 12 REFINERY HARVESTER
+// TAB 12 REFINERY HARVESTER (CLOUD-TO-CLOUD NATIVE YOUTUBE INGEST)
 // ==========================================
 app.post('/api/harvest', async (req, res) => {
     try {
-        const { url, contentDump, topicDomain, specialization, model } = req.body;
+        const { url, contentDump, topicDomain, specialization } = req.body;
         let rawContent = (contentDump || '').trim();
+        let extractedFromMedia = '';
+
+        console.log(`[REFINERY DISPATCH] Ingest initiated. Target: ${url || 'Direct Text Payload'}`);
+
+        const systemPrompt = `[MONTY] here, Chief of Staff and Master Intelligence Triage Judge for MCNC Base 1.
+Execute SOP 17 Ingestion Hopper extraction on the provided technical source material.
+Domain: ${topicDomain || 'General'}
+Sub-Niche: ${specialization || 'General'}
+
+You must extract and output strictly in this exact SOP 17 schema:
+# RESEARCH DOSSIER // [EXACT TITLE OR ARCHITECTURAL SUBJECT]
+
+### 1. CORE NUGGET
+Concrete technical fact, architectural pattern, model requirement, or operational dependency. Zero fluff or narrative biography.
+
+### 2. CODE / IMPLEMENTATION
+Exact schema, configuration, prompt template, or functional code syntax extracted from the source. No placeholders, ellipses, or pseudo-code.
+
+### 3. SUPERSEDES
+Explicit declaration of any legacy, previous pattern, or outdated implementation rendered obsolete by this intelligence. If none, state "None documented."
+
+Strict Zero Fluff Mandate: Deliver high-signal engineering nuggets only.`;
 
         if (url && url.trim()) {
             const videoId = extractYouTubeId(url);
             if (videoId) {
-                try {
-                    broadcast('TRACE', `[REFINERY] Scraping transcript for YouTube: ${videoId}...`);
-                    const transcriptArr = await YoutubeTranscript.fetchTranscript(videoId);
-                    const ytText = transcriptArr.map(t => t.text).join(' ');
-                    rawContent = `[SOURCE URL]: ${url}\n\n[SCRAPED TRANSCRIPT]:\n${ytText}\n\n${rawContent}`;
-                } catch (ytErr) {
-                    rawContent = `[SOURCE URL]: ${url} (Transcript auto-scrape unavailable: ${ytErr.message})\n\n${rawContent}`;
+                broadcast('TRACE', `[REFINERY] Ingesting YouTube video: ${videoId}...`);
+
+                const directGeminiResult = await dispatchYouTubeDirectToGemini(systemPrompt, videoId, rawContent);
+                if (directGeminiResult) {
+                    return res.json({
+                        success: true,
+                        nugget: directGeminiResult.reply,
+                        modelUsed: directGeminiResult.modelUsed,
+                        domain: topicDomain,
+                        specialization
+                    });
+                }
+
+                extractedFromMedia = await extractYouTubeTranscript(videoId);
+                if (extractedFromMedia && extractedFromMedia.length >= 50) {
+                    rawContent = `[SOURCE URL]: ${url}\n\n[SCRAPED TRANSCRIPT]:\n${extractedFromMedia}\n\n${rawContent}`;
+                    broadcast('TRACE', `[REFINERY] Ingested ${extractedFromMedia.length} chars of transcript data.`);
+                } else {
+                    console.error(`[REFINERY GUARD] All extraction vectors failed for: ${url}`);
+                    return res.status(422).json({ 
+                        error: `EXTRACTION REJECTED: Check that a valid GEMINI_API_KEY is active in Tab 10 or .env. Process halted (SOP 11).` 
+                    });
                 }
             } else {
                 rawContent = `[SOURCE URL]: ${url}\n\n${rawContent}`;
             }
         }
 
-        if (!rawContent || rawContent.length < 5) {
-            return res.status(400).json({ error: 'No content or link provided to harvest.' });
+        if (!rawContent || rawContent.length < 50) {
+            return res.status(400).json({ 
+                error: 'PAYLOAD REJECTED: Ingest content must be at least 50 characters of verifiable data.' 
+            });
         }
 
-        const systemPrompt = `You are MONTY, Chief of Staff and Master Intelligence Triage Judge for MCNC Base 1.
-Strip narrative fluff and output a dense Markdown dossier:
-Domain: ${topicDomain || 'General'}
-Sub-Niche: ${specialization || 'General'}
-Format:
-# RESEARCH DOSSIER // [TITLE]
-### 1. Executive Summary & Core Value Proposition
-### 2. Technical Architecture & Mechanics
-### 3. Actionable Directives & Implementation Roadmap
-Zero marketing filler. Pure high-signal engineering nuggets only.`;
-
-        broadcast('TRACE', `[REFINERY] Executing fluff-stripping across ${topicDomain} > ${specialization}...`);
-        
-        // Tab 12 now respects whatever model was requested (including Tier 4 Kaggle models)
+        broadcast('TRACE', `[REFINERY] Routing to Gemini for SOP 17 distillation...`);
         const { reply, modelUsed } = await dispatchToBrain(systemPrompt, { 
             text: rawContent, 
-            model: model || process.env.DEFAULT_BRAIN || '' 
+            model: 'gemini-2.5-pro' 
         });
 
         res.json({ success: true, nugget: reply, modelUsed, domain: topicDomain, specialization });
     } catch (err) {
+        console.error(`[REFINERY ERROR]:`, err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
 // ==========================================
-// TAB 13 / OBSIDIAN VAULT DOCS REPOSITORY API
+// TAB 13 / OBSIDIAN VAULT DOCS REPOSITORY API (FIXED NICHE RESOLUTION)
 // ==========================================
 function scanVaultDocuments() {
     const docList = [];
@@ -963,13 +1138,21 @@ function scanVaultDocuments() {
                             const stat = fs.statSync(fullPath);
                             
                             const firstHeaderMatch = content.match(/^#\s+(.+)$/m);
-                            const title = firstHeaderMatch ? firstHeaderMatch[1].trim() : item.name.replace(/\.(md|txt)$/i, '');
+                            const cleanBaseName = item.name.replace(/\.(md|txt)$/i, '');
+                            const title = firstHeaderMatch ? firstHeaderMatch[1].trim() : cleanBaseName;
+
+                            // Derive the exact specialization/niche from the filename when inside DOCS_PATH (e.g. Hermes.md -> Hermes)
+                            let resolvedNiche = defaultNiche;
+                            if (defaultNiche === 'Vault' && fullPath.toLowerCase().startsWith(DOCS_PATH.toLowerCase())) {
+                                resolvedNiche = cleanBaseName.replace(/_/g, ' ');
+                            }
 
                             docList.push({
                                 filename: item.name,
                                 title: title,
                                 domain: domainName,
-                                niche: defaultNiche,
+                                niche: resolvedNiche,
+                                specialization: resolvedNiche,
                                 path: fullPath,
                                 relativePath: path.relative(WORKSPACE_ROOT, fullPath),
                                 content: content,
@@ -1057,7 +1240,6 @@ app.post('/api/docs/save', async (req, res) => {
 function warlordJudgeInterceptor(text) {
     if (!text) return { passed: false, error: "Empty payload." };
 
-    // Banned Regex Patterns
     const bannedPatterns = [
         { rx: /\[.*?\]/g, name: "Brackets / Placeholders ([Client], [Insert])" },
         { rx: /\{\{.*?\}\}/g, name: "Curly Braces / Template Tags ({{name}})" },
@@ -1094,23 +1276,20 @@ app.post('/api/chat', async (req, res) => {
         let finalModel = "";
 
         while (attempt <= maxAttempts) {
-            // Dispatch to the routing engine
             const { reply, modelUsed } = await dispatchToBrain(baseSystemPrompt, currentPromptBody);
             finalModel = modelUsed;
             
-            // Run the mechanical judge
             const audit = warlordJudgeInterceptor(reply);
             
             if (audit.passed) {
                 finalReply = reply;
-                break; // Clean output, exit the loop
+                break;
             } else {
                 console.warn(`[JUDGE INTERCEPT - STRIKE ${attempt}] ${audit.error}`);
                 if (attempt === maxAttempts) {
                     finalReply = `[SYSTEM ESCALATION]: Agent failed the Warlord SOP 3 times. Last error: ${audit.error}\n\nRaw Output:\n${reply}`;
                     break;
                 }
-                // Append the failure to the prompt and force a retry
                 let previousText = extractPromptText(currentPromptBody);
                 let correctedText = `${previousText}\n\n[SYSTEM JUDGE REJECTION]: Your previous attempt failed. ${audit.error} REWRITE ENTIRELY WITHOUT PLACEHOLDERS OR SNIPPETS.`;
                 currentPromptBody = { ...currentPromptBody, text: correctedText, prompt: correctedText, message: correctedText };
