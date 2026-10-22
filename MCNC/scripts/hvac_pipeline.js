@@ -31,9 +31,17 @@ if (profileArg) {
     selectedProfile = profileArg.split('=')[1].toLowerCase().trim();
 }
 
+// Extract category: --category=Financial_Assistance | Churches | Humanitarian_Aid | Social_Clubs | Commercial_HVAC
+let selectedCategory = (selectedProfile === 'rhythm') ? 'Commercial_HVAC' : 'Financial_Assistance';
+const categoryArg = args.find(a => a.startsWith('--category='));
+if (categoryArg) {
+    selectedCategory = categoryArg.split('=')[1].trim();
+}
+
 console.log('====================================================');
 console.log(`[OUTREACH DISPATCH ENGINE] : ${isDryRun ? 'DRY-RUN (Zero Network Traffic)' : isTestMode ? 'TEST MODE (Single Inbox Probe)' : 'LIVE QUEUE DISPATCH'}`);
 console.log(`[ACTIVE SENDER PROFILE]   : ${selectedProfile.toUpperCase()}`);
+console.log(`[ACTIVE TARGET CATEGORY]  : ${selectedCategory}`);
 console.log('====================================================');
 
 // ==========================================
@@ -53,41 +61,42 @@ function getSmtpConfig(profileName) {
 }
 
 // ==========================================
-// CSV LEAD LOADER (PROJECT-SPECIFIC LEADS)
+// CATEGORIZED CSV LEAD LOADER (CAPITALIZED PATHS)
 // ==========================================
-function loadProjectLeads(profileName) {
-    const dataDir = path.resolve('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\data');
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+function loadCategorizedLeads(profileName, categoryName) {
+    const isCommercial = (profileName === 'rhythm');
+    const rootSubdir = isCommercial ? 'Commercial_Sales' : 'Fundraising';
+    const projectFolder = isCommercial ? 'Rhythm_Trading' : 'Chief_Madothi_Fund';
+    const cleanCategory = categoryName.endsWith('.csv') ? categoryName : `${categoryName}.csv`;
 
-    // Map profile to project CSV file
-    let csvFileName = 'chief_madothi_leads.csv';
-    if (profileName === 'rhythm') {
-        csvFileName = 'hvac_leads.csv';
+    const targetPath = path.resolve(
+        'C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data',
+        rootSubdir,
+        'Categories',
+        projectFolder,
+        cleanCategory
+    );
+
+    if (!fs.existsSync(targetPath)) {
+        console.warn(`[WARN] Target lead file not found: ${targetPath}`);
+        return [];
     }
 
-    const csvPath = path.join(dataDir, csvFileName);
-
-    if (!fs.existsSync(csvPath)) {
-        // Create initial clean CSV seed if not present
-        if (profileName === 'rhythm') {
-            fs.writeFileSync(csvPath, 'firstName,companyName,email\nBob,McCoy\'s Heating and Air,bob@mccoyshvac.com\nDavid,Holt Mechanical,david@holtmechanical.com\n', 'utf8');
-        } else {
-            fs.writeFileSync(csvPath, 'firstName,organizationName,email\nPartner,Global Education Initiative,contact@example.org\nDirector,Community Support Fund,director@example.org\n', 'utf8');
-        }
-    }
-
-    const raw = fs.readFileSync(csvPath, 'utf8').trim();
+    const raw = fs.readFileSync(targetPath, 'utf8').trim();
     const lines = raw.split('\n').filter(l => l.trim().length > 0);
     const leads = [];
 
     // Parse header and rows
     for (let i = 1; i < lines.length; i++) {
         const parts = lines[i].split(',').map(p => p.trim());
-        if (parts.length >= 3) {
+        if (parts.length >= 3 && parts[2].includes('@')) {
             leads.push({
                 firstName: parts[0],
                 companyName: parts[1],
-                email: parts[2]
+                email: parts[2],
+                website: parts[3] || '',
+                grantType: parts[4] || '',
+                notes: parts[5] || ''
             });
         }
     }
@@ -175,7 +184,12 @@ async function runPipeline() {
         }
     }
 
-    const activeList = isTestMode ? testQueue : loadProjectLeads(selectedProfile);
+    const activeList = isTestMode ? testQueue : loadCategorizedLeads(selectedProfile, selectedCategory);
+
+    if (activeList.length === 0) {
+        console.log(`[IDLE] No leads found in category: ${selectedCategory}. Aborting queue.`);
+        return;
+    }
 
     for (let i = 0; i < activeList.length; i++) {
         const contact = activeList[i];
