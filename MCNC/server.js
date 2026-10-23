@@ -43,7 +43,7 @@ const GEMINI_CLUSTER_FILE = path.join(KEYS_DIR, 'gemini_cluster.json');
 const PROJECTS_MANIFEST_FILE = path.join(VAULT_PATH, 'projects_manifest.json');
 const ENV_FILE_PATH = path.join(__dirname, '.env');
 
-[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH, PROJECTS_PATH, DOCS_PATH].forEach(dir => {
+[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH, PROJECTS_PATH, DOCS_PATH, SOULS_PATH].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -215,7 +215,7 @@ function cleanVttToText(rawVtt) {
 }
 
 // ==========================================
-// MULTI-VECTOR YOUTUBE EXTRACTION ENGINE (DATACENTER IP BYPASS)
+// MULTI-VECTOR YOUTUBE EXTRACTION ENGINE
 // ==========================================
 async function extractYouTubeTranscript(videoId) {
     try {
@@ -299,7 +299,7 @@ async function extractYouTubeTranscript(videoId) {
 }
 
 // ==========================================
-// GEMINI NATIVE YOUTUBE VIDEO INGESTION (CLOUD-TO-CLOUD BYPASS)
+// GEMINI NATIVE YOUTUBE VIDEO INGESTION
 // ==========================================
 async function dispatchYouTubeDirectToGemini(systemPrompt, videoId, extraNotes) {
     const activeGeminiKeys = getActiveGeminiKeys();
@@ -1029,7 +1029,7 @@ app.post('/api/cluster/gemini/add', (req, res) => {
 });
 
 // ==========================================
-// TAB 12 REFINERY HARVESTER (CLOUD-TO-CLOUD NATIVE YOUTUBE INGEST)
+// TAB 12 REFINERY HARVESTER
 // ==========================================
 app.post('/api/harvest', async (req, res) => {
     try {
@@ -1109,12 +1109,69 @@ Strict Zero Fluff Mandate: Deliver high-signal engineering nuggets only.`;
 });
 
 // ==========================================
-// TAB 13 / OBSIDIAN VAULT DOCS REPOSITORY API (FIXED NICHE RESOLUTION)
+// TAB 13 / UNIFIED GOVERNANCE SCANNER (DOCS, SOULS, DOCTRINE)
 // ==========================================
 function scanVaultDocuments() {
     const docList = [];
     const seenPaths = new Set();
 
+    function addDoc(fullPath, domainName, nicheName, cleanTitle) {
+        if (!fs.existsSync(fullPath)) return;
+        if (seenPaths.has(fullPath.toLowerCase())) return;
+        seenPaths.add(fullPath.toLowerCase());
+
+        try {
+            const content = fs.readFileSync(fullPath, 'utf8');
+            const stat = fs.statSync(fullPath);
+            const firstHeaderMatch = content.match(/^#\s+(.+)$/m);
+            const title = cleanTitle || (firstHeaderMatch ? firstHeaderMatch[1].trim() : path.basename(fullPath).replace(/\.(md|txt)$/i, ''));
+
+            docList.push({
+                filename: path.basename(fullPath),
+                title: title,
+                domain: domainName,
+                niche: nicheName,
+                specialization: nicheName,
+                path: fullPath,
+                relativePath: path.relative(WORKSPACE_ROOT, fullPath),
+                content: content,
+                size: stat.size,
+                modified: stat.mtime
+            });
+        } catch (e) {}
+    }
+
+    // 1. Scan Live Director Souls directly from MCNC/souls
+    if (fs.existsSync(SOULS_PATH)) {
+        try {
+            const soulFiles = fs.readdirSync(SOULS_PATH, { withFileTypes: true });
+            for (const f of soulFiles) {
+                if (f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt'))) {
+                    const directorName = f.name.replace(/\.(md|txt)$/i, '').replace(/_/g, ' ');
+                    addDoc(path.join(SOULS_PATH, f.name), 'Core Documents', 'Souls', `${directorName.toUpperCase()} (Soul)`);
+                }
+            }
+        } catch (e) {}
+    }
+
+    // 2. Scan Real WASP Documents directly (Master ROEs, SOPs, Mission Statement)
+    const waspDocsDir = path.join(WORKSPACE_ROOT, 'WASP Documents');
+    if (fs.existsSync(waspDocsDir)) {
+        try {
+            const waspFiles = fs.readdirSync(waspDocsDir, { withFileTypes: true });
+            for (const f of waspFiles) {
+                if (f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt'))) {
+                    const clean = f.name.toLowerCase();
+                    let niche = 'ROEs';
+                    if (clean.includes('sop')) niche = 'SOPs';
+                    else if (clean.includes('mission') || clean.includes('statement')) niche = 'Mission Statement';
+                    addDoc(path.join(waspDocsDir, f.name), 'Core Documents', niche);
+                }
+            }
+        } catch (e) {}
+    }
+
+    // 3. Scan Vault Docs Hierarchy
     function walkDir(dir, domainName = 'General', defaultNiche = 'Vault') {
         if (!fs.existsSync(dir)) return;
         let items;
@@ -1131,36 +1188,12 @@ function scanVaultDocuments() {
             } else if (item.isFile()) {
                 const ext = path.extname(item.name).toLowerCase();
                 if (['.md', '.txt'].includes(ext)) {
-                    if (!seenPaths.has(fullPath.toLowerCase())) {
-                        seenPaths.add(fullPath.toLowerCase());
-                        try {
-                            const content = fs.readFileSync(fullPath, 'utf8');
-                            const stat = fs.statSync(fullPath);
-                            
-                            const firstHeaderMatch = content.match(/^#\s+(.+)$/m);
-                            const cleanBaseName = item.name.replace(/\.(md|txt)$/i, '');
-                            const title = firstHeaderMatch ? firstHeaderMatch[1].trim() : cleanBaseName;
-
-                            // Derive the exact specialization/niche from the filename when inside DOCS_PATH (e.g. Hermes.md -> Hermes)
-                            let resolvedNiche = defaultNiche;
-                            if (defaultNiche === 'Vault' && fullPath.toLowerCase().startsWith(DOCS_PATH.toLowerCase())) {
-                                resolvedNiche = cleanBaseName.replace(/_/g, ' ');
-                            }
-
-                            docList.push({
-                                filename: item.name,
-                                title: title,
-                                domain: domainName,
-                                niche: resolvedNiche,
-                                specialization: resolvedNiche,
-                                path: fullPath,
-                                relativePath: path.relative(WORKSPACE_ROOT, fullPath),
-                                content: content,
-                                size: stat.size,
-                                modified: stat.mtime
-                            });
-                        } catch (e) {}
+                    const cleanBaseName = item.name.replace(/\.(md|txt)$/i, '');
+                    let resolvedNiche = defaultNiche;
+                    if (defaultNiche === 'Vault' && fullPath.toLowerCase().startsWith(DOCS_PATH.toLowerCase())) {
+                        resolvedNiche = cleanBaseName.replace(/_/g, ' ');
                     }
+                    addDoc(fullPath, domainName, resolvedNiche);
                 }
             }
         }
@@ -1168,7 +1201,6 @@ function scanVaultDocuments() {
 
     walkDir(DOCS_PATH);
     walkDir(path.join(WORKSPACE_ROOT, 'MCNC', 'vault'), 'Vault Core', 'System');
-    walkDir(path.join(WORKSPACE_ROOT, 'WASP Documents'), 'WASP Doctrine', 'Doctrine');
     walkDir(path.join(WORKSPACE_ROOT, 'WASP Artwork'), 'Artwork', 'Palettes');
 
     return docList;
@@ -1194,40 +1226,34 @@ app.get('/api/docs/refresh', (req, res) => {
 
 app.post('/api/docs/save', async (req, res) => {
     try {
-        const { filename, title, domain, niche, content, specialization, pruneAndMerge } = req.body;
+        const { filename, title, domain, niche, content, filePath } = req.body;
         if (!content || !content.trim()) return res.status(400).json({ error: 'Content payload is empty.' });
 
-        const safeDomain = (domain || 'General').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
-        const safeNiche = (niche || specialization || 'General').replace(/\s+/g, '_').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
-        
-        let targetFilename = filename;
-        if (!targetFilename) {
-            targetFilename = `${safeNiche}.md`;
-        }
-        if (!targetFilename.endsWith('.md') && !targetFilename.endsWith('.txt')) {
-            targetFilename += '.md';
-        }
+        let targetFile = filePath;
 
-        const targetDir = path.join(DOCS_PATH, safeDomain);
-        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+        // If direct filePath provided, write back to authentic source file
+        if (!targetFile || !fs.existsSync(path.dirname(targetFile))) {
+            const safeDomain = (domain || 'General').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
+            const safeNiche = (niche || 'General').replace(/\s+/g, '_').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
+            
+            let targetFilename = filename;
+            if (!targetFilename) targetFilename = `${safeNiche}.md`;
+            if (!targetFilename.endsWith('.md') && !targetFilename.endsWith('.txt')) targetFilename += '.md';
 
-        const filePath = path.join(targetDir, targetFilename);
-
-        let finalPayload = content.trim();
-        if (fs.existsSync(filePath) && pruneAndMerge) {
-            const existingContent = fs.readFileSync(filePath, 'utf8');
-            finalPayload = `${existingContent}\n\n---\n\n## [APPENDED UPDATE // ${new Date().toISOString()}]\n\n${finalPayload}`;
+            const targetDir = path.join(DOCS_PATH, safeDomain);
+            if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+            targetFile = path.join(targetDir, targetFilename);
         }
 
-        fs.writeFileSync(filePath, finalPayload, 'utf8');
-        logTelemetry('DOCS_SAVED', `Synthesized canonical dossier to vault/Docs/${safeDomain}/${targetFilename}`);
-        broadcast('TRACE', `[VAULT WRITE] Synthesized: vault/Docs/${safeDomain}/${targetFilename}`);
+        fs.writeFileSync(targetFile, content.trim(), 'utf8');
+        logTelemetry('DOCS_SAVED', `Updated document at: ${targetFile}`);
+        broadcast('TRACE', `[VAULT WRITE] Updated authentic file: ${targetFile}`);
 
         res.json({ 
             success: true, 
-            message: `Successfully synthesized to vault/Docs/${safeDomain}/${targetFilename}`, 
-            filePath, 
-            filename: targetFilename 
+            message: `Successfully saved to ${targetFile}`, 
+            filePath: targetFile, 
+            filename: path.basename(targetFile) 
         });
     } catch (err) { 
         res.status(500).json({ error: err.message }); 
@@ -1317,6 +1343,7 @@ server.listen(PORT, () => {
     console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
     console.log(`[WORKSPACE ROOT]         : ${WORKSPACE_ROOT}`);
     console.log(`[DOCS REPOSITORY]        : ${DOCS_PATH}`);
+    console.log(`[LIVE SOULS REPOSITORY]  : ${SOULS_PATH}`);
     console.log(`[AGENT FS TOOLS]         : /api/tools/{read,write,list,search,stat}`);
     console.log(`[DYNAMIC TUNNEL ENGINE]  : /api/tunnel/{get,set} & /api/kaggle/* ONLINE`);
     console.log(`[REFINERY ENGINE]        : /api/harvest & /api/docs/save ONLINE`);
