@@ -83,7 +83,7 @@ export default function Tab01Exec({ ws }) {
   const abortControllerRef = useRef(null);
   const timerIntervalRef = useRef(null);
 
-  // Sync Kaggle status from Tab 10 events & backend daemon
+  // Sync Kaggle status passively via local events, zero background loop polling
   useEffect(() => {
     const handleStorageUpdate = (e) => {
       if (e.key === 'kaggle_status' && e.newValue) {
@@ -100,29 +100,9 @@ export default function Tab01Exec({ ws }) {
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('kaggle-status-changed', handleCustomKaggleEvent);
 
-    // Backend poll
-    const pollDaemon = async () => {
-      try {
-        const res = await fetch('http://localhost:8081/api/kaggle/status');
-        if (res.ok) {
-          const data = await res.json();
-          const active = data.active || data.online || data.status === 'ACTIVE';
-          setKaggleStatus(active ? 'ACTIVE' : 'STANDBY');
-        }
-      } catch {
-        // If daemon is silent or endpoint is offline, preserve STANDBY
-        const saved = localStorage.getItem('kaggle_status');
-        if (saved) setKaggleStatus(saved);
-      }
-    };
-
-    pollDaemon();
-    const interval = setInterval(pollDaemon, 10000);
-
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('kaggle-status-changed', handleCustomKaggleEvent);
-      clearInterval(interval);
     };
   }, []);
 

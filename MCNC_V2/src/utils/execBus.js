@@ -21,16 +21,25 @@ export function initGlobalInterceptor() {
     const resource = args[0];
     const url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
 
-    // Ignore read-only background polling so the spinner does not flicker
+    // Ignore read-only background polling and telemetry checks so console stays quiet
     const isTelemetryPoll = (
       url.includes('/api/status') ||
       url.includes('/api/cluster/') ||
+      url.includes('/api/kaggle/') ||
       url.includes('11434') ||
       url.includes('trycloudflare.com')
     );
 
     if (isTelemetryPoll) {
-      return await originalFetch(...args);
+      try {
+        return await originalFetch(...args);
+      } catch {
+        // Silently return an empty 204 response so unhandled background checks never flood the console
+        return new Response(JSON.stringify({ active: false, status: 'STANDBY' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     activeOperations++;

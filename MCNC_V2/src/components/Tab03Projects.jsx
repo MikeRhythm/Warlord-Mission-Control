@@ -1,76 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NewProjectModal from './NewProjectModal';
 import NewCronModal from './NewCronModal';
+
+const PIPELINE_API_BASE = 'http://localhost:8082/api';
 
 const DEFAULT_SEED_PROJECTS = [
   {
     id: '01',
-    name: 'MAKING MONEY IDEAS',
+    name: 'CHIEF MADOTHI FUND',
     status: 'ACTIVE',
-    description: 'PRD Executed. Task sequence handed off to Paperclip daemon.',
-    progress: 33,
-    tasksDone: 6,
-    tasksTotal: 18,
+    description: 'Humanitarian outreach and donation campaign pipeline.',
+    progress: 0,
+    tasksDone: 0,
+    tasksTotal: 4,
     agent: 'MONTY // CHIEF OF STAFF',
-    dispatched: '12:14:00 PM',
-    industry: 'Corporate Strategy',
-    stakeholder: 'Mike',
-    dominantMetric: 'Speed to Market',
-    palette: [
-      { id: '1', role: 'PRIMARY', hex: '#C5BD9F' },
-      { id: '2', role: 'ACCENT', hex: '#ffb800' },
-      { id: '3', role: 'CANVAS BG', hex: '#080a0c' }
-    ],
-    pillars: [
-      {
-        id: "P01",
-        title: "Local Compliance & Entity Infrastructure",
-        directors: ["VANCE", "TESS"],
-        priority: "CRITICAL",
-        status: "APPROVED",
-        definitionOfDone: "ZAR banking rails mapped, POPIA legal constraints locked."
-      },
-      {
-        id: "P02",
-        title: "Regional Digital Portal & UI Dashboard",
-        directors: ["CHARLIE", "ROXY"],
-        priority: "HIGH",
-        status: "STAGED",
-        definitionOfDone: "Responsive Glassmorphic web presence live with Brand Hex tokens."
-      },
-      {
-        id: "P03",
-        title: "Lead Intake & Automated Outreach Pipeline",
-        directors: ["JACK", "SKYLA"],
-        priority: "MEDIUM",
-        status: "LOCKED",
-        definitionOfDone: "CRM ingestion endpoints verified with active SMTP dispatch."
-      }
-    ],
-    cronJobs: [
-      {
-        id: 'CRON-01',
-        title: 'NIGHTLY LEDGER RECONCILIATION',
-        director: 'JACK',
-        cadence: 'Daily (Midnight)',
-        cronExpression: '0 0 * * *',
-        targetCommand: 'npm run reconcile:wallets',
-        status: 'RUNNING',
-        lastRun: 'Yesterday 23:59',
-        nextRun: 'Today 00:00'
-      }
-    ]
+    dispatched: '02:00:00 PM',
+    industry: 'Fundraising',
+    stakeholder: 'Chief Madothi',
+    dominantMetric: 'Donation Conversion',
+    directories: ['Leads', 'Responses_And_Donations', 'Assets_And_Artwork', 'Web_And_Social'],
+    total_leads: 0,
+    pillars: [],
+    cronJobs: []
   }
 ];
 
 export default function Tab03Projects({ onNavigateToWarRoom }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [cronModalTarget, setCronModalTarget] = useState(null); // { id, name }
+  const [cronModalTarget, setCronModalTarget] = useState(null);
   const [filter, setFilter] = useState('ALL');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
-  
   const [expandedPillarProjectId, setExpandedPillarProjectId] = useState(null);
   const [selectedDirectorFilter, setSelectedDirectorFilter] = useState('ALL');
+  const [serverOnline, setServerOnline] = useState(false);
 
   const [projects, setProjects] = useState(() => {
     try {
@@ -83,6 +45,55 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
     }
     return DEFAULT_SEED_PROJECTS;
   });
+
+  // Fetch real projects from server_pipeline.js (Port 8082)
+  const fetchDiskProjects = async () => {
+    try {
+      const res = await fetch(`${PIPELINE_API_BASE}/projects`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.projects)) {
+        setServerOnline(true);
+        // Merge disk projects with existing local states / manifests
+        setProjects(prevProjects => {
+          const merged = data.projects.map(dp => {
+            const existing = prevProjects.find(p => p.id === dp.id || p.name === dp.name) || {};
+            return {
+              ...existing,
+              id: dp.id,
+              name: dp.name.toUpperCase(),
+              status: dp.manifest?.status || existing.status || 'ACTIVE',
+              description: dp.manifest?.prd_data?.objective || existing.description || 'Disk-provisioned operational project.',
+              progress: existing.progress || 0,
+              tasksDone: existing.tasksDone || 0,
+              tasksTotal: existing.tasksTotal || 4,
+              agent: existing.agent || 'MONTY // CHIEF OF STAFF',
+              dispatched: existing.dispatched || 'Active on Disk',
+              industry: dp.manifest?.prd_data?.industry || existing.industry || 'Operational',
+              dominantMetric: dp.manifest?.prd_data?.dominantMetric || existing.dominantMetric || 'Pipeline Velocity',
+              directories: dp.directories || [],
+              total_leads: dp.total_leads || 0,
+              lead_files: dp.lead_files || [],
+              manifest: dp.manifest,
+              pillars: existing.pillars || [],
+              cronJobs: existing.cronJobs || []
+            };
+          });
+
+          localStorage.setItem('MCNC_PROJECT_MANIFESTS', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.warn('[!] Pipeline server on 8082 unreachable, using cached state:', err.message);
+      setServerOnline(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDiskProjects();
+    const interval = setInterval(fetchDiskProjects, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   const persistProjects = (updatedList) => {
     setProjects(updatedList);
@@ -112,15 +123,35 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
     }
   };
 
-  const handleSaveProject = (formData) => {
-    const nextNumeric = projects.length > 0 
-      ? Math.max(...projects.map(p => parseInt(p.id, 10) || 0)) + 1 
-      : 1;
-    const nextId = String(nextNumeric).padStart(2, '0');
+  // Provision on disk via Port 8082 and persist locally
+  const handleSaveProject = async (formData) => {
+    const rawName = formData.name || `PROJECT_${Date.now()}`;
+    const cleanId = rawName.trim().replace(/[^a-zA-Z0-9_]/g, '_');
 
+    // Dynamic PRD directories: Check if specified in formData, otherwise provide Canonical Archetype default
+    const dynamicDirs = formData.required_directories && Array.isArray(formData.required_directories)
+      ? formData.required_directories
+      : ['Leads', 'Responses_And_Donations', 'Assets_And_Artwork', 'Web_And_Social'];
+
+    // 1. Dispatch dynamic provisioning to server_pipeline.js
+    try {
+      await fetch(`${PIPELINE_API_BASE}/projects/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectName: cleanId,
+          subdirectories: dynamicDirs,
+          prdPayload: formData
+        })
+      });
+    } catch (err) {
+      console.error('[!] Failed to provision project on disk:', err);
+    }
+
+    // 2. Update local state
     const newProject = {
-      id: nextId,
-      name: formData.name.toUpperCase() || `NEW PROJECT [${nextId}]`,
+      id: cleanId,
+      name: rawName.toUpperCase(),
       status: 'ACTIVE',
       description: formData.objective || 'Discovery completed. Staged for PRD compilation.',
       progress: 0,
@@ -139,12 +170,16 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
       forbiddenVectors: formData.forbiddenVectors,
       palette: formData.palette,
       uploadedFiles: formData.uploadedFiles || [],
+      directories: dynamicDirs,
+      total_leads: 0,
+      lead_files: [],
       pillars: [],
       cronJobs: []
     };
 
     persistProjects([newProject, ...projects]);
     setIsModalOpen(false);
+    fetchDiskProjects();
   };
 
   const handlePushToWarRoom = (formData, warRoomPayload) => {
@@ -154,7 +189,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
     }
   };
 
-  // Add Cron Job to Specific Project
   const handleSaveCronJob = (cronData) => {
     const updated = projects.map(p => {
       if (p.id === cronModalTarget.id) {
@@ -242,16 +276,27 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
           <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '11px', letterSpacing: '0.05em' }}>
             📁 PROJECT DIRECTORY
           </span>
-          <span style={{
-            fontSize: '10px',
-            backgroundColor: 'rgba(255, 184, 0, 0.1)',
-            border: '1px solid #ffb800',
-            color: '#ffb800',
-            padding: '2px 6px',
-            borderRadius: '2px'
-          }}>
-            {projects.length} REG
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{
+              fontSize: '8px',
+              padding: '2px 4px',
+              backgroundColor: serverOnline ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              color: serverOnline ? '#10b981' : '#ef4444',
+              border: `1px solid ${serverOnline ? '#10b981' : '#ef4444'}`
+            }}>
+              {serverOnline ? 'DISK: 8082' : 'OFFLINE'}
+            </span>
+            <span style={{
+              fontSize: '10px',
+              backgroundColor: 'rgba(255, 184, 0, 0.1)',
+              border: '1px solid #ffb800',
+              color: '#ffb800',
+              padding: '2px 6px',
+              borderRadius: '2px'
+            }}>
+              {projects.length} REG
+            </span>
+          </div>
         </div>
 
         <div style={{ padding: '12px', borderBottom: '1px solid #1f242d' }}>
@@ -317,7 +362,7 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                 textOverflow: 'ellipsis',
                 maxWidth: '125px'
               }}>
-                [{proj.id}] {proj.name}
+                {proj.name}
               </span>
               <span style={{
                 fontSize: '9px',
@@ -427,7 +472,7 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                   {/* Card Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>
                           {proj.name}
                         </span>
@@ -441,10 +486,33 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                             {proj.dominantMetric}
                           </span>
                         )}
+                        {proj.total_leads !== undefined && (
+                          <span style={{ fontSize: '9px', padding: '2px 6px', backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                            LEADS: {proj.total_leads}
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>
                         {proj.description}
                       </div>
+
+                      {/* Render Dynamic Directories Created On Disk */}
+                      {proj.directories && proj.directories.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '9px', color: '#64748b' }}>DIRS:</span>
+                          {proj.directories.map((dir, i) => (
+                            <span key={i} style={{
+                              fontSize: '8px',
+                              padding: '1px 5px',
+                              backgroundColor: '#080a0c',
+                              color: '#94a3b8',
+                              border: '1px solid #1f242d'
+                            }}>
+                              /{dir}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Controls */}
@@ -460,7 +528,6 @@ export default function Tab03Projects({ onNavigateToWarRoom }) {
                         {proj.status}
                       </span>
                       
-                      {/* VIEW PILLARS TOGGLE */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

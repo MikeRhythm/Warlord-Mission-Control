@@ -76,7 +76,6 @@ export default function Tab10Tokens({ ws }) {
   const [burnRate, setBurnRate] = useState(2.08);
   const hardCap = 50.00;
   
-  // NVIDIA NIM Trial Credits State (Default 1000 allocation)
   const NIM_STARTING_CREDITS = 1000;
   const [nimCredits, setNimCredits] = useState(() => {
     const saved = localStorage.getItem('MCNC_NIM_CREDITS');
@@ -100,7 +99,6 @@ export default function Tab10Tokens({ ws }) {
   const [showTunnelInput, setShowTunnelInput] = useState(false);
   const [tunnelUrlInput, setTunnelUrlInput] = useState('');
 
-  // Persist credits and hours to local storage
   useEffect(() => {
     localStorage.setItem('MCNC_NIM_CREDITS', nimCredits.toString());
   }, [nimCredits]);
@@ -109,7 +107,6 @@ export default function Tab10Tokens({ ws }) {
     localStorage.setItem('MCNC_KAGGLE_WEEKLY_HOURS', weeklyKaggleHours.toString());
   }, [weeklyKaggleHours]);
 
-  // Session clock ticks ONLY if the live handshake returned true
   useEffect(() => {
     let timer = null;
     if ((computeMode === 'KAGGLE' || computeMode === 'ACTIVE') && isTunnelLive) {
@@ -128,7 +125,6 @@ export default function Tab10Tokens({ ws }) {
     };
   }, [computeMode, isTunnelLive]);
 
-  // Unified Polling via Port 8081 daemon
   const checkStatus = async () => {
     try {
       const res = await fetch('http://localhost:8081/api/kaggle/status');
@@ -142,7 +138,6 @@ export default function Tab10Tokens({ ws }) {
         localStorage.setItem('kaggle_status', mode);
       }
     } catch (e) {
-      // Retain localStorage fallback if offline
       const stored = localStorage.getItem('kaggle_status');
       if (stored) {
         setComputeMode(stored);
@@ -152,8 +147,8 @@ export default function Tab10Tokens({ ws }) {
   };
 
   useEffect(() => {
+    // Only check once on mount, no background timer loop running
     checkStatus();
-    const interval = setInterval(checkStatus, 6000);
 
     const handleCustomSync = (e) => {
       if (e.detail?.status) {
@@ -166,7 +161,6 @@ export default function Tab10Tokens({ ws }) {
     window.addEventListener('kaggle-status-changed', handleCustomSync);
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('kaggle-status-changed', handleCustomSync);
     };
   }, []);
@@ -190,7 +184,6 @@ export default function Tab10Tokens({ ws }) {
         throw new Error('Toggle request rejected');
       }
     } catch (e) {
-      // Optimistic instant toggle fallback
       const nextMode = computeMode === 'ACTIVE' ? 'STANDBY' : 'ACTIVE';
       setComputeMode(nextMode);
       setIsTunnelLive(nextMode === 'ACTIVE');
@@ -390,7 +383,6 @@ export default function Tab10Tokens({ ws }) {
                   </div>
                 </div>
               ) : isNim ? (
-                /* NVIDIA NIM DEDICATED BODY WITH TOKEN / CREDIT TELEMETRY */
                 <div className="space-y-2 text-[10px] flex-1 flex flex-col justify-end">
                   <div className="flex flex-col gap-1 border-t border-[#1f242d]/50 pt-1.5">
                     <div className="flex justify-between text-[#8fa0b5]">
@@ -427,7 +419,6 @@ export default function Tab10Tokens({ ws }) {
                   </div>
                 </div>
               ) : (
-                /* OTHER PROVIDERS STANDARD BODY */
                 <div className="space-y-2 text-[10px] flex-1 flex flex-col justify-end">
                   <div className="flex justify-between items-start gap-2">
                     <span className="text-[#5c6b7f] whitespace-nowrap">Usage Burn:</span>
