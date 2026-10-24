@@ -1,52 +1,70 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // ============================================================================
-// MCNC TAB 01 EXEC // PERSISTENT MULTI-CHAT & MASTER LEDGER COCKPIT
+// MCNC TAB 01 EXEC // PERSISTENT MULTI-CHAT & DOMAIN-AWARE COCKPIT
 // ============================================================================
 
-const MODEL_TIERS = [
+const RAW_MODEL_TIERS = [
   {
     id: 'tier1',
     tier: 'TIER 1: OLLAMA (LOCAL)',
     models: [
-      { id: 'llama3:latest', name: 'Llama 3 (Local)', badge: 'LOCAL' },
-      { id: 'hermes3:latest', name: 'Hermes 3 (Local)', badge: 'LOCAL' },
-      { id: 'qwen2.5-coder:latest', name: 'Qwen 2.5 Coder', badge: 'LOCAL' }
+      { id: 'llama3:latest', name: 'Llama 3 (Local)', badge: 'LOCAL', scores: { general: 75, code: 65, mql: 50, graphics: 20, content: 75, quant: 60 } },
+      { id: 'hermes3:latest', name: 'Hermes 3 (Local)', badge: 'LOCAL', scores: { general: 82, code: 78, mql: 68, graphics: 30, content: 80, quant: 70 } },
+      { id: 'qwen2.5-coder:latest', name: 'Qwen 2.5 Coder', badge: 'LOCAL', scores: { general: 70, code: 88, mql: 84, graphics: 10, content: 60, quant: 75 } }
     ]
   },
   {
     id: 'tier2',
     tier: 'TIER 2: HARVESTED CLUSTERS (FREE)',
     models: [
-      { id: 'meta/llama-3.2-90b-vision-instruct', name: 'Llama 3.2 90B Vision (NIM)', badge: 'NIM-VISION' },
-      { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (NIM)', badge: 'NIM' },
-      { id: 'groq/llama-3.3-70b', name: 'Llama 3.3 70B (Groq)', badge: 'GROQ' },
-      { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro (Studio)', badge: 'GEMINI' },
-      { id: 'nvidia/nemotron-70b-ultra', name: 'Nemotron 70B Ultra (NIM)', badge: 'NIM' }
+      { id: 'meta/llama-3.2-90b-vision-instruct', name: 'Llama 3.2 90B Vision (NIM)', badge: 'NIM-VISION', scores: { general: 90, code: 82, mql: 75, graphics: 96, content: 88, quant: 82 } },
+      { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (NIM)', badge: 'NIM', scores: { general: 93, code: 85, mql: 78, graphics: 40, content: 92, quant: 84 } },
+      { id: 'groq/llama-3.3-70b', name: 'Llama 3.3 70B (Groq)', badge: 'GROQ', scores: { general: 93, code: 85, mql: 78, graphics: 30, content: 92, quant: 84 } },
+      { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro (Studio)', badge: 'GEMINI', scores: { general: 92, code: 87, mql: 76, graphics: 92, content: 96, quant: 85 } },
+      { id: 'nvidia/nemotron-70b-ultra', name: 'Nemotron 70B Ultra (NIM)', badge: 'NIM', scores: { general: 91, code: 86, mql: 82, graphics: 30, content: 85, quant: 90 } }
     ]
   },
   {
     id: 'tier3',
     tier: 'TIER 3: OPENROUTER (ELITE)',
     models: [
-      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude Sonnet 3.5', badge: 'ELITE' },
-      { id: 'openai/gpt-4o', name: 'GPT-4o Omni', badge: 'ELITE' },
-      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', badge: 'REASONING' }
+      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude Sonnet 3.5', badge: 'ELITE', scores: { general: 96, code: 98, mql: 99, graphics: 94, content: 95, quant: 92 } },
+      { id: 'openai/gpt-4o', name: 'GPT-4o Omni', badge: 'ELITE', scores: { general: 95, code: 92, mql: 85, graphics: 96, content: 94, quant: 90 } },
+      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', badge: 'REASONING', scores: { general: 90, code: 96, mql: 95, graphics: 20, content: 80, quant: 99 } }
     ]
   },
   {
     id: 'tier4',
     tier: 'TIER 4: KAGGLE T4 (CLOUD COMPUTE)',
     models: [
-      { id: 'KAGGLE/QWEN-2.5-VL-7B', name: 'Qwen 2.5-VL 7B (video)', badge: 'VISION' },
-      { id: 'KAGGLE/QWEN-2.5-14B', name: 'Qwen 2.5 14B (content)', badge: '128K' },
-      { id: 'KAGGLE/QWEN-2.5-CODER-14B', name: 'Qwen 2.5 Coder 14B (code)', badge: 'DEV' },
-      { id: 'KAGGLE/LLAMA-3.1-8B', name: 'Llama 3.1 8B (critique)', badge: 'FAST' }
+      { id: 'KAGGLE/QWEN-2.5-VL-7B', name: 'Qwen 2.5-VL 7B (video)', badge: 'VISION', scores: { general: 78, code: 72, mql: 60, graphics: 95, content: 75, quant: 70 } },
+      { id: 'KAGGLE/QWEN-2.5-14B', name: 'Qwen 2.5 14B (content)', badge: '128K', scores: { general: 85, code: 80, mql: 72, graphics: 40, content: 92, quant: 80 } },
+      { id: 'KAGGLE/QWEN-2.5-CODER-14B', name: 'Qwen 2.5 Coder 14B (code)', badge: 'DEV', scores: { general: 80, code: 94, mql: 92, graphics: 20, content: 70, quant: 85 } },
+      { id: 'KAGGLE/LLAMA-3.1-8B', name: 'Llama 3.1 8B (critique)', badge: 'FAST', scores: { general: 76, code: 74, mql: 65, graphics: 20, content: 78, quant: 72 } }
     ]
   }
 ];
 
 export default function Tab01Exec({ ws }) {
+  // --- Active Operational Discipline Mode ---
+  const [activeMode, setActiveMode] = useState('general');
+
+  // --- Dynamic Model Sorter ---
+  const modelTiers = useMemo(() => {
+    return RAW_MODEL_TIERS.map((tier) => {
+      const sortedModels = [...tier.models].sort((a, b) => {
+        const scoreA = a.scores[activeMode] || 0;
+        const scoreB = b.scores[activeMode] || 0;
+        return scoreB - scoreA;
+      });
+      return {
+        ...tier,
+        models: sortedModels
+      };
+    });
+  }, [activeMode]);
+
   // --- Brain & Model Hierarchy ---
   const [selectedBrain, setSelectedBrain] = useState('meta/llama-3.2-90b-vision-instruct');
   const [collapsedTiers, setCollapsedTiers] = useState({
@@ -215,7 +233,6 @@ export default function Tab01Exec({ ws }) {
       }
     ];
 
-    // Optimistic Instant UI Update: Show in sidebar immediately
     const newChatObj = { id: newId, title: chatTitle, project: activeProject, updatedAt: new Date().toISOString() };
     setChatCatalog((prev) => ({
       ...prev,
@@ -242,7 +259,7 @@ export default function Tab01Exec({ ws }) {
       });
       fetchChatCatalog();
     } catch (err) {
-      console.error('Create chat disk persistence error:', err);
+      console.error('Create chat error:', err);
     }
   };
 
@@ -250,7 +267,6 @@ export default function Tab01Exec({ ws }) {
     e.stopPropagation();
     if (!window.confirm('Permanently delete thread "' + title + '"?')) return;
 
-    // Remove instantly from UI
     setChatCatalog((prev) => ({
       ...prev,
       [project]: (prev[project] || []).filter((c) => c.id !== chatId)
@@ -637,12 +653,12 @@ export default function Tab01Exec({ ws }) {
       {/* ======================================================== */}
       <div className="w-[300px] shrink-0 border-r border-[#1f242d] bg-[#080a0c] flex flex-col h-full overflow-hidden">
         
-        {/* Tier Selectors */}
+        {/* Tier Selectors (Dynamically Re-Sorted by Active Domain) */}
         <div
           className="flex-1 overflow-y-auto p-2 flex flex-col gap-2 min-h-0"
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
         >
-          {MODEL_TIERS.map((tierGroup) => {
+          {modelTiers.map((tierGroup) => {
             const isCollapsed = collapsedTiers[tierGroup.id];
             const isTier4 = tierGroup.id === 'tier4';
 
@@ -666,8 +682,10 @@ export default function Tab01Exec({ ws }) {
 
                 {!isCollapsed && (
                   <div className="flex flex-col gap-1 pl-1">
-                    {tierGroup.models.map((m) => {
+                    {tierGroup.models.map((m, rankIndex) => {
                       const isSelected = selectedBrain === m.id;
+                      const isTopRank = rankIndex === 0;
+
                       return (
                         <button
                           key={m.id}
@@ -679,7 +697,12 @@ export default function Tab01Exec({ ws }) {
                               : 'bg-transparent border-transparent text-gray-400 hover:text-gray-200 hover:bg-[#14171c]/50'
                           )}
                         >
-                          <span className="truncate pr-1">{m.name}</span>
+                          <div className="flex items-center gap-1.5 truncate pr-1">
+                            {isTopRank && (
+                              <span className="text-[#DAA520] text-[8px] font-bold">★</span>
+                            )}
+                            <span className="truncate">{m.name}</span>
+                          </div>
                           <span className="text-[8px] bg-[#1f242d] px-1 py-0.5 rounded text-gray-400 shrink-0">
                             {m.badge}
                           </span>
@@ -907,7 +930,7 @@ export default function Tab01Exec({ ws }) {
         )}
 
         {/* Command & Input Dock */}
-        <div className="border-t border-[#1f242d] bg-[#0b0e14] p-2 flex flex-col gap-2 shrink-0">
+        <div className="border-t border-[#1f242d] bg-[#0b0e14] p-2.5 flex flex-col gap-2 shrink-0">
           <div className="flex items-center justify-between text-[9px]">
             <div className="flex items-center gap-2">
               <button
@@ -959,27 +982,32 @@ export default function Tab01Exec({ ws }) {
             )}
           />
 
-          {/* Action Deck */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={isMasterChat || isLoading}
-                onClick={handleSendMessage}
-                className={'text-[9px] font-bold px-3 py-1 rounded flex items-center gap-1 cursor-pointer transition-all ' + (
-                  isMasterChat || isLoading
-                    ? 'bg-[#1f242d] text-gray-500 cursor-not-allowed'
-                    : 'bg-[#ffb800] hover:bg-[#DAA520] text-[#080a0c]'
-                )}
-              >
-                SUBMIT
-              </button>
+          {/* ======================================================== */}
+          {/* ACTION DECK: COHESIVE LAYOUT + DEDICATED EXPANSION BAY */}
+          {/* ======================================================== */}
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            
+            {/* 1. Core Primary Action Trigger */}
+            <button
+              type="button"
+              disabled={isMasterChat || isLoading}
+              onClick={handleSendMessage}
+              className={'text-[10px] font-bold px-3.5 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-all ' + (
+                isMasterChat || isLoading
+                  ? 'bg-[#1f242d] text-gray-500 cursor-not-allowed'
+                  : 'bg-[#ffb800] hover:bg-[#DAA520] text-[#080a0c] shadow-[0_0_8px_rgba(255,184,0,0.2)]'
+              )}
+            >
+              SUBMIT
+            </button>
 
+            {/* 2. Pipeline Utility Controls */}
+            <div className="flex items-center gap-1 bg-[#080a0c] border border-[#1f242d] px-1 py-0.5 rounded">
               <button
                 type="button"
                 disabled={isDistilling}
                 onClick={handleCreatePrompt}
-                className="border border-[#10b981] text-[#10b981] hover:bg-[#10b981]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
+                className="border border-[#10b981] text-[#10b981] hover:bg-[#10b981]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all"
               >
                 {isDistilling ? 'DISTILLING (' + elapsedSeconds + 's)' : 'CREATE PROMPT'}
               </button>
@@ -987,7 +1015,7 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handlePushToWarRoom}
-                className="border border-[#38bdf8] text-[#38bdf8] hover:bg-[#38bdf8]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
+                className="border border-[#38bdf8] text-[#38bdf8] hover:bg-[#38bdf8]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all"
               >
                 PUSH TO WAR ROOM
               </button>
@@ -995,7 +1023,7 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handleRefine}
-                className="border border-[#1f242d] text-gray-400 hover:text-white text-[9px] px-2 py-1 rounded cursor-pointer"
+                className="border border-[#1f242d] text-gray-400 hover:text-white hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all"
               >
                 REFINE
               </button>
@@ -1003,7 +1031,7 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handleCopyAll}
-                className="border border-[#1f242d] text-gray-400 hover:text-white text-[9px] px-2 py-1 rounded cursor-pointer"
+                className="border border-[#1f242d] text-gray-400 hover:text-white hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all"
               >
                 {copyFeedback ? 'COPIED' : 'COPY ALL'}
               </button>
@@ -1011,7 +1039,7 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handleCLS}
-                className="border border-[#1f242d] text-gray-400 hover:text-red-400 text-[9px] px-2 py-1 rounded cursor-pointer"
+                className="border border-[#1f242d] text-gray-400 hover:text-red-400 hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all"
               >
                 CLS
               </button>
@@ -1019,22 +1047,58 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handleAllStop}
-                className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
+                className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all"
               >
                 ALL STOP
               </button>
             </div>
 
-            {/* [+ NEW CHAT] */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setNewChatPromptOpen(true)}
-                className="border border-[#DAA520] text-[#DAA520] hover:bg-[#DAA520]/10 font-bold text-[9px] px-3 py-1 rounded flex items-center gap-1 cursor-pointer transition-all"
-              >
-                + NEW CHAT
-              </button>
+            {/* Expansion Bay: Width of New Chat button for future tabs */}
+            <div className="w-[110px] shrink-0" aria-hidden="true" />
+
+            {/* 3. Session Control: + NEW CHAT */}
+            <button
+              type="button"
+              onClick={() => setNewChatPromptOpen(true)}
+              className="border border-[#DAA520] text-[#DAA520] hover:bg-[#DAA520]/20 font-bold text-[9px] px-3 py-1.5 rounded cursor-pointer transition-all shadow-[0_0_6px_rgba(218,165,32,0.15)]"
+            >
+              + NEW CHAT
+            </button>
+
+            {/* 4. Vertical Partition Wire */}
+            <div className="h-5 w-[1px] bg-[#1f242d] mx-0.5"></div>
+
+            {/* 5. Substantial Domain Mode Switcher Dock */}
+            <div className="flex items-center gap-1.5 bg-[#080a0c] border border-[#1f242d] px-2 py-1 rounded shadow-inner">
+              <span className="text-[9px] text-[#C5BD9F] uppercase font-bold tracking-wider mr-0.5">
+                MODE:
+              </span>
+              {[
+                { id: 'general', label: 'GENERAL' },
+                { id: 'code', label: 'CODE' },
+                { id: 'mql', label: 'MQL' },
+                { id: 'graphics', label: 'GRAPHICS' },
+                { id: 'content', label: 'CONTENT' },
+                { id: 'quant', label: 'QUANT' }
+              ].map((mode) => {
+                const isActive = activeMode === mode.id;
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setActiveMode(mode.id)}
+                    className={'text-[9px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all border ' + (
+                      isActive
+                        ? 'bg-[#DAA520] border-[#DAA520] text-[#080a0c] shadow-[0_0_10px_rgba(218,165,32,0.4)] scale-105'
+                        : 'bg-[#0d0f12] border-[#1f242d] text-gray-400 hover:text-gray-100 hover:border-[#DAA520]/60 hover:bg-[#14171c]'
+                    )}
+                  >
+                    {mode.label}
+                  </button>
+                );
+              })}
             </div>
+
           </div>
         </div>
       </div>
