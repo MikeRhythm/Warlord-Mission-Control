@@ -1,12 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const BRAIN_TIERS = [
+// ============================================================================
+// MCNC TAB 01 EXEC // PERSISTENT MULTI-CHAT & MASTER LEDGER COCKPIT
+// ============================================================================
+
+const MODEL_TIERS = [
   {
     id: 'tier1',
     tier: 'TIER 1: OLLAMA (LOCAL)',
     models: [
       { id: 'llama3:latest', name: 'Llama 3 (Local)', badge: 'LOCAL' },
-      { id: 'qwen2.5:latest', name: 'Qwen 2.5 (Local)', badge: 'LOCAL' },
+      { id: 'hermes3:latest', name: 'Hermes 3 (Local)', badge: 'LOCAL' },
       { id: 'qwen2.5-coder:latest', name: 'Qwen 2.5 Coder', badge: 'LOCAL' }
     ]
   },
@@ -16,8 +20,8 @@ const BRAIN_TIERS = [
     models: [
       { id: 'meta/llama-3.2-90b-vision-instruct', name: 'Llama 3.2 90B Vision (NIM)', badge: 'NIM-VISION' },
       { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (NIM)', badge: 'NIM' },
-      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Groq)', badge: 'GROQ' },
-      { id: 'gemini-1.5-pro-latest', name: 'Gemini 1.5 Pro (Studio)', badge: 'GEMINI' },
+      { id: 'groq/llama-3.3-70b', name: 'Llama 3.3 70B (Groq)', badge: 'GROQ' },
+      { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro (Studio)', badge: 'GEMINI' },
       { id: 'nvidia/nemotron-70b-ultra', name: 'Nemotron 70B Ultra (NIM)', badge: 'NIM' }
     ]
   },
@@ -26,9 +30,8 @@ const BRAIN_TIERS = [
     tier: 'TIER 3: OPENROUTER (ELITE)',
     models: [
       { id: 'anthropic/claude-3.5-sonnet', name: 'Claude Sonnet 3.5', badge: 'ELITE' },
-      { id: 'deepseek/deepseek-chat', name: 'DeepSeek', badge: 'ELITE' },
-      { id: 'x-ai/grok-2', name: 'Grok', badge: 'ELITE' },
-      { id: 'google/gemini-1.5-pro', name: 'Gemini Pro', badge: 'ELITE' }
+      { id: 'openai/gpt-4o', name: 'GPT-4o Omni', badge: 'ELITE' },
+      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', badge: 'REASONING' }
     ]
   },
   {
@@ -37,79 +40,71 @@ const BRAIN_TIERS = [
     models: [
       { id: 'KAGGLE/QWEN-2.5-VL-7B', name: 'Qwen 2.5-VL 7B (video)', badge: 'VISION' },
       { id: 'KAGGLE/QWEN-2.5-14B', name: 'Qwen 2.5 14B (content)', badge: '128K' },
-      { id: 'KAGGLE/QWEN-2.5-CODER', name: 'Qwen 2.5 Coder 14B (code)', badge: 'DEV' },
+      { id: 'KAGGLE/QWEN-2.5-CODER-14B', name: 'Qwen 2.5 Coder 14B (code)', badge: 'DEV' },
       { id: 'KAGGLE/LLAMA-3.1-8B', name: 'Llama 3.1 8B (critique)', badge: 'FAST' }
     ]
   }
 ];
 
 export default function Tab01Exec({ ws }) {
+  // --- Brain & Model Hierarchy ---
   const [selectedBrain, setSelectedBrain] = useState('meta/llama-3.2-90b-vision-instruct');
-
-  // Hard-coded default: Tier 1 (collapsed), Tier 2 (open), Tier 3 (collapsed), Tier 4 (open)
   const [collapsedTiers, setCollapsedTiers] = useState({
     tier1: true,
     tier2: false,
     tier3: true,
     tier4: false
   });
+  const [kaggleStatus, setKaggleStatus] = useState('STANDBY');
 
-  // Dynamic Kaggle Status - synchronized with Tab 10 and Daemon telemetry
-  const [kaggleStatus, setKaggleStatus] = useState(() => {
-    return localStorage.getItem('kaggle_status') || 'STANDBY';
+  // --- Multi-Chat & Master Ledger State ---
+  const [activeProject, setActiveProject] = useState('CHIEF MADOTHI FUND');
+  const [activeChatId, setActiveChatId] = useState('Master');
+  const [activeChatTitle, setActiveChatTitle] = useState('MASTER CHAT LEDGER');
+  const [isMasterChat, setIsMasterChat] = useState(true);
+  const [newChatPromptOpen, setNewChatPromptOpen] = useState(false);
+  const [newChatTitle, setNewChatTitle] = useState('');
+  const [chatCatalog, setChatCatalog] = useState({
+    'CHIEF MADOTHI FUND': [],
+    'RHYTHM TRADING': [],
+    'General_Chats': []
   });
 
+  // --- Execution & Chat State ---
   const [inputCommand, setInputCommand] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
-  const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDistilling, setIsDistilling] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState('0.0');
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [stagedProposal, setStagedProposal] = useState(null);
 
   const [chatLog, setChatLog] = useState([
     {
-      sender: 'CHIEF OF STAFF // MONTY',
-      text: 'Mission Control Base 1 is live and standing by. Multimodal vision & file tools online. Submit instructions.'
+      sender: 'MONTY',
+      collaborators: ['CHARLIE', 'JACK'],
+      title: 'Chief of Staff',
+      time: new Date().toLocaleTimeString(),
+      text: 'Mission Control Base 1 is live and standing by. Dynamic chat ledger online. Select a thread or dispatch instructions.'
     }
   ]);
 
+  // --- Refs ---
+  const messagesEndRef = useRef(null);
+  const timerIntervalRef = useRef(null);
+  const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
-  const timerIntervalRef = useRef(null);
 
-  // Sync Kaggle status passively via local events, zero background loop polling
-  useEffect(() => {
-    const handleStorageUpdate = (e) => {
-      if (e.key === 'kaggle_status' && e.newValue) {
-        setKaggleStatus(e.newValue);
-      }
-    };
-
-    const handleCustomKaggleEvent = (e) => {
-      if (e.detail && e.detail.status) {
-        setKaggleStatus(e.detail.status);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageUpdate);
-    window.addEventListener('kaggle-status-changed', handleCustomKaggleEvent);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageUpdate);
-      window.removeEventListener('kaggle-status-changed', handleCustomKaggleEvent);
-    };
-  }, []);
-
+  // --- Auto-Scroll on Chat Updates ---
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatLog, attachedFiles, isLoading, isDistilling, stagedProposal]);
 
+  // --- Elapsed Timer ---
   useEffect(() => {
     if (isLoading || isDistilling) {
       const startTime = Date.now();
@@ -124,145 +119,243 @@ export default function Tab01Exec({ ws }) {
     };
   }, [isLoading, isDistilling]);
 
+  // --- Mount: Load Catalog & Listeners ---
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
+    fetchChatCatalog();
+    loadMasterChat('CHIEF MADOTHI FUND');
 
-      recognition.onresult = (event) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            setInputCommand((prev) => {
-              const spacer = prev && !prev.endsWith(' ') ? ' ' : '';
-              return prev + spacer + event.results[i][0].transcript;
-            });
-          }
-        }
-      };
+    const handleCustomKaggleEvent = (e) => {
+      if (e.detail?.status) setKaggleStatus(e.detail.status);
+    };
+    const handleStorageUpdate = () => {
+      const stored = localStorage.getItem('kaggle_cluster_status');
+      if (stored) setKaggleStatus(stored);
+    };
 
-      recognition.onerror = () => setIsRecording(false);
-      recognition.onend = () => setIsRecording(false);
-      recognitionRef.current = recognition;
-    }
+    window.addEventListener('storage', handleStorageUpdate);
+    window.addEventListener('kaggle-status-changed', handleCustomKaggleEvent);
 
     return () => {
+      window.removeEventListener('storage', handleStorageUpdate);
+      window.removeEventListener('kaggle-status-changed', handleCustomKaggleEvent);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (recognitionRef.current) recognitionRef.current.abort();
-      window.speechSynthesis.cancel();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     };
   }, []);
 
-  const toggleTier = (tierId) => {
-    setCollapsedTiers((prev) => ({
-      ...prev,
-      [tierId]: !prev[tierId]
-    }));
-  };
-
-  const toggleRecording = () => {
-    if (!recognitionRef.current) {
-      alert('Speech Recognition is not supported in this browser.');
-      return;
-    }
-    if (isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-    } else {
-      try {
-        recognitionRef.current.start();
-        setIsRecording(true);
-      } catch (err) {
-        console.error('Mic error:', err);
+  // --- Catalog & Persistence API Calls ---
+  const fetchChatCatalog = async () => {
+    try {
+      const res = await fetch('http://localhost:8082/api/chats/all');
+      const data = await res.json();
+      if (data.success && data.catalog) {
+        setChatCatalog(data.catalog);
       }
+    } catch (err) {
+      console.error('Catalog fetch error:', err);
     }
   };
 
+  const loadMasterChat = async (project) => {
+    try {
+      setIsMasterChat(true);
+      setActiveProject(project);
+      setActiveChatId('Master');
+      setActiveChatTitle(project + ' // MASTER CHAT');
+
+      const res = await fetch('http://localhost:8082/api/chats/master?project=' + encodeURIComponent(project));
+      const data = await res.json();
+
+      if (data.success) {
+        setChatLog([
+          {
+            sender: 'MONTY',
+            collaborators: ['CHARLIE', 'JACK'],
+            title: 'Chief of Staff',
+            time: 'SYNCED',
+            text: data.content
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Master chat load error:', err);
+    }
+  };
+
+  const loadSubChat = async (project, chatId, title) => {
+    try {
+      setIsMasterChat(false);
+      setActiveProject(project);
+      setActiveChatId(chatId);
+      setActiveChatTitle(title);
+
+      const res = await fetch('http://localhost:8082/api/chats/load?project=' + encodeURIComponent(project) + '&id=' + chatId);
+      const data = await res.json();
+
+      if (data.success && data.chat) {
+        setChatLog(data.chat.messages || []);
+      }
+    } catch (err) {
+      console.error('Sub-chat load error:', err);
+    }
+  };
+
+  const handleCreateNewChat = async () => {
+    if (!newChatTitle.trim()) return;
+    const newId = 'Chat_' + Date.now();
+    const chatTitle = newChatTitle.trim();
+    const initialMsg = [
+      {
+        sender: 'MONTY',
+        collaborators: ['CHARLIE'],
+        title: 'Chief of Staff',
+        time: new Date().toLocaleTimeString(),
+        text: 'Sub-chat thread [' + chatTitle + '] initialized under ' + activeProject + '. Ready for operational directives.'
+      }
+    ];
+
+    // Optimistic Instant UI Update: Show in sidebar immediately
+    const newChatObj = { id: newId, title: chatTitle, project: activeProject, updatedAt: new Date().toISOString() };
+    setChatCatalog((prev) => ({
+      ...prev,
+      [activeProject]: [newChatObj, ...(prev[activeProject] || [])]
+    }));
+
+    setIsMasterChat(false);
+    setActiveChatId(newId);
+    setActiveChatTitle(chatTitle);
+    setChatLog(initialMsg);
+    setNewChatTitle('');
+    setNewChatPromptOpen(false);
+
+    try {
+      await fetch('http://localhost:8082/api/chats/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: activeProject,
+          id: newId,
+          title: chatTitle,
+          messages: initialMsg
+        })
+      });
+      fetchChatCatalog();
+    } catch (err) {
+      console.error('Create chat disk persistence error:', err);
+    }
+  };
+
+  const handleDeleteChat = async (e, project, chatId, title) => {
+    e.stopPropagation();
+    if (!window.confirm('Permanently delete thread "' + title + '"?')) return;
+
+    // Remove instantly from UI
+    setChatCatalog((prev) => ({
+      ...prev,
+      [project]: (prev[project] || []).filter((c) => c.id !== chatId)
+    }));
+
+    if (activeChatId === chatId) {
+      loadMasterChat(project);
+    }
+
+    try {
+      await fetch('http://localhost:8082/api/chats/delete?project=' + encodeURIComponent(project) + '&id=' + chatId, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Delete chat error:', err);
+    }
+  };
+
+  const handleArchiveChat = async (e, project, chatId, title) => {
+    e.stopPropagation();
+    if (!window.confirm('Archive thread "' + title + '" into ' + project + ' Master Chat and Docs?')) return;
+
+    try {
+      const res = await fetch('http://localhost:8082/api/chats/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project,
+          chatId,
+          title,
+          summary: 'Archived thread [' + title + '] containing ' + chatLog.length + ' exchanges. Operational artifacts committed to disk.'
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        await fetchChatCatalog();
+        loadMasterChat(project);
+      }
+    } catch (err) {
+      console.error('Archive chat error:', err);
+    }
+  };
+
+  // --- Voice Handlers ---
   const toggleSpeech = (text) => {
     if (!('speechSynthesis' in window)) return;
-    if (window.speechSynthesis.speaking) {
+    if (isSpeaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       return;
     }
     if (!text) return;
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.05;
-    utterance.onstart = () => setIsSpeaking(true);
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[*#`_]/g, ''));
+    utterance.rate = 1.0;
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
+    setIsSpeaking(true);
     window.speechSynthesis.speak(utterance);
   };
 
+  const toggleRecording = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition is not supported by your browser.');
+      return;
+    }
+
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setInputCommand((prev) => (prev ? prev + ' ' + transcript : transcript));
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => setIsRecording(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
+  // --- Control Bar Actions ---
   const handleCopyMsg = (text) => navigator.clipboard.writeText(text);
 
   const handleCopyAll = () => {
-    const fullLog = chatLog.map((msg) => `[${msg.sender}]\n${msg.text}`).join('\n\n---\n\n');
+    const fullLog = chatLog.map((msg) => '[' + msg.sender + ']\n' + msg.text).join('\n\n---\n\n');
     navigator.clipboard.writeText(fullLog);
     setCopyFeedback(true);
     setTimeout(() => setCopyFeedback(false), 2000);
-  };
-
-  const processFiles = (files) => {
-    Array.from(files).forEach((file) => {
-      const isImage = file.type.startsWith('image/');
-      const reader = new FileReader();
-
-      if (isImage) {
-        reader.onload = (e) => {
-          setAttachedFiles((prev) => [
-            ...prev,
-            {
-              id: Date.now() + Math.random(),
-              name: file.name || 'Pasted_Screenshot.png',
-              size: (file.size / 1024).toFixed(1) + ' KB',
-              type: 'image',
-              data: e.target.result
-            }
-          ]);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        reader.onload = (e) => {
-          setAttachedFiles((prev) => [
-            ...prev,
-            {
-              id: Date.now() + Math.random(),
-              name: file.name,
-              size: (file.size / 1024).toFixed(1) + ' KB',
-              type: 'text',
-              content: e.target.result
-            }
-          ]);
-        };
-        reader.readAsText(file);
-      }
-    });
-  };
-
-  const handlePaste = (e) => {
-    const clipboardItems = e.clipboardData?.items;
-    if (!clipboardItems) return;
-
-    const filesToProcess = [];
-    for (let i = 0; i < clipboardItems.length; i++) {
-      if (clipboardItems[i].kind === 'file') {
-        const file = clipboardItems[i].getAsFile();
-        if (file) filesToProcess.push(file);
-      }
-    }
-
-    if (filesToProcess.length > 0) {
-      e.preventDefault();
-      processFiles(filesToProcess);
-    }
-  };
-
-  const removeAttachment = (id) => {
-    setAttachedFiles((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleClearInput = () => {
@@ -275,12 +368,32 @@ export default function Tab01Exec({ ws }) {
     handleAllStop();
     setChatLog([
       {
-        sender: 'CHIEF OF STAFF // MONTY',
-        text: 'Mission Control Base 1 is live and standing by. Multimodal vision & file tools online. Submit instructions.'
+        sender: 'MONTY',
+        collaborators: ['CHARLIE', 'JACK'],
+        title: 'Chief of Staff',
+        time: new Date().toLocaleTimeString(),
+        text: 'Mission Control Base 1 is live and standing by. Dynamic chat ledger online. Select a thread or dispatch instructions.'
       }
     ]);
     setStagedProposal(null);
     handleClearInput();
+  };
+
+  const handleAllStop = () => {
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    }
+    if (isSpeaking && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setIsDistilling(false);
   };
 
   const handleRefine = () => {
@@ -290,19 +403,6 @@ export default function Tab01Exec({ ws }) {
       setInputCommand(rawText);
       textareaRef.current?.focus();
     }
-  };
-
-  const handleAllStop = () => {
-    if (isRecording && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-    }
-    if (abortControllerRef.current) abortControllerRef.current.abort();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    }
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     setIsLoading(false);
     setIsDistilling(false);
   };
@@ -317,32 +417,19 @@ export default function Tab01Exec({ ws }) {
     setElapsedSeconds('0.0');
 
     try {
-      const rawTranscript = chatLog
-        .map((m) => `[${m.sender}]: ${m.text}`)
-        .join('\n\n');
-
-      const distillationTask = `You are MONTY, Chief of Staff.
-Analyze the following conversation exchange with Mike. 
-Extract ONLY the actionable directives, technical constraints, concrete requirements, and specific file tasks.
-STRIP OUT: Conversational banter, greetings, pleasantries, apologies, filler words, and explanations.
-FORMAT: Output a clean, razor-sharp, consolidated master prompt ready for multi-agent dispatch into the War Room.
-Output ONLY the synthesized directive text without introductory or concluding conversational prose.
-
-CONVERSATION TRANSCRIPT:
-${rawTranscript}`;
+      const rawTranscript = chatLog.map((m) => '[' + m.sender + ']: ' + m.text).join('\n\n');
+      const distillationTask = 'You are MONTY, Chief of Staff.\nAnalyze the following conversation exchange with Mike. Distill it into an executable directive for the War Room:\n' + rawTranscript;
 
       const response = await fetch('http://localhost:8081/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          director: 'MONTY // CHIEF OF STAFF',
           model: selectedBrain,
           prompt: distillationTask,
-          message: distillationTask
+          project: activeProject
         })
       });
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       const synthesizedPrompt = (data.reply || '').trim();
 
@@ -352,40 +439,129 @@ ${rawTranscript}`;
         setChatLog((prev) => [
           ...prev,
           {
-            sender: 'CHIEF OF STAFF // MONTY [PROMPT CREATED]',
+            sender: 'MONTY [PROMPT CREATED]',
+            collaborators: ['CHARLIE'],
+            title: 'Chief of Staff',
+            time: new Date().toLocaleTimeString(),
             text: 'Actionable directive synthesized from conversation. Ready in input dock for inspection or War Room push.'
           }
         ]);
       }
     } catch (err) {
-      alert(`Create Prompt failed: ${err.message}`);
+      console.error('Distillation Error:', err);
+      alert('Prompt synthesis failed: ' + err.message);
     } finally {
       setIsDistilling(false);
     }
   };
 
   const handlePushToWarRoom = () => {
-    const textToPush = inputCommand.trim();
-    if (!textToPush) {
-      alert('Input command is empty. Enter or create a prompt first.');
+    const promptToSend = inputCommand.trim();
+    if (!promptToSend) {
+      alert('No synthesized prompt in input dock. Click "CREATE PROMPT" first.');
       return;
     }
-
-    window.dispatchEvent(
-      new CustomEvent('push-to-warroom', {
-        detail: {
-          directive: textToPush,
-          source: 'TAB 01 EXEC',
-          timestamp: new Date().toISOString()
-        }
-      })
-    );
+    localStorage.setItem('mcnc_warroom_seed_prompt', promptToSend);
+    localStorage.setItem('mcnc_warroom_seed_project', activeProject);
+    alert('Directive staged for War Room [Tab 02] under project: ' + activeProject);
   };
 
-  const handleApproveWrite = async () => {
+  // --- Message Dispatch ---
+  const handleSendMessage = async () => {
+    if (!inputCommand.trim() || isMasterChat || isLoading) return;
+
+    abortControllerRef.current = new AbortController();
+    const payloadText = inputCommand;
+    const currentFiles = [...attachedFiles];
+
+    const userMsg = {
+      sender: 'MIKE',
+      collaborators: [],
+      title: 'Executive Control',
+      time: new Date().toLocaleTimeString(),
+      text: payloadText,
+      attachments: currentFiles
+    };
+
+    const updatedLog = [...chatLog, userMsg];
+    setChatLog(updatedLog);
+    handleClearInput();
+    setIsLoading(true);
+    setElapsedSeconds('0.0');
+
+    try {
+      const response = await fetch('http://localhost:8081/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: abortControllerRef.current.signal,
+        body: JSON.stringify({
+          model: selectedBrain,
+          prompt: payloadText,
+          project: activeProject,
+          chatId: activeChatId,
+          attachments: currentFiles,
+          history: updatedLog
+        })
+      });
+
+      const data = await response.json();
+      const reply = data.reply || data.output || 'Transmission processed and staged on Base 1.';
+
+      const proposeMatch = reply.match(/```diff([\s\S]*?)```/);
+      if (proposeMatch) {
+        setStagedProposal({
+          diffText: proposeMatch[1].trim(),
+          newContent: reply.split('```diff')[0].trim()
+        });
+      }
+
+      const aiMsg = {
+        sender: data.sender || 'MONTY',
+        collaborators: data.collaborators || ['CHARLIE', 'JACK'],
+        title: data.title || 'Chief of Staff',
+        time: new Date().toLocaleTimeString(),
+        text: reply
+      };
+
+      const finalMessages = [...updatedLog, aiMsg];
+      setChatLog(finalMessages);
+
+      await fetch('http://localhost:8082/api/chats/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: activeProject,
+          id: activeChatId,
+          title: activeChatTitle,
+          messages: finalMessages
+        })
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setChatLog((prev) => [...prev, { sender: 'SYSTEM', collaborators: [], title: 'System', time: new Date().toLocaleTimeString(), text: 'Execution aborted by Mike.' }]);
+      } else {
+        console.error('Server Bridge Error:', err);
+        setChatLog((prev) => [
+          ...prev,
+          {
+            sender: 'MONTY [FAIL]',
+            collaborators: ['CHARLIE', 'JACK'],
+            title: 'Chief of Staff',
+            time: new Date().toLocaleTimeString(),
+            text: 'Daemon link failure: ' + err.message + '. Ensure node server.js is running on Port 8081.'
+          }
+        ]);
+      }
+    } finally {
+      setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleConfirmFileWrite = async () => {
     if (!stagedProposal) return;
     try {
-      const response = await fetch('http://localhost:8081/api/tools/write', {
+      const response = await fetch('http://localhost:8081/api/file/write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -398,551 +574,467 @@ ${rawTranscript}`;
       if (data.status === 'SUCCESS') {
         setChatLog((prev) => [
           ...prev,
-          { sender: 'SYSTEM // FILE WRITTEN', text: `Confirmed: ${stagedProposal.filePath} has been written to disk.` }
+          { sender: 'SYSTEM', collaborators: [], title: 'System', time: new Date().toLocaleTimeString(), text: 'Confirmed: ' + stagedProposal.filePath + ' has been written to disk.' }
         ]);
         setStagedProposal(null);
-      } else {
-        alert(data.message);
       }
     } catch (err) {
-      alert(`Write execution failed: ${err.message}`);
+      alert('File write failed: ' + err.message);
     }
   };
 
-  const dispatchToServer = async (userText, attachments) => {
-    setIsLoading(true);
-    setElapsedSeconds('0.0');
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const payload = {
-        director: 'MONTY // CHIEF OF STAFF',
-        model: selectedBrain,
-        prompt: userText,
-        message: userText,
-        attachments: attachments || []
-      };
-
-      const response = await fetch('http://localhost:8081/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: abortControllerRef.current.signal
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.reply || errData.message || `Server status ${response.status}`);
-      }
-
-      const data = await response.json();
-      const reply = data.reply || 'Daemon returned empty response.';
-      const activeModel = data.activeModelUsed ? ` [${data.activeModelUsed}]` : '';
-
-      const proposeMatch = reply.match(/```diff([\s\S]*?)```/);
-      const fileMatch = reply.match(/FILE:\s*([^\n\r]+)/);
-      if (proposeMatch && fileMatch) {
-        setStagedProposal({
-          filePath: fileMatch[1].trim(),
-          diffText: proposeMatch[1].trim(),
-          newContent: reply.split('```diff')[0].trim()
-        });
-      }
-
-      setChatLog((prev) => [
-        ...prev,
-        {
-          sender: `CHIEF OF STAFF // MONTY${activeModel}`,
-          text: reply
-        }
-      ]);
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        setChatLog((prev) => [...prev, { sender: 'SYSTEM // ALERT', text: 'Execution aborted by Mike.' }]);
-      } else {
-        console.error('Server Bridge Error:', err);
-        setChatLog((prev) => [
-          ...prev,
-          {
-            sender: 'CHIEF OF STAFF // MONTY [FAIL]',
-            text: `Daemon link failure: ${err.message}. Ensure node server.js is running on Port 8081.`
-          }
-        ]);
-      }
-    } finally {
-      setIsLoading(false);
-      abortControllerRef.current = null;
-    }
-  };
-
-  const handleSubmit = (e) => {
-    if (e) e.preventDefault();
-    if (!inputCommand.trim() && attachedFiles.length === 0) return;
-
-    let payloadText = inputCommand;
-    if (attachedFiles.length > 0) {
-      const fileSummaries = attachedFiles
-        .map((f) => `[ATTACHMENT: ${f.name} (${f.size})]`)
-        .join('\n');
-      payloadText = `${payloadText}\n\n${fileSummaries}`;
+  // --- SOP 01 Identity Header Renderer ---
+  const renderIdentityHeader = (msg) => {
+    if (msg.sender === 'MIKE') {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="bg-[#DAA520] text-[#080a0c] px-2 py-0.5 rounded text-[10px] font-bold">
+            [MIKE] Executive Control
+          </span>
+          <span className="text-gray-500 text-[9px]">{msg.time}</span>
+        </div>
+      );
     }
 
-    const currentFiles = [...attachedFiles];
-    const sentText = inputCommand;
-
-    setChatLog((prev) => [
-      ...prev,
-      {
-        sender: 'MIKE',
-        text: payloadText,
-        attachments: currentFiles
-      }
-    ]);
-
-    handleClearInput();
-    dispatchToServer(sentText, currentFiles);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit(e);
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="bg-[#14171c] border border-[#ffb800] text-[#ffb800] px-2 py-0.5 rounded text-[10px] font-bold">
+          [{msg.sender}] here, {msg.title || 'Director'}.
+        </span>
+        {msg.collaborators && msg.collaborators.length > 0 && (
+          <span className="text-[#94A3B8] text-[10px] flex items-center gap-1">
+            Collaborating:
+            {msg.collaborators.map((c, idx) => (
+              <span key={idx} className="bg-[#0b0e14] border border-[#38bdf8] text-[#38bdf8] px-1.5 py-0.5 rounded text-[9px]">
+                [{c}]
+              </span>
+            ))}
+          </span>
+        )}
+        <span className="text-gray-500 text-[9px] ml-auto">{msg.time}</span>
+      </div>
+    );
   };
 
   return (
     <div className="flex w-full h-[calc(100vh-40px)] max-h-full min-h-0 bg-[#080a0c] text-gray-200 font-mono overflow-hidden box-border pt-1">
+      
+      {/* File Upload Hidden Input */}
       <input
         type="file"
         ref={fileInputRef}
-        onChange={(e) => {
-          if (e.target.files && e.target.files.length > 0) processFiles(e.target.files);
-        }}
-        multiple
         className="hidden"
+        multiple
+        onChange={(e) => {
+          if (e.target.files?.length) {
+            setAttachedFiles([...attachedFiles, ...Array.from(e.target.files).map((f) => f.name)]);
+          }
+        }}
       />
 
-      {/* LEFT COLUMN: EXEC CONTROL PANEL */}
-      <div
-        className="w-[280px] h-full border-r border-[#1f242d] flex flex-col p-2 gap-2 select-none shrink-0 overflow-y-auto min-h-0"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: '#DAA520 #0b0e14' }}
-      >
-        <div className="flex items-center justify-between pb-1 border-b border-[#14171c] shrink-0">
-          <span className="text-[#DAA520] font-bold text-[10px] tracking-wider">
-            EXEC CONTROL PANEL
-          </span>
-          <span className="border border-[#10b981] text-[#10b981] text-[8px] px-1 py-0.5 rounded font-bold">
-            PINNED
-          </span>
+      {/* ======================================================== */}
+      {/* LEFT SIDEBAR: TIERS & PERSISTENT CHAT ACCORDIONS */}
+      {/* ======================================================== */}
+      <div className="w-[300px] shrink-0 border-r border-[#1f242d] bg-[#080a0c] flex flex-col h-full overflow-hidden">
+        
+        {/* Tier Selectors */}
+        <div
+          className="flex-1 overflow-y-auto p-2 flex flex-col gap-2 min-h-0"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
+        >
+          {MODEL_TIERS.map((tierGroup) => {
+            const isCollapsed = collapsedTiers[tierGroup.id];
+            const isTier4 = tierGroup.id === 'tier4';
+
+            return (
+              <div key={tierGroup.id} className="flex flex-col gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setCollapsedTiers((prev) => ({ ...prev, [tierGroup.id]: !prev[tierGroup.id] }))}
+                  className="flex items-center justify-between text-[10px] font-bold text-[#DAA520] hover:text-white px-1 py-1 rounded bg-[#0b0e14] border border-[#1f242d] cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                    <span className="truncate">{tierGroup.tier}</span>
+                    {isTier4 && (
+                      <span className={'text-[8px] px-1 rounded ' + (kaggleStatus === 'ONLINE' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500' : 'bg-[#14171c] text-gray-400')}>
+                        {kaggleStatus}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-gray-500 text-[8px]">{isCollapsed ? '+' : '-'}</span>
+                </button>
+
+                {!isCollapsed && (
+                  <div className="flex flex-col gap-1 pl-1">
+                    {tierGroup.models.map((m) => {
+                      const isSelected = selectedBrain === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setSelectedBrain(m.id)}
+                          className={'flex items-center justify-between px-2 py-1 rounded text-[10px] text-left border cursor-pointer transition-all ' + (
+                            isSelected
+                              ? 'bg-[#14171c] border-[#ffb800] text-[#ffb800] font-bold'
+                              : 'bg-transparent border-transparent text-gray-400 hover:text-gray-200 hover:bg-[#14171c]/50'
+                          )}
+                        >
+                          <span className="truncate pr-1">{m.name}</span>
+                          <span className="text-[8px] bg-[#1f242d] px-1 py-0.5 rounded text-gray-400 shrink-0">
+                            {m.badge}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {BRAIN_TIERS.map((tierGroup) => {
-          const isCollapsed = !!collapsedTiers[tierGroup.id];
-          const isTier4 = tierGroup.id === 'tier4';
+        {/* Persistent Chat Accordions */}
+        <div className="h-[48%] border-t border-[#1f242d] p-2 flex flex-col min-h-0 bg-[#0d0f12]">
+          <div className="flex items-center justify-between pb-1 mb-1 border-b border-[#1f242d]">
+            <span className="text-[10px] font-bold text-[#C5BD9F] tracking-wider">PROJECT CHAT LEDGERS</span>
+            <button
+              type="button"
+              onClick={() => setNewChatPromptOpen(true)}
+              className="bg-[#DAA520] hover:bg-[#ffb800] text-[#080a0c] text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer"
+            >
+              + NEW
+            </button>
+          </div>
 
-          return (
-            <div key={tierGroup.id} className="flex flex-col gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => toggleTier(tierGroup.id)}
-                className="flex items-center justify-between w-full px-1.5 py-1 text-[9px] text-[#DAA520] hover:text-[#ffd700] hover:bg-[#16130b] rounded border border-transparent hover:border-[#DAA520]/20 font-bold tracking-tight uppercase cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                  <span className="truncate">{tierGroup.tier}</span>
-                  {/* Dynamic Status Tag for Tier 4 */}
-                  {isTier4 && (
-                    <span
-                      className={`text-[8px] px-1.5 py-0.2 rounded font-mono font-bold tracking-wider border shrink-0 transition-all ${
-                        kaggleStatus === 'ACTIVE'
-                          ? 'bg-[#064e3b] text-[#34d399] border-[#059669]/60 shadow-[0_0_6px_rgba(16,185,129,0.35)]'
-                          : 'bg-[#18181b] text-zinc-400 border-zinc-700/70'
-                      }`}
-                    >
-                      {kaggleStatus}
-                    </span>
+          <div
+            className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
+          >
+            {['CHIEF MADOTHI FUND', 'RHYTHM TRADING', 'General_Chats'].map((proj) => (
+              <div key={proj} className="flex flex-col gap-0.5">
+                <span className="text-[9px] font-bold text-[#DAA520] uppercase px-1">{proj}</span>
+
+                {/* Master Ledger Button */}
+                <button
+                  type="button"
+                  onClick={() => loadMasterChat(proj)}
+                  className={'flex items-center justify-between px-1.5 py-1 rounded text-[10px] border cursor-pointer text-left ' + (
+                    activeProject === proj && isMasterChat
+                      ? 'bg-[#14171c] border-[#DAA520] text-[#DAA520] font-bold'
+                      : 'bg-[#0b0e14] border-dashed border-[#1f242d] text-[#C5BD9F] hover:bg-[#14171c]'
                   )}
-                </div>
-                <span className="text-[8px] text-[#DAA520] font-mono shrink-0">
-                  {isCollapsed ? '▶' : '▼'}
-                </span>
-              </button>
+                >
+                  <div className="flex items-center gap-1 truncate">
+                    <span>*</span>
+                    <span className="truncate">MASTER CHAT</span>
+                  </div>
+                  <span className="text-[8px] text-gray-500 shrink-0">[LOCK]</span>
+                </button>
 
-              {!isCollapsed &&
-                tierGroup.models.map((m) => {
-                  const isSelected = selectedBrain === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => setSelectedBrain(m.id)}
-                      className={`w-full h-6 px-2 flex items-center justify-between text-[10px] rounded border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-[#00e5ff] text-[#00e5ff] bg-[#0c1c24]'
-                          : 'border-[#1f242d] text-gray-400 bg-[#0d1015] hover:border-[#384152] hover:text-gray-200'
-                      }`}
-                    >
-                      <span className="truncate">{m.name}</span>
-                      <span
-                        className={`text-[8px] font-bold px-1 rounded ${
-                          isSelected
-                            ? 'text-[#00e5ff] bg-[#00e5ff]/20'
-                            : 'text-gray-500 bg-[#161a22]'
-                        }`}
+                {/* Sub-Chats with Archive and Delete Buttons */}
+                {(chatCatalog[proj] || []).map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => loadSubChat(proj, c.id, c.title)}
+                    className={'flex items-center justify-between px-2 py-1 rounded text-[10px] cursor-pointer ' + (
+                      activeChatId === c.id
+                        ? 'bg-[#14171c] border-l-2 border-[#ffb800] text-gray-100 font-bold'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#14171c]/50'
+                    )}
+                  >
+                    <div className="flex items-center gap-1 truncate min-w-0 pr-1">
+                      <span>-</span>
+                      <span className="truncate">{c.title}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        title="Archive into Master Chat"
+                        onClick={(e) => handleArchiveChat(e, proj, c.id, c.title)}
+                        className="text-gray-500 hover:text-amber-400 text-[9px] px-1 rounded hover:bg-[#1f242d]"
                       >
-                        {m.badge}
-                      </span>
-                    </button>
-                  );
-                })}
-            </div>
-          );
-        })}
+                        [ARC]
+                      </button>
+                      <button
+                        type="button"
+                        title="Delete chat permanently"
+                        onClick={(e) => handleDeleteChat(e, proj, c.id, c.title)}
+                        className="text-gray-500 hover:text-red-400 text-[9px] px-1 rounded hover:bg-[#1f242d]"
+                      >
+                        [DEL]
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* RIGHT COLUMN: DISPATCH CONSOLE */}
-      <div className="flex-1 flex flex-col p-2 min-h-0 h-full overflow-hidden">
-        {/* PINNED STATUS HEADER */}
-        <div className="flex items-center justify-between pb-1.5 border-b border-[#14171c] text-[9px] shrink-0 bg-[#080a0c] z-10">
+      {/* ======================================================== */}
+      {/* MAIN VIEWPORT: FEED & CONTROLS */}
+      {/* ======================================================== */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        
+        {/* Status Header */}
+        <div className="h-9 shrink-0 border-b border-[#1f242d] bg-[#0b0e14] flex items-center justify-between px-3 text-[10px]">
           <div className="flex items-center gap-2">
-            <span className="text-gray-400">STATUS:</span>
-            <span className="text-[#10b981] font-bold">DAEMON LINKED (PORT 8081)</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              DAEMON LINKED (PORT 8081)
+            </span>
             <span className="text-gray-600">|</span>
             <span className="text-gray-400">BRAIN:</span>
             <span className="text-[#DAA520] font-bold uppercase">{selectedBrain}</span>
+            <span className="text-gray-600">|</span>
+            <span className="text-gray-300 font-bold truncate max-w-[280px]">{activeChatTitle}</span>
           </div>
+
           <div className="flex items-center gap-2">
+            {isMasterChat && (
+              <span className="border border-[#DAA520] text-[#DAA520] bg-[#DAA520]/10 px-2 py-0.5 rounded text-[8px] font-bold">
+                MASTER LEDGER (READ ONLY)
+              </span>
+            )}
             <button
+              type="button"
               onClick={() => toggleSpeech(chatLog[chatLog.length - 1]?.text)}
-              className={`border px-1.5 py-0.5 rounded text-[8px] cursor-pointer transition-all ${
+              className={'border px-1.5 py-0.5 rounded text-[8px] cursor-pointer transition-all ' + (
                 isSpeaking
                   ? 'border-[#ef4444] text-[#ef4444] bg-[#ef4444]/10 font-bold'
                   : 'border-[#DAA520] text-[#DAA520] hover:bg-[#DAA520]/10'
-              }`}
+              )}
             >
-              {isSpeaking ? '⏹ STOP BRIEF' : '🔊 VOICE BRIEF'}
+              {isSpeaking ? 'STOP VOICE' : 'VOICE BRIEF'}
             </button>
             <button
+              type="button"
               onClick={handleCopyAll}
-              className={`border px-1.5 py-0.5 rounded text-[8px] cursor-pointer transition-all ${
-                copyFeedback
-                  ? 'border-[#10b981] text-[#10b981] bg-[#10b981]/20 font-bold'
-                  : 'border-[#1f242d] text-gray-400 hover:text-white'
-              }`}
+              className="border border-[#1f242d] hover:border-[#DAA520] text-gray-400 hover:text-white px-1.5 py-0.5 rounded text-[8px] cursor-pointer"
             >
-              {copyFeedback ? '✓ COPIED ALL' : 'COPY ALL'}
+              {copyFeedback ? 'COPIED' : 'COPY ALL'}
             </button>
           </div>
         </div>
 
-        {/* Message Log Viewport */}
+        {/* Message Feed */}
         <div
-          className="flex-1 overflow-y-auto py-2 flex flex-col gap-2 min-h-0"
+          className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0"
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
         >
           {chatLog.map((msg, i) => (
             <div
               key={i}
-              className="border border-[#1f242d] bg-[#0b0e14] p-2 rounded flex flex-col gap-1.5 shrink-0"
+              className="border border-[#1f242d] bg-[#0b0e14] p-3 rounded flex flex-col gap-1.5 shrink-0"
             >
-              <div className="flex items-center justify-between text-[9px]">
-                <span
-                  className={`font-bold ${
-                    msg.sender.includes('MONTY')
-                      ? 'text-[#10b981]'
-                      : msg.sender.includes('ALERT') || msg.sender.includes('FAIL')
-                      ? 'text-[#ef4444]'
-                      : 'text-[#DAA520]'
-                  }`}
+              <div className="flex items-center justify-between text-[9px] pb-1 border-b border-[#1f242d]/50">
+                {renderIdentityHeader(msg)}
+                <button
+                  type="button"
+                  onClick={() => handleCopyMsg(msg.text)}
+                  className="text-gray-500 hover:text-gray-300 text-[8px] cursor-pointer"
                 >
-                  {msg.sender}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleCopyMsg(msg.text)}
-                    className="text-gray-500 hover:text-gray-300 text-[8px] cursor-pointer"
-                  >
-                    COPY
-                  </button>
-                  {msg.sender.includes('MONTY') && (
-                    <button
-                      onClick={() => toggleSpeech(msg.text)}
-                      className={`text-[8px] cursor-pointer transition-colors ${
-                        isSpeaking
-                          ? 'text-[#ef4444] font-bold'
-                          : 'text-gray-500 hover:text-[#DAA520]'
-                      }`}
-                    >
-                      {isSpeaking ? '⏹ STOP' : '🔊 LISTEN'}
-                    </button>
-                  )}
-                </div>
+                  COPY
+                </button>
               </div>
-              <div className="text-[11px] text-gray-300 whitespace-pre-wrap leading-tight">
+
+              <div className="text-[11px] text-gray-300 whitespace-pre-wrap leading-relaxed font-mono">
                 {msg.text}
               </div>
 
               {msg.attachments && msg.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-[#14171c]">
-                  {msg.attachments.map((file) => (
-                    <div
-                      key={file.id}
-                      className="flex items-center gap-1.5 bg-[#12171f] border border-[#1f242d] p-1 rounded"
-                    >
-                      {file.type === 'image' ? (
-                        <img
-                          src={file.data}
-                          alt={file.name}
-                          className="h-7 w-7 object-cover rounded border border-[#2a3444]"
-                        />
-                      ) : (
-                        <span className="text-[#DAA520] text-[10px]">📄</span>
-                      )}
-                      <div className="flex flex-col text-[8px]">
-                        <span className="text-gray-200 font-bold truncate max-w-[120px]">
-                          {file.name}
-                        </span>
-                        <span className="text-gray-500">{file.size}</span>
-                      </div>
-                    </div>
+                <div className="flex flex-wrap gap-1 mt-1 pt-1 border-t border-[#1f242d]/30">
+                  {msg.attachments.map((file, idx) => (
+                    <span key={idx} className="text-[8px] bg-[#14171c] border border-[#1f242d] text-gray-400 px-1.5 py-0.5 rounded">
+                      FILE: {file}
+                    </span>
                   ))}
                 </div>
               )}
             </div>
           ))}
 
+          {/* Staged Code Diff Review */}
           {stagedProposal && (
-            <div className="border border-[#DAA520] bg-[#16130b] p-3 rounded flex flex-col gap-2 shrink-0">
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-[#DAA520] font-bold">
-                  ⚠️ MONTY REQUESTING WRITE AUTHORIZATION
-                </span>
-                <span className="text-gray-400 font-mono">{stagedProposal.filePath}</span>
+            <div className="border border-[#ffb800] bg-[#14171c] p-3 rounded flex flex-col gap-2">
+              <div className="flex items-center justify-between text-[10px] font-bold text-[#ffb800]">
+                <span>CODE DIFF READY FOR WRITE</span>
+                <button
+                  type="button"
+                  onClick={handleConfirmFileWrite}
+                  className="bg-[#10b981] hover:bg-emerald-400 text-[#080a0c] px-3 py-1 rounded font-bold cursor-pointer"
+                >
+                  CONFIRM WRITE
+                </button>
               </div>
-              <pre className="bg-[#05070a] p-2 rounded text-[10px] text-gray-300 overflow-x-auto border border-[#2a3649]">
+              <pre className="text-[10px] text-emerald-400 bg-[#080a0c] p-2 rounded overflow-x-auto max-h-48">
                 {stagedProposal.diffText}
               </pre>
-              <div className="flex gap-2 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setStagedProposal(null)}
-                  className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/10 text-[9px] px-3 py-1 rounded cursor-pointer"
-                >
-                  REJECT
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApproveWrite}
-                  className="bg-[#10b981] hover:bg-[#059669] text-black font-bold text-[9px] px-4 py-1 rounded cursor-pointer"
-                >
-                  ✓ APPROVE & WRITE TO DISK
-                </button>
-              </div>
             </div>
           )}
 
-          {/* ACTIVE SPINNER WITH TIMER */}
-          {(isLoading || isDistilling) && (
-            <div className="border border-[#1f242d] bg-[#0b0e14] p-2.5 rounded flex items-center gap-3 text-[10px] text-[#00e5ff] shrink-0">
-              <svg
-                className="animate-spin h-4 w-4 text-[#00e5ff]"
-                xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8H4z"
-                ></path>
-              </svg>
-              <div className="flex items-center gap-2">
-                <span className="tracking-wider font-semibold">
-                  {isDistilling
-                    ? 'MONTY DISTILLING NUGGETS & CREATING WAR ROOM PROMPT...'
-                    : `MONTY PROCESSING VIA MASTER DAEMON // ${selectedBrain.toUpperCase()}...`}
-                </span>
-                <span className="font-mono bg-[#00e5ff]/10 text-[#00e5ff] px-1.5 py-0.5 rounded border border-[#00e5ff]/30 text-[9px] font-bold">
-                  [{elapsedSeconds}s]
-                </span>
-              </div>
-            </div>
-          )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* INPUT DOCK */}
-        <div className="flex flex-col gap-1.5 pt-1.5 pb-1 border-t border-[#14171c] shrink-0 bg-[#080a0c]">
-          <div className="flex items-center justify-between">
+        {/* New Chat Popover */}
+        {newChatPromptOpen && (
+          <div className="mx-3 mb-2 p-2 border border-[#DAA520] bg-[#14171c] rounded flex items-center gap-2">
+            <span className="text-[10px] font-bold text-[#DAA520] shrink-0">NEW SUB-CHAT:</span>
+            <input
+              type="text"
+              placeholder={'Thread name under ' + activeProject + '...'}
+              value={newChatTitle}
+              onChange={(e) => setNewChatTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateNewChat()}
+              className="flex-1 bg-[#080a0c] border border-[#1f242d] text-gray-200 px-2 py-1 text-[11px] rounded outline-none focus:border-[#DAA520]"
+            />
             <button
               type="button"
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              className="flex items-center gap-1 text-[#DAA520] border border-[#DAA520]/40 bg-[#16130b] hover:bg-[#261f0d] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-all"
+              onClick={handleCreateNewChat}
+              className="bg-[#DAA520] hover:bg-[#ffb800] text-[#080a0c] px-3 py-1 rounded text-[10px] font-bold cursor-pointer"
             >
-              <span>📎</span> + ATTACH FILE / SCREENSHOT (CTRL+V)
+              CREATE
             </button>
+            <button
+              type="button"
+              onClick={() => setNewChatPromptOpen(false)}
+              className="bg-[#1f242d] text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] cursor-pointer"
+            >
+              CANCEL
+            </button>
+          </div>
+        )}
+
+        {/* Command & Input Dock */}
+        <div className="border-t border-[#1f242d] bg-[#0b0e14] p-2 flex flex-col gap-2 shrink-0">
+          <div className="flex items-center justify-between text-[9px]">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-[#DAA520] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                + ATTACH FILE / SCREENSHOT (CTRL+V)
+              </button>
+              {attachedFiles.length > 0 && (
+                <span className="text-gray-400">({attachedFiles.length} file staged)</span>
+              )}
+            </div>
 
             <button
               type="button"
               onClick={toggleRecording}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer ${
+              className={'flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer transition-all ' + (
                 isRecording
-                  ? 'border-[#ef4444] text-[#ef4444] bg-[#2b0d0d] animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.4)]'
-                  : 'border-[#1f242d] text-[#DAA520] hover:border-[#DAA520]'
-              }`}
+                  ? 'bg-red-500/20 text-red-400 border border-red-500 animate-pulse font-bold'
+                  : 'text-gray-400 hover:text-white border border-[#1f242d]'
+              )}
             >
-              <span>{isRecording ? '🔴' : '🎤'}</span>
-              <span>{isRecording ? 'REC [STOP]' : 'CHROME MIC'}</span>
+              <span>MIC</span> {isRecording ? 'LISTENING...' : 'CHROME MIC'}
             </button>
           </div>
 
-          {attachedFiles.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1.5 bg-[#0c1017] border border-[#1f242d] rounded">
-              {attachedFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center gap-1 bg-[#141b24] border border-[#2a3649] px-1.5 py-0.5 rounded shrink-0"
-                >
-                  {file.type === 'image' ? (
-                    <img src={file.data} alt={file.name} className="h-5 w-5 object-cover rounded" />
-                  ) : (
-                    <span className="text-[9px] text-[#DAA520]">📄</span>
-                  )}
-                  <span className="text-[8px] text-gray-200 font-bold max-w-[100px] truncate">
-                    {file.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(file.id)}
-                    className="text-red-400 hover:text-red-200 text-[9px] font-bold ml-1 cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
           <textarea
             ref={textareaRef}
+            disabled={isMasterChat}
             rows={2}
             value={inputCommand}
             onChange={(e) => setInputCommand(e.target.value)}
-            onPaste={handlePaste}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading || isDistilling}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
             placeholder={
-              isRecording
-                ? 'Listening... speak clearly into microphone...'
-                : `Enter command for Monty dispatch via Master Daemon [${selectedBrain}]...`
+              isMasterChat
+                ? "Master Chat is read-only. Select or create an active sub-chat thread on the left."
+                : 'Enter command for Monty dispatch via ' + selectedBrain + '...'
             }
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#DAA520 #0b0e14' }}
-            className={`w-full bg-[#05070a] border rounded p-1.5 text-[10px] text-gray-200 focus:outline-none resize-none transition-all leading-tight overflow-y-auto max-h-[120px] ${
-              isRecording
-                ? 'border-[#ef4444]/60 ring-1 ring-[#ef4444]/30'
+            className={'w-full bg-[#080a0c] border rounded p-2 text-[11px] text-gray-200 font-mono outline-none resize-none transition-all ' + (
+              isMasterChat
+                ? 'border-[#1f242d] cursor-not-allowed text-gray-600'
                 : 'border-[#1f242d] focus:border-[#DAA520]'
-            }`}
+            )}
           />
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isLoading || isDistilling}
-              className="bg-[#FFB800] hover:bg-[#e6a600] text-black font-bold text-[9px] px-3 py-1 rounded flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
-            >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="animate-spin h-3 w-3 text-black"
-                    xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"
-                    ></path>
-                  </svg>
-                  <span>PROCESSING... [{elapsedSeconds}s]</span>
-                </>
-              ) : (
-                <>
-                  <span>➤</span>
-                  <span>SUBMIT</span>
-                </>
-              )}
-            </button>
+          {/* Action Deck */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isMasterChat || isLoading}
+                onClick={handleSendMessage}
+                className={'text-[9px] font-bold px-3 py-1 rounded flex items-center gap-1 cursor-pointer transition-all ' + (
+                  isMasterChat || isLoading
+                    ? 'bg-[#1f242d] text-gray-500 cursor-not-allowed'
+                    : 'bg-[#ffb800] hover:bg-[#DAA520] text-[#080a0c]'
+                )}
+              >
+                SUBMIT
+              </button>
 
-            {/* CREATE PROMPT */}
-            <button
-              type="button"
-              onClick={handleCreatePrompt}
-              disabled={isLoading || isDistilling}
-              className="bg-[#10b981]/15 hover:bg-[#10b981]/25 border border-[#10b981] text-[#10b981] font-bold text-[9px] px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-all disabled:opacity-50"
-              title="Extract conversation nuggets and synthesize a master prompt ready for War Room"
-            >
-              <span>⚡</span>
-              <span>{isDistilling ? 'CREATING...' : 'CREATE PROMPT'}</span>
-            </button>
+              <button
+                type="button"
+                disabled={isDistilling}
+                onClick={handleCreatePrompt}
+                className="border border-[#10b981] text-[#10b981] hover:bg-[#10b981]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
+              >
+                {isDistilling ? 'DISTILLING (' + elapsedSeconds + 's)' : 'CREATE PROMPT'}
+              </button>
 
-            {/* PUSH TO WAR ROOM */}
-            <button
-              type="button"
-              onClick={handlePushToWarRoom}
-              disabled={isLoading || isDistilling}
-              className="border border-[#00e5ff] text-[#00e5ff] hover:bg-[#00e5ff]/10 font-bold text-[9px] px-2 py-1 rounded cursor-pointer transition-all disabled:opacity-50"
-            >
-              PUSH TO WAR ROOM
-            </button>
+              <button
+                type="button"
+                onClick={handlePushToWarRoom}
+                className="border border-[#38bdf8] text-[#38bdf8] hover:bg-[#38bdf8]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
+              >
+                PUSH TO WAR ROOM
+              </button>
 
-            <button
-              type="button"
-              onClick={handleRefine}
-              className="border border-[#1f242d] text-gray-400 hover:text-white text-[9px] px-2 py-1 rounded cursor-pointer"
-            >
-              REFINE
-            </button>
+              <button
+                type="button"
+                onClick={handleRefine}
+                className="border border-[#1f242d] text-gray-400 hover:text-white text-[9px] px-2 py-1 rounded cursor-pointer"
+              >
+                REFINE
+              </button>
 
-            <button
-              type="button"
-              onClick={handleCopyAll}
-              className={`border text-[9px] px-2 py-1 rounded cursor-pointer transition-all ${
-                copyFeedback
-                  ? 'border-[#10b981] text-[#10b981] bg-[#10b981]/20 font-bold'
-                  : 'border-[#1f242d] text-gray-400 hover:text-white'
-              }`}
-            >
-              {copyFeedback ? '✓ COPIED ALL' : 'COPY ALL'}
-            </button>
+              <button
+                type="button"
+                onClick={handleCopyAll}
+                className="border border-[#1f242d] text-gray-400 hover:text-white text-[9px] px-2 py-1 rounded cursor-pointer"
+              >
+                {copyFeedback ? 'COPIED' : 'COPY ALL'}
+              </button>
 
-            <button
-              type="button"
-              onClick={handleCLS}
-              className="border border-[#1f242d] text-gray-400 hover:text-red-400 text-[9px] px-2 py-1 rounded cursor-pointer"
-            >
-              CLS
-            </button>
+              <button
+                type="button"
+                onClick={handleCLS}
+                className="border border-[#1f242d] text-gray-400 hover:text-red-400 text-[9px] px-2 py-1 rounded cursor-pointer"
+              >
+                CLS
+              </button>
 
-            <button
-              type="button"
-              onClick={handleAllStop}
-              className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
-            >
-              <span>🛑</span> ALL STOP
-            </button>
+              <button
+                type="button"
+                onClick={handleAllStop}
+                className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/10 font-bold text-[9px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer"
+              >
+                ALL STOP
+              </button>
+            </div>
+
+            {/* [+ NEW CHAT] */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setNewChatPromptOpen(true)}
+                className="border border-[#DAA520] text-[#DAA520] hover:bg-[#DAA520]/10 font-bold text-[9px] px-3 py-1 rounded flex items-center gap-1 cursor-pointer transition-all"
+              >
+                + NEW CHAT
+              </button>
+            </div>
           </div>
         </div>
       </div>
