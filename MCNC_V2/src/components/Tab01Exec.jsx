@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // ============================================================================
 // MCNC TAB 01 EXEC // PERSISTENT MULTI-CHAT & DOMAIN-AWARE COCKPIT
+// TOKENS: Obsidian #080a0c | Wire #1f242d | Goldenrod #DAA520
 // ============================================================================
 
 const RAW_MODEL_TIERS = [
@@ -305,9 +306,12 @@ export default function Tab01Exec({ ws }) {
       if (data.success) {
         await fetchChatCatalog();
         loadMasterChat(project);
+      } else {
+        alert('Archive failed: ' + (data.error || 'Server error'));
       }
     } catch (err) {
       console.error('Archive chat error:', err);
+      alert('Archive network failure: Ensure server_pipeline.js is running on 8082');
     }
   };
 
@@ -542,6 +546,7 @@ export default function Tab01Exec({ ws }) {
       const finalMessages = [...updatedLog, aiMsg];
       setChatLog(finalMessages);
 
+      // Persist to Port 8082 disk
       await fetch('http://localhost:8082/api/chats/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -614,7 +619,7 @@ export default function Tab01Exec({ ws }) {
 
     return (
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="bg-[#14171c] border border-[#ffb800] text-[#ffb800] px-2 py-0.5 rounded text-[10px] font-bold">
+        <span className="bg-[#14171c] border border-[#DAA520] text-[#DAA520] px-2 py-0.5 rounded text-[10px] font-bold">
           [{msg.sender}] here, {msg.title || 'Director'}.
         </span>
         {msg.collaborators && msg.collaborators.length > 0 && (
@@ -649,15 +654,15 @@ export default function Tab01Exec({ ws }) {
       />
 
       {/* ======================================================== */}
-      {/* LEFT SIDEBAR: TIERS & PERSISTENT CHAT ACCORDIONS */}
+      {/* LEFT SIDEBAR: SINGLE FLUID SCROLLABLE TRACK */}
       {/* ======================================================== */}
-      <div className="w-[300px] shrink-0 border-r border-[#1f242d] bg-[#080a0c] flex flex-col h-full overflow-hidden">
+      <div 
+        className="w-[300px] shrink-0 border-r border-[#1f242d] bg-[#080a0c] flex flex-col h-full overflow-y-auto min-h-0"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
+      >
         
         {/* Tier Selectors (Dynamically Re-Sorted by Active Domain) */}
-        <div
-          className="flex-1 overflow-y-auto p-2 flex flex-col gap-2 min-h-0"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
-        >
+        <div className="p-2 flex flex-col gap-2 shrink-0">
           {modelTiers.map((tierGroup) => {
             const isCollapsed = collapsedTiers[tierGroup.id];
             const isTier4 = tierGroup.id === 'tier4';
@@ -693,7 +698,7 @@ export default function Tab01Exec({ ws }) {
                           onClick={() => setSelectedBrain(m.id)}
                           className={'flex items-center justify-between px-2 py-1 rounded text-[10px] text-left border cursor-pointer transition-all ' + (
                             isSelected
-                              ? 'bg-[#14171c] border-[#ffb800] text-[#ffb800] font-bold'
+                              ? 'bg-[#14171c] border-[#DAA520] text-[#DAA520] font-bold shadow-[0_0_8px_rgba(218,165,32,0.15)]'
                               : 'bg-transparent border-transparent text-gray-400 hover:text-gray-200 hover:bg-[#14171c]/50'
                           )}
                         >
@@ -716,39 +721,38 @@ export default function Tab01Exec({ ws }) {
           })}
         </div>
 
-        {/* Persistent Chat Accordions */}
-        <div className="h-[48%] border-t border-[#1f242d] p-2 flex flex-col min-h-0 bg-[#0d0f12]">
-          <div className="flex items-center justify-between pb-1 mb-1 border-b border-[#1f242d]">
-            <span className="text-[10px] font-bold text-[#C5BD9F] tracking-wider">PROJECT CHAT LEDGERS</span>
+        {/* Persistent Chat Accordions (With Expanded Gap & Goldenrod Styling) */}
+        <div className="mt-6 border-t border-[#1f242d] pt-3 p-2 flex flex-col shrink-0 bg-[#0d0f12]">
+          <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#1f242d]">
+            <span className="text-[10px] font-bold text-[#DAA520] tracking-wider uppercase">
+              PROJECT CHAT LEDGERS
+            </span>
             <button
               type="button"
               onClick={() => setNewChatPromptOpen(true)}
-              className="bg-[#DAA520] hover:bg-[#ffb800] text-[#080a0c] text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer"
+              className="bg-[#DAA520] hover:bg-[#DAA520]/80 text-[#080a0c] text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer"
             >
               + NEW
             </button>
           </div>
 
-          <div
-            className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
-          >
+          <div className="flex flex-col gap-2.5">
             {['CHIEF MADOTHI FUND', 'RHYTHM TRADING', 'General_Chats'].map((proj) => (
-              <div key={proj} className="flex flex-col gap-0.5">
+              <div key={proj} className="flex flex-col gap-1">
                 <span className="text-[9px] font-bold text-[#DAA520] uppercase px-1">{proj}</span>
 
                 {/* Master Ledger Button */}
                 <button
                   type="button"
                   onClick={() => loadMasterChat(proj)}
-                  className={'flex items-center justify-between px-1.5 py-1 rounded text-[10px] border cursor-pointer text-left ' + (
+                  className={'flex items-center justify-between px-2 py-1 rounded text-[10px] border cursor-pointer text-left ' + (
                     activeProject === proj && isMasterChat
                       ? 'bg-[#14171c] border-[#DAA520] text-[#DAA520] font-bold'
-                      : 'bg-[#0b0e14] border-dashed border-[#1f242d] text-[#C5BD9F] hover:bg-[#14171c]'
+                      : 'bg-[#0b0e14] border-dashed border-[#1f242d] text-[#DAA520]/80 hover:bg-[#14171c] hover:text-[#DAA520]'
                   )}
                 >
-                  <div className="flex items-center gap-1 truncate">
-                    <span>*</span>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="text-[#DAA520]">*</span>
                     <span className="truncate">MASTER CHAT</span>
                   </div>
                   <span className="text-[8px] text-gray-500 shrink-0">[LOCK]</span>
@@ -761,12 +765,12 @@ export default function Tab01Exec({ ws }) {
                     onClick={() => loadSubChat(proj, c.id, c.title)}
                     className={'flex items-center justify-between px-2 py-1 rounded text-[10px] cursor-pointer ' + (
                       activeChatId === c.id
-                        ? 'bg-[#14171c] border-l-2 border-[#ffb800] text-gray-100 font-bold'
+                        ? 'bg-[#14171c] border-l-2 border-[#DAA520] text-gray-100 font-bold'
                         : 'text-gray-400 hover:text-gray-200 hover:bg-[#14171c]/50'
                     )}
                   >
                     <div className="flex items-center gap-1 truncate min-w-0 pr-1">
-                      <span>-</span>
+                      <span className="text-gray-500">-</span>
                       <span className="truncate">{c.title}</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -774,7 +778,7 @@ export default function Tab01Exec({ ws }) {
                         type="button"
                         title="Archive into Master Chat"
                         onClick={(e) => handleArchiveChat(e, proj, c.id, c.title)}
-                        className="text-gray-500 hover:text-amber-400 text-[9px] px-1 rounded hover:bg-[#1f242d]"
+                        className="text-gray-500 hover:text-[#DAA520] text-[9px] px-1 rounded hover:bg-[#1f242d]"
                       >
                         [ARC]
                       </button>
@@ -805,7 +809,7 @@ export default function Tab01Exec({ ws }) {
           <div className="flex items-center gap-2">
             <span className="text-emerald-400 font-bold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              DAEMON LINKED (PORT 8081)
+              DAEMON LINKED (PORT 8081 / 8082)
             </span>
             <span className="text-gray-600">|</span>
             <span className="text-gray-400">BRAIN:</span>
@@ -880,8 +884,8 @@ export default function Tab01Exec({ ws }) {
 
           {/* Staged Code Diff Review */}
           {stagedProposal && (
-            <div className="border border-[#ffb800] bg-[#14171c] p-3 rounded flex flex-col gap-2">
-              <div className="flex items-center justify-between text-[10px] font-bold text-[#ffb800]">
+            <div className="border border-[#DAA520] bg-[#14171c] p-3 rounded flex flex-col gap-2">
+              <div className="flex items-center justify-between text-[10px] font-bold text-[#DAA520]">
                 <span>CODE DIFF READY FOR WRITE</span>
                 <button
                   type="button"
@@ -915,7 +919,7 @@ export default function Tab01Exec({ ws }) {
             <button
               type="button"
               onClick={handleCreateNewChat}
-              className="bg-[#DAA520] hover:bg-[#ffb800] text-[#080a0c] px-3 py-1 rounded text-[10px] font-bold cursor-pointer"
+              className="bg-[#DAA520] hover:bg-[#DAA520]/80 text-[#080a0c] px-3 py-1 rounded text-[10px] font-bold cursor-pointer"
             >
               CREATE
             </button>
@@ -982,26 +986,36 @@ export default function Tab01Exec({ ws }) {
             )}
           />
 
-          {/* ======================================================== */}
-          {/* ACTION DECK: COHESIVE LAYOUT + DEDICATED EXPANSION BAY */}
-          {/* ======================================================== */}
+          {/* Action Deck: Cohesive Layout + Dedicated Expansion Bay + Wagon Wheel */}
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
             
-            {/* 1. Core Primary Action Trigger */}
-            <button
-              type="button"
-              disabled={isMasterChat || isLoading}
-              onClick={handleSendMessage}
-              className={'text-[10px] font-bold px-3.5 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-all ' + (
-                isMasterChat || isLoading
-                  ? 'bg-[#1f242d] text-gray-500 cursor-not-allowed'
-                  : 'bg-[#ffb800] hover:bg-[#DAA520] text-[#080a0c] shadow-[0_0_8px_rgba(255,184,0,0.2)]'
-              )}
-            >
-              SUBMIT
-            </button>
+            {/* Primary Action Trigger + Wagon Wheel Spinner */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={isMasterChat || isLoading}
+                onClick={handleSendMessage}
+                className={'text-[10px] font-bold px-3.5 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-all ' + (
+                  isMasterChat || isLoading
+                    ? 'bg-[#1f242d] text-gray-500 cursor-not-allowed'
+                    : 'bg-[#DAA520] hover:bg-[#DAA520]/80 text-[#080a0c] shadow-[0_0_8px_rgba(218,165,32,0.2)]'
+                )}
+              >
+                SUBMIT
+              </button>
 
-            {/* 2. Pipeline Utility Controls */}
+              {/* Wagon Wheel Spinner (Tab 12 Review Style) */}
+              {(isLoading || isDistilling) && (
+                <div className="flex items-center gap-1.5 bg-[#080a0c] border border-[#DAA520]/50 px-2 py-1 rounded">
+                  <div className="w-3.5 h-3.5 border-2 border-[#DAA520]/30 border-t-[#DAA520] rounded-full animate-spin shrink-0"></div>
+                  <span className="text-[9px] text-[#DAA520] font-bold tracking-wider">
+                    {elapsedSeconds}s
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Pipeline Controls */}
             <div className="flex items-center gap-1 bg-[#080a0c] border border-[#1f242d] px-1 py-0.5 rounded">
               <button
                 type="button"
@@ -1053,10 +1067,10 @@ export default function Tab01Exec({ ws }) {
               </button>
             </div>
 
-            {/* Expansion Bay: Width of New Chat button for future tabs */}
+            {/* Expansion Bay */}
             <div className="w-[110px] shrink-0" aria-hidden="true" />
 
-            {/* 3. Session Control: + NEW CHAT */}
+            {/* + NEW CHAT */}
             <button
               type="button"
               onClick={() => setNewChatPromptOpen(true)}
@@ -1065,12 +1079,12 @@ export default function Tab01Exec({ ws }) {
               + NEW CHAT
             </button>
 
-            {/* 4. Vertical Partition Wire */}
+            {/* Divider */}
             <div className="h-5 w-[1px] bg-[#1f242d] mx-0.5"></div>
 
-            {/* 5. Substantial Domain Mode Switcher Dock */}
+            {/* Mode Selector */}
             <div className="flex items-center gap-1.5 bg-[#080a0c] border border-[#1f242d] px-2 py-1 rounded shadow-inner">
-              <span className="text-[9px] text-[#C5BD9F] uppercase font-bold tracking-wider mr-0.5">
+              <span className="text-[9px] text-[#DAA520] uppercase font-bold tracking-wider mr-0.5">
                 MODE:
               </span>
               {[
