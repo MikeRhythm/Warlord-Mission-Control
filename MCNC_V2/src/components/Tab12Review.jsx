@@ -13,7 +13,7 @@ const INITIAL_DOMAINS = [
 
 const INITIAL_SPECIALIZATIONS = {
   'Market & Currency Pairs': ['EURUSD Volatility & London/NY Overlap', 'GBPUSD Flow & Liquidity', 'Cross-Asset Momentum'],
-  'System Architecture & Code': ['MQL5 / Node.js Bridges', 'React Vite Interfaces', 'OpenClaw Agent Routing'],
+  'System Architecture & Code': ['MQL5 / Node.js Bridges', 'React Vite Interfaces', 'OpenClaw Agent Routing', 'Reverse Engineering & Decompilation'],
   'Hardware & Infrastructure': ['Dell PowerEdge R520 Logs', 'Base 1 Server Setup', 'Network & Power Routing'],
   'Tactical & Historical Archives': ['Caprivi Patrol Memoirs', 'Zanzibar Operations', 'Riverine Navigation'],
   'Cutting Edge AI': ['Hermes', 'Ollama Runtimes', 'Local LLM Ingestion'],
@@ -34,6 +34,7 @@ export default function Tab12Review() {
     '// Paste videos, notes, or raw discussions on the left, then click \'HARVEST PURE NUGGET\'.\n// The gauge above will calculate the exact signal-to-noise ratio and time saved.\n// Click \'PUSH TO 13 DOCS LIBRARY\' to merge and synthesize the payload into the canonical master dossier.'
   );
   const [isHarvesting, setIsHarvesting] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -150,6 +151,54 @@ export default function Tab12Review() {
     }
   };
 
+  const handleSuggestTaxonomy = async () => {
+    if (!harvestedNugget || harvestedNugget.startsWith('// Paste')) {
+      alert("Please harvest or paste a dossier first.");
+      return;
+    }
+
+    setIsSuggesting(true);
+    try {
+      const response = await fetch('http://localhost:8082/api/review/suggest-taxonomy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: harvestedNugget,
+          existingTaxonomy: specializationsMap
+        })
+      });
+
+      const data = await response.json();
+      console.log("[Taxonomy Suggestion Received]:", data);
+
+      if (data && data.domain && data.subNiche) {
+        const cleanDomain = data.domain.trim();
+        const cleanNiche = data.subNiche.trim();
+
+        // 1. Synchronously update the catalog options first
+        setTopicDomains(prev => prev.includes(cleanDomain) ? prev : [...prev, cleanDomain]);
+
+        setSpecializationsMap(prev => {
+          const currentSpecs = prev[cleanDomain] || [];
+          return {
+            ...prev,
+            [cleanDomain]: currentSpecs.includes(cleanNiche) ? currentSpecs : [...currentSpecs, cleanNiche]
+          };
+        });
+
+        // 2. Lock the dropdowns onto the new keys
+        setTimeout(() => {
+          setTopicDomain(cleanDomain);
+          setSpecialization(cleanNiche);
+        }, 50);
+      }
+    } catch (err) {
+      console.error("Auto taxonomy suggestion failed:", err);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
   const handlePushToDocs = async () => {
     if (hasError || isHarvesting || isSaving || saveSuccess) return;
     
@@ -203,7 +252,7 @@ export default function Tab12Review() {
   return (
     <div className="relative flex flex-col h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none">
       
-      {/* EXCITING FULL-SCREEN SPINNER OVERLAY */}
+      {/* FULL-SCREEN SPINNER OVERLAY */}
       {(isHarvesting || isSaving) && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#080a0c]/85 backdrop-blur-sm rounded">
           <div className="relative flex items-center justify-center w-28 h-28 mb-5">
@@ -332,23 +381,34 @@ export default function Tab12Review() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-1">
-            <input 
-              type="checkbox" 
-              checked={pruneAndMerge} 
-              onChange={(e) => setPruneAndMerge(e.target.checked)}
-              id="pruneCheck" 
-              className="accent-[#ffb800] cursor-pointer" 
-            />
-            <label htmlFor="pruneCheck" className="text-[10px] text-[#5c6b7f] cursor-pointer">
-              Prune & merge into canonical master dossier (Eliminates duplicates)
-            </label>
+          <div className="flex items-center justify-between pt-1 mt-2">
+            <div className="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                checked={pruneAndMerge} 
+                onChange={(e) => setPruneAndMerge(e.target.checked)}
+                id="pruneCheck" 
+                className="accent-[#ffb800] cursor-pointer" 
+              />
+              <label htmlFor="pruneCheck" className="text-[10px] text-[#5c6b7f] cursor-pointer">
+                Prune & merge into canonical master dossier (Eliminates duplicates)
+              </label>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleSuggestTaxonomy}
+              disabled={isSuggesting || isHarvesting || harvestedNugget.startsWith('// Paste')}
+              className="flex items-center gap-1.5 px-3 py-1 bg-[#14171c] hover:bg-[#ffb800]/20 text-[#ffb800] border border-[#ffb800]/40 hover:border-[#ffb800] rounded text-[10px] font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isSuggesting ? '⚡ ANALYZING...' : '✦ SUGGEST TOPIC & SUB-NICHE'}
+            </button>
           </div>
 
           <button
             onClick={handleHarvest}
             disabled={isHarvesting || (!url.trim() && !contentDump.trim())}
-            className={`w-full py-2 font-bold rounded text-xs flex items-center justify-center gap-2 transition-all ${
+            className={`w-full mt-2 py-2 font-bold rounded text-xs flex items-center justify-center gap-2 transition-all ${
               isHarvesting || (!url.trim() && !contentDump.trim())
                 ? 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'
                 : 'bg-[#ffb800] hover:bg-[#e6a600] text-black cursor-pointer'

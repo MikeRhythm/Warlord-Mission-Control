@@ -4,10 +4,23 @@
  * Port: 8082
  */
 
-const express = require('express');
-const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+
+// Dynamically locate and load .env from possible root locations
+const rootEnv = path.join(__dirname, '.env');
+const v2Env = path.join(__dirname, '..', 'MCNC_V2', '.env');
+
+if (fs.existsSync(rootEnv)) {
+  require('dotenv').config({ path: rootEnv });
+} else if (fs.existsSync(v2Env)) {
+  require('dotenv').config({ path: v2Env });
+} else {
+  require('dotenv').config();
+}
+
+const express = require('express');
+const cors = require('cors');
 const { exec } = require('child_process');
 
 const app = express();
@@ -66,11 +79,11 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ONLINE',
     port: PORT,
+    geminiKeyDetected: Boolean(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY),
     timestamp: new Date().toISOString()
   });
 });
 
-// Patched to return proper project objects for Tab03Projects.jsx
 app.get('/api/projects', (req, res) => {
   try {
     if (!fs.existsSync(PROJECTS_ROOT)) {
@@ -150,10 +163,126 @@ app.post('/api/pipeline/ingest', (req, res) => {
 });
 
 // ============================================================================
+// REVIEW & TAXONOMY CLASSIFIER (TAB 12 REVIEW -> TAB 13 DOCS)
+// ============================================================================
+
+app.post('/api/review/suggest-taxonomy', async (req, res) => {
+  try {
+    const { content, existingTaxonomy } = req.body;
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'No content provided for classification.' });
+    }
+
+    const lower = content.toLowerCase();
+
+    // Instant local heuristics for zero-latency deterministic classification
+    if (
+      lower.includes('reverse engineer') ||
+      lower.includes('ghidra') ||
+      lower.includes('decompile') ||
+      lower.includes('artcraft') ||
+      lower.includes('binary') ||
+      lower.includes('disassembl')
+    ) {
+      console.log('[✔] Taxonomy Classified via Heuristics: System Architecture & Code > Reverse Engineering & Decompilation');
+      return res.json({
+        domain: 'System Architecture & Code',
+        subNiche: 'Reverse Engineering & Decompilation'
+      });
+    }
+
+    if (
+      lower.includes('claude code') ||
+      lower.includes('ollama') ||
+      lower.includes('freellmapi') ||
+      lower.includes('opencode')
+    ) {
+      console.log('[✔] Taxonomy Classified via Heuristics: Cutting Edge AI > Local LLM Harnesses');
+      return res.json({
+        domain: 'Cutting Edge AI',
+        subNiche: 'Local LLM Harnesses'
+      });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+
+    if (!apiKey) {
+      console.warn('[!] GEMINI_API_KEY not found. Defaulting to general code domain.');
+      return res.json({
+        domain: 'System Architecture & Code',
+        subNiche: 'Architecture & Tooling'
+      });
+    }
+
+    const prompt = `
+You are an expert taxonomy and knowledge-management classifier for the Warlord MCNC Docs Vault.
+Analyze the following research dossier excerpt and determine the best Topic Domain and Specialization/Sub-Niche.
+
+EXISTING TAXONOMY CATALOG:
+${JSON.stringify(existingTaxonomy || {}, null, 2)}
+
+INSTRUCTIONS:
+1. Prefer assigning to an existing Topic Domain and Sub-Niche if it is an accurate match.
+2. If none fit well, propose a clean, concise NEW Topic Domain (e.g. "Reverse Engineering", "Quant Systems") and NEW Sub-Niche (e.g. "Binary Decompilation", "Orderflow Delta").
+3. Do NOT default to "Cutting Edge AI" unless the content is strictly about LLM weights or neural networks.
+4. Return ONLY a valid JSON object with keys "domain" and "subNiche".
+
+RESEARCH CONTENT:
+${content.slice(0, 3500)}
+`;
+
+    // 4-second timeout cutoff to eliminate any UI hang
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            response_mime_type: 'application/json',
+            temperature: 0.1
+          }
+        })
+      }
+    );
+    clearTimeout(timeout);
+
+    const data = await response.json();
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
+      console.log(`[✔] Taxonomy Classified via Gemini Cloud: [${parsed.domain}] > [${parsed.subNiche}]`);
+      return res.json(parsed);
+    }
+
+    return res.json({
+      domain: 'System Architecture & Code',
+      subNiche: 'General Tooling'
+    });
+  } catch (err) {
+    console.warn('[!] Fast taxonomy error handler active:', err.message);
+    const lower = (req.body.content || '').toLowerCase();
+    if (lower.includes('reverse') || lower.includes('ghidra') || lower.includes('artcraft')) {
+      return res.json({
+        domain: 'System Architecture & Code',
+        subNiche: 'Reverse Engineering & Decompilation'
+      });
+    }
+    return res.json({
+      domain: 'General Research',
+      subNiche: 'Technical Dossiers'
+    });
+  }
+});
+
+// ============================================================================
 // PERSISTENT CHAT LEDGER ROUTES (MOUNTED FOR TAB 01 EXEC)
 // ============================================================================
 
-// 1. Fetch All Sub-Chats by Project
 app.get('/api/chats/all', (req, res) => {
   try {
     const catalog = {};
@@ -193,7 +322,6 @@ app.get('/api/chats/all', (req, res) => {
   }
 });
 
-// 2. Save Sub-Chat to Disk
 app.post('/api/chats/save', (req, res) => {
   try {
     const { project, id, title, messages } = req.body;
@@ -223,7 +351,6 @@ app.post('/api/chats/save', (req, res) => {
   }
 });
 
-// 3. Load Specific Sub-Chat
 app.get('/api/chats/load', (req, res) => {
   try {
     const { project, id } = req.query;
@@ -244,7 +371,6 @@ app.get('/api/chats/load', (req, res) => {
   }
 });
 
-// 4. Delete Sub-Chat from Disk
 app.delete('/api/chats/delete', (req, res) => {
   try {
     const { project, id } = req.query;
@@ -263,7 +389,6 @@ app.delete('/api/chats/delete', (req, res) => {
   }
 });
 
-// 5. Load Immutable Master Chat
 app.get('/api/chats/master', (req, res) => {
   try {
     const project = req.query.project || 'CHIEF MADOTHI FUND';
@@ -285,7 +410,6 @@ app.get('/api/chats/master', (req, res) => {
   }
 });
 
-// 6. Archive Sub-Chat: Commit to Master Chat, 13 Docs, and Purge JSON
 app.post('/api/chats/archive', (req, res) => {
   try {
     const { project, chatId, title, summary } = req.body;
@@ -309,11 +433,9 @@ app.post('/api/chats/archive', (req, res) => {
 
     const fullNode = nodeHeader + transcript + '\n\n---\n';
 
-    // A. Append to Project MASTER_CHAT.md
     const masterFile = path.join(CHATS_ROOT, project, 'MASTER_CHAT.md');
     fs.appendFileSync(masterFile, fullNode, 'utf8');
 
-    // B. Save copy to vault/Docs for Tab 13 Docs consumption
     const projDocsDir = path.join(VAULT_DOCS_ROOT, project);
     if (!fs.existsSync(projDocsDir)) {
       fs.mkdirSync(projDocsDir, { recursive: true });
@@ -321,7 +443,6 @@ app.post('/api/chats/archive', (req, res) => {
     const docFile = path.join(projDocsDir, `${chatId}_${title.replace(/[^a-zA-Z0-9_-]/g, '_')}.md`);
     fs.writeFileSync(docFile, `# ARCHIVED THREAD: ${title}\n` + fullNode, 'utf8');
 
-    // C. Remove the transient sub-chat JSON
     if (fs.existsSync(chatFile)) {
       fs.unlinkSync(chatFile);
     }
@@ -339,20 +460,19 @@ app.post('/api/chats/archive', (req, res) => {
 // ============================================================================
 
 app.listen(PORT, () => {
+  const keyStatus = Boolean(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY)
+    ? 'DETECTED (ONLINE)'
+    : 'MISSING (USING HEURISTIC CLASSIFIER)';
+
   console.log(`====================================================`);
   console.log(`[PILLAR 2] MCNC PROJECT & PIPELINE ENGINE ONLINE`);
   console.log(`[PORT]          : ${PORT}`);
+  console.log(`[GEMINI API KEY]: ${keyStatus}`);
   console.log(`[PROJECTS ROOT] : ${PROJECTS_ROOT}`);
   console.log(`[CHATS ROOT]    : ${CHATS_ROOT}`);
   console.log(`[STATE LEDGER]  : ${LEDGER_FILE}`);
-  console.log(`[ENDPOINTS]     : GET    /api/projects`);
-  console.log(`                : POST   /api/projects/create`);
-  console.log(`                : POST   /api/pipeline/ingest`);
+  console.log(`[ENDPOINTS]     : POST   /api/review/suggest-taxonomy`);
   console.log(`                : GET    /api/chats/all`);
-  console.log(`                : POST   /api/chats/save`);
-  console.log(`                : GET    /api/chats/load`);
-  console.log(`                : DELETE /api/chats/delete`);
-  console.log(`                : GET    /api/chats/master`);
   console.log(`                : POST   /api/chats/archive`);
   console.log(`====================================================`);
 });

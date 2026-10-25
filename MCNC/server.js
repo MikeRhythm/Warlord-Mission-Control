@@ -1183,16 +1183,13 @@ function scanVaultDocuments() {
 
             if (item.isDirectory()) {
                 const subDomain = domainName === 'General' ? item.name : domainName;
-                const subNiche = domainName === 'General' ? 'Vault' : item.name;
-                walkDir(fullPath, subDomain, subNiche);
+                walkDir(fullPath, subDomain, item.name);
             } else if (item.isFile()) {
                 const ext = path.extname(item.name).toLowerCase();
                 if (['.md', '.txt'].includes(ext)) {
-                    const cleanBaseName = item.name.replace(/\.(md|txt)$/i, '');
-                    let resolvedNiche = defaultNiche;
-                    if (defaultNiche === 'Vault' && fullPath.toLowerCase().startsWith(DOCS_PATH.toLowerCase())) {
-                        resolvedNiche = cleanBaseName.replace(/_/g, ' ');
-                    }
+                    // Extract exact niche name from filename
+                    const cleanBaseName = item.name.replace(/\.(md|txt)$/i, '').replace(/_/g, ' ');
+                    const resolvedNiche = (defaultNiche !== 'Vault' && defaultNiche !== domainName) ? defaultNiche : cleanBaseName;
                     addDoc(fullPath, domainName, resolvedNiche);
                 }
             }
@@ -1226,15 +1223,21 @@ app.get('/api/docs/refresh', (req, res) => {
 
 app.post('/api/docs/save', async (req, res) => {
     try {
-        const { filename, title, domain, niche, content, filePath } = req.body;
+        const { filename, domain, niche, specialization, content, filePath } = req.body;
         if (!content || !content.trim()) return res.status(400).json({ error: 'Content payload is empty.' });
 
         let targetFile = filePath;
 
-        // If direct filePath provided, write back to authentic source file
+        // If direct filePath not provided, construct the target path dynamically
         if (!targetFile || !fs.existsSync(path.dirname(targetFile))) {
             const safeDomain = (domain || 'General').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
-            const safeNiche = (niche || 'General').replace(/\s+/g, '_').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
+            
+            // Accept both 'specialization' (from Tab 12) or 'niche' (from Tab 13)
+            const rawNiche = specialization || niche || 'General';
+            const safeNiche = rawNiche
+                .trim()
+                .replace(/[\\\/:\*\?"<>\|]/g, '_')
+                .replace(/\s+/g, '_');
             
             let targetFilename = filename;
             if (!targetFilename) targetFilename = `${safeNiche}.md`;
@@ -1256,6 +1259,7 @@ app.post('/api/docs/save', async (req, res) => {
             filename: path.basename(targetFile) 
         });
     } catch (err) { 
+        console.error('[!] Vault Save Error:', err.message);
         res.status(500).json({ error: err.message }); 
     }
 });

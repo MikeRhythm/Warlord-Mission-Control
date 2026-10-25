@@ -11,3 +11,5 @@
 - [2026-10-18T00:10:55.977Z] **DOCS_SAVED**:Synthesized canonical dossier to vault/Docs/Cutting Edge AI/Hermes.md
 - [2026-10-18T22:17:12.058Z] **DOCS_SAVED**:Synthesized canonical dossier to vault/Docs/Cutting Edge AI/Hermes.md
 - [2026-10-22T17:42:15.187Z] **DOCS_SAVED**:Synthesized canonical dossier to vault/Docs/The Chief Madothi Fund/Fund_Raising.md
+- [2026-10-25T06:43:25.014Z] **DOCS_SAVED**:Updated document at: C:\Warlord_Inc\Warlord_WASP\MCNC\vault\Docs\System Architecture & Code\General.md
+- [2026-10-25T07:19:53.669Z] **DOCS_SAVED**:Updated document at: C:\Warlord_Inc\Warlord_WASP\MCNC\vault\Docs\System Architecture & Code\Reverse_Engineering_&_Decompilation.md
