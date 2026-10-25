@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   RefreshCw, 
   Search, 
@@ -12,7 +12,9 @@ import {
   Copy,
   Mic,
   Send,
-  Calendar
+  Calendar,
+  Zap,
+  Wand2
 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 
@@ -31,6 +33,8 @@ export default function Tab13Docs({ ws }) {
   const [editedNiche, setEditedNiche] = useState('');
   const [editedContent, setEditedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isReverting, setIsReverting] = useState(false);
+  const [isConsolidating, setIsConsolidating] = useState(false);
   const [copiedDoc, setCopiedDoc] = useState(false);
 
   // Modal / New Doc States
@@ -61,7 +65,7 @@ export default function Tab13Docs({ ws }) {
         if (data.length > 0 && !selectedDoc) {
           handleSelectDoc(data[0]);
         } else if (selectedDoc) {
-          const updated = data.find(d => d.filename === selectedDoc.filename);
+          const updated = data.find(d => d.path.toLowerCase() === selectedDoc.path.toLowerCase());
           if (updated) {
             setSelectedDoc(updated);
             if (!isEditing) {
@@ -84,7 +88,6 @@ export default function Tab13Docs({ ws }) {
     fetchDocs();
 
     const handleExternalPush = () => {
-      console.log("External push detected. Refreshing vault...");
       fetchDocs();
     };
 
@@ -112,6 +115,66 @@ export default function Tab13Docs({ ws }) {
     setTimeout(() => setCopiedDoc(false), 2000);
   };
 
+  // Reconstitute archived thread back into 01 Exec active chat ledger
+  const handleRevertToExec = async () => {
+    if (!selectedDoc) return;
+    setIsReverting(true);
+
+    try {
+      const response = await fetch('http://localhost:8082/api/chats/revert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filePath: selectedDoc.path,
+          content: selectedDoc.content,
+          project: selectedDoc.domain,
+          filename: selectedDoc.filename
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        window.dispatchEvent(new CustomEvent('MCNC_REVERT_CHAT', { detail: data }));
+        await fetchDocs();
+      } else {
+        alert(`Revert failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to revert chat to 01 Exec:', err);
+    } finally {
+      setIsReverting(false);
+    }
+  };
+
+  // Consolidate Master Ledger via Server Pipeline
+  const handleConsolidateMaster = async () => {
+    if (!selectedDoc || !selectedDoc.path) return;
+    setIsConsolidating(true);
+
+    try {
+      const response = await fetch('http://localhost:8082/api/docs/consolidate-master', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: selectedDoc.domain,
+          filePath: selectedDoc.path,
+          content: selectedDoc.content
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchDocs();
+      } else {
+        alert(`Consolidation failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to consolidate master chat:', err);
+    } finally {
+      setIsConsolidating(false);
+    }
+  };
+
   // Commit updates to existing document
   const handleSaveExistingDoc = async () => {
     if (!selectedDoc) return;
@@ -121,6 +184,7 @@ export default function Tab13Docs({ ws }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          filePath: selectedDoc.path,
           filename: selectedDoc.filename,
           title: editedTitle,
           domain: editedDomain,
@@ -250,7 +314,6 @@ export default function Tab13Docs({ ws }) {
     setIsTodoRecording(true);
   };
 
-  // Formatted date string generator (e.g. "03 Oct 2026")
   const getTodayDateHeading = () => {
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
@@ -259,7 +322,6 @@ export default function Tab13Docs({ ws }) {
     return `${day} ${month} ${year}`;
   };
 
-  // Add Item to WASP_ToDo_List with Automatic Date Header
   const handleAddTodoItem = async () => {
     if (!todoInput.trim() || !selectedDoc) return;
     setIsAddingTodo(true);
@@ -291,6 +353,7 @@ export default function Tab13Docs({ ws }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          filePath: selectedDoc.path,
           filename: selectedDoc.filename,
           title: selectedDoc.title || selectedDoc.filename.replace('.md', ''),
           domain: selectedDoc.domain || 'Vault',
@@ -319,73 +382,97 @@ export default function Tab13Docs({ ws }) {
     (selectedDoc.title && selectedDoc.title.toLowerCase().includes('todo'))
   );
 
-  // Derive unique domains across loaded documents
-  const domains = ['ALL', ...new Set(docs.map(d => d.domain).filter(Boolean))];
+  // Accurate check for archived thread
+  const isArchivedThread = selectedDoc && (
+    (selectedDoc.content && selectedDoc.content.toLowerCase().includes('# archived thread:')) ||
+    (selectedDoc.title && selectedDoc.title.toLowerCase().includes('archived thread')) ||
+    (selectedDoc.filename && selectedDoc.filename.toLowerCase().startsWith('chat_'))
+  );
 
-  // Derive contextual niches: show ONLY niches belonging to the selected domain
-  const relevantDocsForNiches = domainFilter === 'ALL' ? docs : docs.filter(d => d.domain === domainFilter);
-  const niches = ['ALL', ...new Set(relevantDocsForNiches.map(d => d.niche).filter(Boolean))];
+  // Accurate check for project master ledger
+  const isMasterLedger = selectedDoc && (
+    selectedDoc.filename.toLowerCase() === 'master_chat.md' ||
+    (selectedDoc.title && selectedDoc.title.toLowerCase().includes('master chat ledger'))
+  );
 
-  // Handle Domain Switch with auto-selection of first matching dossier
+  // Unique Domains List
+  const domains = useMemo(() => {
+    const list = Array.from(new Set(docs.map(d => (d.domain || '').trim()).filter(Boolean)));
+    return ['ALL', ...list];
+  }, [docs]);
+
+  // Contextual Niches List (strictly scoped to active domain)
+  const niches = useMemo(() => {
+    const targetDomain = domainFilter.trim().toLowerCase();
+    const relevant = targetDomain === 'all'
+      ? docs 
+      : docs.filter(d => (d.domain || '').trim().toLowerCase() === targetDomain);
+    const list = Array.from(new Set(relevant.map(d => (d.niche || '').trim()).filter(Boolean)));
+    return ['ALL', ...list];
+  }, [docs, domainFilter]);
+
+  // Strict Filtering Logic: Domain and Niche matches are enforced
+  const filteredDocs = useMemo(() => {
+    const cleanDomain = domainFilter.trim().toLowerCase();
+    const cleanNiche = nicheFilter.trim().toLowerCase();
+    const query = searchTerm.trim().toLowerCase();
+
+    return docs.filter(doc => {
+      const docDomain = (doc.domain || '').trim().toLowerCase();
+      const docNiche = (doc.niche || '').trim().toLowerCase();
+
+      const matchesDomain = cleanDomain === 'all' || docDomain === cleanDomain;
+      const matchesNiche = cleanNiche === 'all' || docNiche === cleanNiche;
+
+      const matchesSearch = !query || 
+        (doc.title && doc.title.toLowerCase().includes(query)) ||
+        (doc.content && doc.content.toLowerCase().includes(query)) ||
+        (doc.filename && doc.filename.toLowerCase().includes(query));
+
+      return matchesDomain && matchesNiche && matchesSearch;
+    });
+  }, [docs, domainFilter, nicheFilter, searchTerm]);
+
+  // Handle Domain Switch
   const handleDomainFilterChange = (newDomain) => {
     setDomainFilter(newDomain);
     setNicheFilter('ALL');
-    
-    const matchingDocs = docs.filter(doc => {
-      const matchesDomain = newDomain === 'ALL' || doc.domain === newDomain;
-      const matchesSearch = !searchTerm || 
-        (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (doc.content && doc.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (doc.filename && doc.filename.toLowerCase().includes(searchTerm.toLowerCase()));
-      return matchesDomain && matchesSearch;
-    });
 
-    if (matchingDocs.length > 0) {
-      handleSelectDoc(matchingDocs[0]);
+    const cleanDomain = newDomain.trim().toLowerCase();
+    const matched = docs.filter(d => cleanDomain === 'all' || (d.domain || '').trim().toLowerCase() === cleanDomain);
+    if (matched.length > 0) {
+      handleSelectDoc(matched[0]);
     }
   };
 
-  // Handle Niche Switch with auto-selection of first matching dossier
+  // Handle Niche Switch
   const handleNicheFilterChange = (newNiche) => {
     setNicheFilter(newNiche);
-    
-    const matchingDocs = docs.filter(doc => {
-      const matchesDomain = domainFilter === 'ALL' || doc.domain === domainFilter;
-      const matchesNiche = newNiche === 'ALL' || doc.niche === newNiche;
-      const matchesSearch = !searchTerm || 
-        (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (doc.content && doc.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (doc.filename && doc.filename.toLowerCase().includes(searchTerm.toLowerCase()));
-      return matchesDomain && matchesNiche && matchesSearch;
-    });
 
-    if (matchingDocs.length > 0) {
-      handleSelectDoc(matchingDocs[0]);
+    const cleanDomain = domainFilter.trim().toLowerCase();
+    const cleanNiche = newNiche.trim().toLowerCase();
+    const matched = docs.filter(d => {
+      const matchDom = cleanDomain === 'all' || (d.domain || '').trim().toLowerCase() === cleanDomain;
+      const matchNic = cleanNiche === 'all' || (d.niche || '').trim().toLowerCase() === cleanNiche;
+      return matchDom && matchNic;
+    });
+    if (matched.length > 0) {
+      handleSelectDoc(matched[0]);
     }
   };
-
-  // Filtering logic for the sidebar list
-  const filteredDocs = docs.filter(doc => {
-    const matchesDomain = domainFilter === 'ALL' || doc.domain === domainFilter;
-    const matchesNiche = nicheFilter === 'ALL' || doc.niche === nicheFilter;
-    const matchesSearch = 
-      (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (doc.content && doc.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (doc.filename && doc.filename.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    return matchesDomain && matchesNiche && matchesSearch;
-  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', padding: '16px', boxSizing: 'border-box', gap: '14px', backgroundColor: '#090b0e', color: '#e2e8f0', fontFamily: "'JetBrains Mono', monospace" }}>
       
       {/* HEADER BAR */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--wire-border)', paddingBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #1f242d', paddingBottom: '12px' }}>
         <div>
-          <div style={{ color: 'var(--gold-core)', fontSize: '1.05rem', fontWeight: 'bold', letterSpacing: '1px' }}>
-            13 DOCS // THE OBSIDIAN VAULT & KNOWLEDGE STUDY
+          <div style={{ color: '#DAA520', fontSize: '1.05rem', fontWeight: 'bold', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>13 DOCS // THE OBSIDIAN VAULT & KNOWLEDGE STUDY</span>
+            {/* Quiet Metallic Status Dot */}
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#475569', display: 'inline-block' }} title="Vault link nominal"></span>
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-mist)', marginTop: '4px' }}>
+          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
             Live Filesystem Telemetry • Distilled Intelligence • Active Base 1 Repositories
           </div>
         </div>
@@ -399,8 +486,8 @@ export default function Tab13Docs({ ws }) {
               gap: '6px',
               padding: '6px 12px',
               backgroundColor: '#12151b',
-              border: '1px solid var(--wire-border)',
-              color: 'var(--gold-core)',
+              border: '1px solid #1f242d',
+              color: '#DAA520',
               fontSize: '0.72rem',
               fontWeight: 'bold',
               cursor: 'pointer',
@@ -418,9 +505,9 @@ export default function Tab13Docs({ ws }) {
               alignItems: 'center',
               gap: '6px',
               padding: '6px 12px',
-              backgroundColor: 'rgba(0, 255, 102, 0.1)',
-              border: '1px solid var(--emerald-core)',
-              color: 'var(--emerald-core)',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid #10b981',
+              color: '#10b981',
               fontSize: '0.72rem',
               fontWeight: 'bold',
               cursor: 'pointer',
@@ -432,8 +519,8 @@ export default function Tab13Docs({ ws }) {
           </button>
 
           <div style={{ padding: '4px 10px', border: '1px solid #1f242d', backgroundColor: '#101318', borderRadius: '3px', fontSize: '0.7rem' }}>
-            <span style={{ color: 'var(--text-mist)' }}>ARCHIVE CAPACITY: </span>
-            <span style={{ color: 'var(--gold-core)', fontWeight: 'bold' }}>{docs.length} LIVE DOSSIERS</span>
+            <span style={{ color: '#64748b' }}>ARCHIVE CAPACITY: </span>
+            <span style={{ color: '#DAA520', fontWeight: 'bold' }}>{docs.length} LIVE DOSSIERS</span>
           </div>
         </div>
       </div>
@@ -441,37 +528,37 @@ export default function Tab13Docs({ ws }) {
       {/* FILTER & SEARCH ROW */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '12px', alignItems: 'center' }}>
         <div>
-          <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>1. KNOWLEDGE DOMAIN</label>
+          <label style={{ fontSize: '0.65rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>1. KNOWLEDGE DOMAIN</label>
           <select 
             value={domainFilter} 
             onChange={(e) => handleDomainFilterChange(e.target.value)}
-            style={{ width: '100%', padding: '6px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+            style={{ width: '100%', padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', outline: 'none' }}
           >
             {domains.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
 
         <div>
-          <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>2. SUBJECT / NICHE</label>
+          <label style={{ fontSize: '0.65rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>2. SUBJECT / NICHE</label>
           <select 
             value={nicheFilter} 
             onChange={(e) => handleNicheFilterChange(e.target.value)}
-            style={{ width: '100%', padding: '6px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+            style={{ width: '100%', padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', outline: 'none' }}
           >
             {niches.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
 
         <div>
-          <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>QUICK SEARCH ACROSS VAULT</label>
+          <label style={{ fontSize: '0.65rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>QUICK SEARCH ACROSS VAULT</label>
           <div style={{ position: 'relative' }}>
-            <Search style={{ position: 'absolute', left: '10px', top: '8px', width: '13px', height: '13px', color: 'var(--text-mist)' }} />
+            <Search style={{ position: 'absolute', left: '10px', top: '8px', width: '13px', height: '13px', color: '#64748b' }} />
             <input 
               type="text" 
               placeholder="Search vectors, filenames, models, ROEs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ width: '100%', padding: '6px 10px 6px 30px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '6px 10px 6px 30px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box', outline: 'none' }}
             />
           </div>
         </div>
@@ -480,25 +567,25 @@ export default function Tab13Docs({ ws }) {
       {/* CORE WORKSPACE GRID */}
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '14px', flex: 1, minHeight: 0 }}>
         
-        {/* SIDEBAR DOSSIER LIST */}
-        <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#0d1015', border: '1px solid var(--wire-border)', borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid var(--wire-border)', backgroundColor: '#11141a' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--gold-core)', fontWeight: 'bold' }}>
+        {/* SIDEBAR DOSSIER LIST (STRICTLY SCOPED) */}
+        <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#0d1015', border: '1px solid #1f242d', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #1f242d', backgroundColor: '#11141a' }}>
+            <span style={{ fontSize: '0.72rem', color: '#DAA520', fontWeight: 'bold' }}>
               AVAILABLE DOSSIERS ({filteredDocs.length})
             </span>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }} className="custom-scrollbar">
             {filteredDocs.length === 0 ? (
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-mist)', padding: '16px', textAlign: 'center' }}>
-                No matching files found.
+              <div style={{ fontSize: '0.72rem', color: '#64748b', padding: '16px', textAlign: 'center' }}>
+                No dossiers registered under this scope.
               </div>
             ) : (
               filteredDocs.map((doc) => {
-                const isSelected = selectedDoc && selectedDoc.filename === doc.filename;
+                const isSelected = selectedDoc && selectedDoc.path.toLowerCase() === doc.path.toLowerCase();
                 return (
                   <div
-                    key={doc.filename}
+                    key={doc.path}
                     onClick={() => handleSelectDoc(doc)}
                     style={{
                       display: 'flex',
@@ -508,20 +595,20 @@ export default function Tab13Docs({ ws }) {
                       marginBottom: '6px',
                       borderRadius: '3px',
                       cursor: 'pointer',
-                      border: isSelected ? '1px solid var(--emerald-core)' : '1px solid #1a1e27',
-                      backgroundColor: isSelected ? 'rgba(0, 255, 102, 0.05)' : '#101319',
+                      border: isSelected ? '1px solid #10b981' : '1px solid #1a1e27',
+                      backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.05)' : '#101319',
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <div>
-                      <div style={{ fontSize: '0.78rem', color: isSelected ? 'var(--emerald-core)' : '#fff', fontWeight: 'bold' }}>
+                    <div style={{ overflow: 'hidden', paddingRight: '6px' }}>
+                      <div style={{ fontSize: '0.78rem', color: isSelected ? '#10b981' : '#fff', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {doc.title || doc.filename.replace('.md', '')}
                       </div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--text-mist)', marginTop: '2px' }}>
-                        {doc.domain || 'Vault'} &gt; {doc.niche || 'General'}
+                      <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '2px' }}>
+                        {doc.domain} &gt; {doc.niche}
                       </div>
                     </div>
-                    <span style={{ fontSize: '0.6rem', color: 'var(--gold-core)', border: '1px solid #2a313d', padding: '2px 5px', borderRadius: '2px' }}>
+                    <span style={{ fontSize: '0.6rem', color: '#DAA520', border: '1px solid #2a313d', padding: '2px 5px', borderRadius: '2px', shrink: 0 }}>
                       MD
                     </span>
                   </div>
@@ -532,33 +619,83 @@ export default function Tab13Docs({ ws }) {
         </div>
 
         {/* MAIN DOSSIER VIEWER & EDITOR */}
-        <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#0d1015', border: '1px solid var(--wire-border)', borderRadius: '4px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#0d1015', border: '1px solid #1f242d', borderRadius: '4px', overflow: 'hidden' }}>
           {selectedDoc ? (
             <>
               {/* DOSSIER CONTROL STRIP */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--wire-border)', backgroundColor: '#11141a' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FileText style={{ width: '14px', height: '14px', color: 'var(--gold-core)' }} />
-                  <span style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 'bold' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #1f242d', backgroundColor: '#11141a' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', paddingRight: '10px' }}>
+                  <FileText style={{ width: '14px', height: '14px', color: '#DAA520', flexShrink: 0 }} />
+                  <span style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {isEditing ? editedTitle : (selectedDoc.title || selectedDoc.filename)}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-mist)' }}>
-                    DOMAIN: <span style={{ color: 'var(--gold-core)' }}>{selectedDoc.domain || 'Unassigned'}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                    DOMAIN: <span style={{ color: '#DAA520' }}>{selectedDoc.domain}</span>
                     {' • '}
-                    NICHE: <span style={{ color: 'var(--gold-core)' }}>{selectedDoc.niche || 'Unassigned'}</span>
+                    NICHE: <span style={{ color: '#DAA520' }}>{selectedDoc.niche}</span>
                   </div>
 
-                  <span style={{ fontSize: '0.68rem', color: 'var(--emerald-core)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <CheckCircle style={{ width: '12px', height: '12px' }} /> AUTHENTIC FILE
                   </span>
 
-                  {/* READ DOSSIER SPEAKER */}
+                  {/* CONSOLIDATE & CLEANUP BUTTON (MOUNTED ON MASTER CHATS) */}
+                  {isMasterLedger && (
+                    <button
+                      onClick={handleConsolidateMaster}
+                      disabled={isConsolidating}
+                      title="Run fluff-stripping SOP pass and categorize according to Project Mission"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 9px',
+                        backgroundColor: '#161a22',
+                        border: '1px solid #DAA520',
+                        color: '#DAA520',
+                        fontSize: '0.68rem',
+                        fontWeight: 'bold',
+                        cursor: isConsolidating ? 'not-allowed' : 'pointer',
+                        borderRadius: '3px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {isConsolidating ? <Loader2 className="animate-spin" style={{ width: '11px', height: '11px' }} /> : <Wand2 style={{ width: '11px', height: '11px', strokeWidth: 3 }} />}
+                      <span>{isConsolidating ? 'CONSOLIDATING...' : '✨ CONSOLIDATE & CLEANUP'}</span>
+                    </button>
+                  )}
+
+                  {/* REVERT TO 01 EXEC BUTTON (MOUNTED ON ARCHIVED THREADS) */}
+                  {isArchivedThread && (
+                    <button
+                      onClick={handleRevertToExec}
+                      disabled={isReverting}
+                      title="Reconstitute thread back into 01 Exec active chat ledger"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 9px',
+                        backgroundColor: '#161a22',
+                        border: '1px solid #eab308',
+                        color: '#facc15',
+                        fontSize: '0.68rem',
+                        fontWeight: 'bold',
+                        cursor: isReverting ? 'not-allowed' : 'pointer',
+                        borderRadius: '3px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {isReverting ? <Loader2 className="animate-spin" style={{ width: '11px', height: '11px' }} /> : <Zap style={{ width: '11px', height: '11px', fill: '#facc15' }} />}
+                      <span>{isReverting ? 'RESTORING...' : '⚡ REVERT TO 01 EXEC'}</span>
+                    </button>
+                  )}
+
                   <SpeakerBtn text={selectedDoc.content} label="READ DOSSIER" />
 
-                  {/* COPY BUTTON */}
                   <button
                     onClick={handleCopyDocContent}
                     style={{
@@ -567,8 +704,8 @@ export default function Tab13Docs({ ws }) {
                       gap: '4px',
                       padding: '3px 8px',
                       backgroundColor: '#161a22',
-                      border: copiedDoc ? '1px solid var(--emerald-core)' : '1px solid var(--wire-border)',
-                      color: copiedDoc ? 'var(--emerald-core)' : '#cbd5e1',
+                      border: copiedDoc ? '1px solid #10b981' : '1px solid #1f242d',
+                      color: copiedDoc ? '#10b981' : '#cbd5e1',
                       fontSize: '0.68rem',
                       fontWeight: 'bold',
                       cursor: 'pointer',
@@ -580,7 +717,6 @@ export default function Tab13Docs({ ws }) {
                     <span>{copiedDoc ? '✓ COPIED' : 'COPY'}</span>
                   </button>
 
-                  {/* EDIT / SAVE CONTROLS */}
                   {isEditing ? (
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button
@@ -591,9 +727,9 @@ export default function Tab13Docs({ ws }) {
                           alignItems: 'center',
                           gap: '4px',
                           padding: '3px 8px',
-                          backgroundColor: 'rgba(0, 255, 102, 0.15)',
-                          border: '1px solid var(--emerald-core)',
-                          color: 'var(--emerald-core)',
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid #10b981',
+                          color: '#10b981',
                           fontSize: '0.68rem',
                           fontWeight: 'bold',
                           cursor: 'pointer',
@@ -612,8 +748,8 @@ export default function Tab13Docs({ ws }) {
                           gap: '4px',
                           padding: '3px 8px',
                           backgroundColor: '#161a22',
-                          border: '1px solid var(--wire-border)',
-                          color: 'var(--ruby-core)',
+                          border: '1px solid #1f242d',
+                          color: '#ef4444',
                           fontSize: '0.68rem',
                           cursor: 'pointer',
                           borderRadius: '3px'
@@ -632,8 +768,8 @@ export default function Tab13Docs({ ws }) {
                         gap: '4px',
                         padding: '3px 8px',
                         backgroundColor: '#161a22',
-                        border: '1px solid var(--wire-border)',
-                        color: 'var(--gold-core)',
+                        border: '1px solid #1f242d',
+                        color: '#DAA520',
                         fontSize: '0.68rem',
                         fontWeight: 'bold',
                         cursor: 'pointer',
@@ -652,12 +788,12 @@ export default function Tab13Docs({ ws }) {
                 <div style={{
                   padding: '8px 16px',
                   backgroundColor: '#0c0f14',
-                  borderBottom: '1px solid var(--wire-border)',
+                  borderBottom: '1px solid #1f242d',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: 'var(--gold-core)', fontWeight: 'bold' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: '#DAA520', fontWeight: 'bold' }}>
                     <Calendar style={{ width: '12px', height: '12px' }} />
                     <span>TODAY ({getTodayDateHeading()}):</span>
                   </div>
@@ -673,7 +809,7 @@ export default function Tab13Docs({ ws }) {
                     style={{
                       flex: 1,
                       backgroundColor: '#12161f',
-                      border: isTodoRecording ? '1px solid #ef4444' : '1px solid var(--wire-border)',
+                      border: isTodoRecording ? '1px solid #ef4444' : '1px solid #1f242d',
                       color: '#e2e8f0',
                       padding: '6px 10px',
                       fontSize: '0.75rem',
@@ -692,8 +828,8 @@ export default function Tab13Docs({ ws }) {
                       gap: '4px',
                       padding: '6px 10px',
                       backgroundColor: isTodoRecording ? '#2b0d0d' : '#161a22',
-                      border: isTodoRecording ? '1px solid #ef4444' : '1px solid var(--wire-border)',
-                      color: isTodoRecording ? '#ef4444' : 'var(--gold-core)',
+                      border: isTodoRecording ? '1px solid #ef4444' : '1px solid #1f242d',
+                      color: isTodoRecording ? '#ef4444' : '#DAA520',
                       fontSize: '0.68rem',
                       fontWeight: 'bold',
                       cursor: 'pointer',
@@ -713,9 +849,9 @@ export default function Tab13Docs({ ws }) {
                       alignItems: 'center',
                       gap: '4px',
                       padding: '6px 12px',
-                      backgroundColor: 'rgba(0, 255, 102, 0.15)',
-                      border: '1px solid var(--emerald-core)',
-                      color: 'var(--emerald-core)',
+                      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                      border: '1px solid #10b981',
+                      color: '#10b981',
                       fontSize: '0.68rem',
                       fontWeight: 'bold',
                       cursor: 'pointer',
@@ -729,7 +865,7 @@ export default function Tab13Docs({ ws }) {
                 </div>
               )}
 
-              {/* DOSSIER BODY (PREVIEW OR IN-PLACE EDITOR) */}
+              {/* DOSSIER BODY */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }} className="custom-scrollbar">
                 {isEditing ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
@@ -739,21 +875,21 @@ export default function Tab13Docs({ ws }) {
                         value={editedTitle}
                         onChange={(e) => setEditedTitle(e.target.value)}
                         placeholder="Document Title"
-                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
                       />
                       <input 
                         type="text" 
                         value={editedDomain}
                         onChange={(e) => setEditedDomain(e.target.value)}
                         placeholder="Domain"
-                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
                       />
                       <input 
                         type="text" 
                         value={editedNiche}
                         onChange={(e) => setEditedNiche(e.target.value)}
                         placeholder="Niche"
-                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
+                        style={{ padding: '6px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px' }}
                       />
                     </div>
                     <textarea 
@@ -765,7 +901,7 @@ export default function Tab13Docs({ ws }) {
                         minHeight: '380px', 
                         padding: '12px', 
                         backgroundColor: '#101318', 
-                        border: '1px solid var(--wire-border)', 
+                        border: '1px solid #1f242d', 
                         color: '#cbd5e1', 
                         fontSize: '0.78rem', 
                         fontFamily: "'JetBrains Mono', monospace", 
@@ -791,7 +927,7 @@ export default function Tab13Docs({ ws }) {
               </div>
             </>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-mist)', fontSize: '0.78rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b', fontSize: '0.78rem' }}>
               Select a dossier from the sidebar repository to view its contents.
             </div>
           )}
@@ -799,7 +935,7 @@ export default function Tab13Docs({ ws }) {
 
       </div>
 
-      {/* NEW DOSSIER MODAL WITH MICROPHONE DICTATION */}
+      {/* NEW DOSSIER MODAL */}
       {showNewDocModal && (
         <div style={{
           position: 'fixed',
@@ -816,14 +952,14 @@ export default function Tab13Docs({ ws }) {
           <div style={{
             width: '600px',
             backgroundColor: '#0d1015',
-            border: '1px solid var(--wire-border)',
+            border: '1px solid #1f242d',
             borderRadius: '4px',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--wire-border)', backgroundColor: '#11141a' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--gold-core)', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #1f242d', backgroundColor: '#11141a' }}>
+              <span style={{ fontSize: '0.85rem', color: '#DAA520', fontWeight: 'bold' }}>
                 INITIALIZE NEW VAULT DOSSIER
               </span>
               <button 
@@ -832,7 +968,7 @@ export default function Tab13Docs({ ws }) {
                   setIsModalRecording(false);
                   setShowNewDocModal(false);
                 }}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-mist)', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer' }}
               >
                 <X style={{ width: '16px', height: '16px' }} />
               </button>
@@ -840,43 +976,43 @@ export default function Tab13Docs({ ws }) {
 
             <form onSubmit={handleCreateNewDoc} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
-                <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>DOSSIER TITLE</label>
+                <label style={{ fontSize: '0.65rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>DOSSIER TITLE</label>
                 <input 
                   type="text" 
                   required
                   placeholder="e.g. Rhythm V8 Option Triggers"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>DOMAIN</label>
+                  <label style={{ fontSize: '0.65rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>DOMAIN</label>
                   <input 
                     type="text" 
                     placeholder="e.g. Quantitative Finance"
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)', display: 'block', marginBottom: '4px' }}>NICHE</label>
+                  <label style={{ fontSize: '0.65rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>NICHE</label>
                   <input 
                     type="text" 
                     placeholder="e.g. MQL5 Architecture"
                     value={newNiche}
                     onChange={(e) => setNewNiche(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid var(--wire-border)', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px 10px', backgroundColor: '#101318', border: '1px solid #1f242d', color: '#fff', fontSize: '0.75rem', borderRadius: '3px', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-mist)' }}>DOSSIER CONTENT (MARKDOWN)</label>
+                  <label style={{ fontSize: '0.65rem', color: '#64748b' }}>DOSSIER CONTENT (MARKDOWN)</label>
                   <button
                     type="button"
                     onClick={toggleModalMic}
@@ -886,8 +1022,8 @@ export default function Tab13Docs({ ws }) {
                       gap: '4px',
                       padding: '2px 8px',
                       backgroundColor: isModalRecording ? '#2b0d0d' : '#161a22',
-                      border: isModalRecording ? '1px solid #ef4444' : '1px solid var(--wire-border)',
-                      color: isModalRecording ? '#ef4444' : 'var(--gold-core)',
+                      border: isModalRecording ? '1px solid #ef4444' : '1px solid #1f242d',
+                      color: isModalRecording ? '#ef4444' : '#DAA520',
                       fontSize: '0.65rem',
                       fontWeight: 'bold',
                       cursor: 'pointer',
@@ -907,7 +1043,7 @@ export default function Tab13Docs({ ws }) {
                     width: '100%', 
                     padding: '8px 10px', 
                     backgroundColor: '#101318', 
-                    border: isModalRecording ? '1px solid #ef4444' : '1px solid var(--wire-border)', 
+                    border: isModalRecording ? '1px solid #ef4444' : '1px solid #1f242d', 
                     color: '#fff', 
                     fontSize: '0.75rem', 
                     borderRadius: '3px', 
@@ -925,7 +1061,7 @@ export default function Tab13Docs({ ws }) {
                     setIsModalRecording(false);
                     setShowNewDocModal(false);
                   }}
-                  style={{ padding: '6px 12px', backgroundColor: '#161a22', border: '1px solid var(--wire-border)', color: '#cbd5e1', fontSize: '0.72rem', cursor: 'pointer', borderRadius: '3px' }}
+                  style={{ padding: '6px 12px', backgroundColor: '#161a22', border: '1px solid #1f242d', color: '#cbd5e1', fontSize: '0.72rem', cursor: 'pointer', borderRadius: '3px' }}
                 >
                   CANCEL
                 </button>
@@ -937,9 +1073,9 @@ export default function Tab13Docs({ ws }) {
                     alignItems: 'center', 
                     gap: '6px', 
                     padding: '6px 14px', 
-                    backgroundColor: 'rgba(0, 255, 102, 0.15)', 
-                    border: '1px solid var(--emerald-core)', 
-                    color: 'var(--emerald-core)', 
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                    border: '1px solid #10b981', 
+                    color: '#10b981', 
                     fontSize: '0.72rem', 
                     fontWeight: 'bold', 
                     cursor: 'pointer', 

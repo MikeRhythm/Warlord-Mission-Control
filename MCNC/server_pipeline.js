@@ -231,7 +231,6 @@ RESEARCH CONTENT:
 ${content.slice(0, 3500)}
 `;
 
-    // 4-second timeout cutoff to eliminate any UI hang
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
 
@@ -280,7 +279,7 @@ ${content.slice(0, 3500)}
 });
 
 // ============================================================================
-// PERSISTENT CHAT LEDGER ROUTES (MOUNTED FOR TAB 01 EXEC)
+// PERSISTENT CHAT LEDGER ROUTES (MOUNTED FOR TAB 01 EXEC & TAB 13 REVERT)
 // ============================================================================
 
 app.get('/api/chats/all', (req, res) => {
@@ -455,9 +454,218 @@ app.post('/api/chats/archive', (req, res) => {
   }
 });
 
+// RECONSTITUTE / REVERT ARCHIVED THREAD TO ACTIVE 01 EXEC CHAT
+app.post('/api/chats/revert', (req, res) => {
+  try {
+    const { filePath, content, project, filename } = req.body;
+    
+    let targetProject = project;
+    if (!targetProject || targetProject === 'General' || targetProject === 'Vault') {
+      targetProject = 'CHIEF MADOTHI FUND';
+    }
+
+    const fileText = content || (filePath && fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '');
+    if (!fileText) {
+      return res.status(400).json({ success: false, error: 'Document content is empty or unreadable.' });
+    }
+
+    let title = 'Reverted Thread';
+    const titleMatch = fileText.match(/^#\s+(?:ARCHIVED THREAD:\s*)?(.+)$/m);
+    if (titleMatch) {
+      title = titleMatch[1].trim();
+    } else if (filename) {
+      title = filename.replace(/\.(md|txt)$/i, '').replace(/_/g, ' ');
+    }
+
+    let chatId = `Chat_${Date.now()}`;
+    if (filename) {
+      const idMatch = filename.match(/Chat_\d+|chat_\d+|\d{10,}/i);
+      if (idMatch) chatId = idMatch[0];
+    }
+
+    const messages = [];
+    const messageRegex = /\*\*\[(.*?)\]\*\*:\s*([\s\S]*?)(?=(?:\n\*\*\[|$))/g;
+    let match;
+
+    while ((match = messageRegex.exec(fileText)) !== null) {
+      const sender = match[1].trim();
+      const text = match[2].trim();
+      if (text) {
+        messages.push({
+          sender: sender,
+          text: text,
+          timestamp: new Date().toLocaleTimeString()
+        });
+      }
+    }
+
+    if (messages.length === 0) {
+      messages.push({
+        sender: 'SYSTEM RESTORE',
+        text: fileText.trim(),
+        timestamp: new Date().toLocaleTimeString()
+      });
+    }
+
+    const projDir = path.join(CHATS_ROOT, targetProject);
+    if (!fs.existsSync(projDir)) {
+      fs.mkdirSync(projDir, { recursive: true });
+    }
+
+    const jsonPath = path.join(projDir, `${chatId}.json`);
+    const payload = {
+      id: chatId,
+      title: title,
+      project: targetProject,
+      updatedAt: new Date().toISOString(),
+      messages: messages
+    };
+
+    fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2), 'utf8');
+
+    if (filePath && fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (err) {}
+    }
+
+    console.log(`[✔] REVERT SUCCESS: Restored [${title}] (${chatId}) to ${targetProject}`);
+    res.json({
+      success: true,
+      id: chatId,
+      title: title,
+      project: targetProject,
+      messagesCount: messages.length
+    });
+  } catch (err) {
+    console.error('Error reverting chat to active ledger:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ============================================================================
+// MASTER CHAT CONSOLIDATION & MISSION-ALIGNMENT ENGINE
+// ============================================================================
+app.post('/api/docs/consolidate-master', async (req, res) => {
+  try {
+    const { project, filePath, content } = req.body;
+    let targetFile = filePath;
+
+    if (!targetFile || !fs.existsSync(targetFile)) {
+      targetFile = path.join(CHATS_ROOT, project || 'CHIEF MADOTHI FUND', 'MASTER_CHAT.md');
+    }
+
+    if (!fs.existsSync(targetFile)) {
+      return res.status(400).json({ success: false, error: 'Master chat file not found on disk.' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ success: false, error: 'GEMINI_API_KEY required for consolidation.' });
+    }
+
+    // Attempt to locate project PRD or Mission Context for strict cross-referencing
+    let projectMissionContext = 'Default Mission: General algorithmic development, systems automation, and intelligence synthesis.';
+    const prdCandidates = [
+      path.join(DATA_DIR, 'Projects', project, '01_PRD', `01_PRD_${project}.md`),
+      path.join(BASE_DIR, 'vault', 'Projects', project, '01_PRD', `01_PRD_${project}.md`),
+      path.join(VAULT_DOCS_ROOT, project, '01_PRD.md')
+    ];
+
+    for (const prdPath of prdCandidates) {
+      if (fs.existsSync(prdPath)) {
+        try {
+          projectMissionContext = fs.readFileSync(prdPath, 'utf8').slice(0, 3000);
+          console.log(`[*] Loaded Project PRD for mission alignment: ${prdPath}`);
+          break;
+        } catch {}
+      }
+    }
+
+    const rawLedgerContent = content || fs.readFileSync(targetFile, 'utf8');
+
+    const prompt = `
+You are the Chief Intelligence Officer and Lead Systems Architect for the Warlord MCNC System.
+Execute SOP 17 CONSOLIDATION on this project's Master Chat Ledger.
+
+PROJECT AUTHORITY & DOMAIN: ${project}
+
+PROJECT MISSION STATEMENT / PRD CONTEXT:
+${projectMissionContext}
+
+STRICT FLUFF-STRIPPING MANDATE:
+1. Strip out ALL pleasantries, greetings, sign-offs, and casual banter ("hi Monty", "okay stand by for the prompt", "good job", "thanks").
+2. Retain ONLY concrete technical facts, architecture decisions, database/code structures, operational rosters, and pending action items that strictly serve or align with the Project Mission.
+3. If an exchange was purely a status check or conversational filler with no deliverables, discard it completely.
+4. Output must be structured strictly using this schema:
+
+# ${project} // MASTER CHAT LEDGER
+*Last Consolidated: ${new Date().toISOString()}*
+*SOP 17 Mission Alignment: Enforced*
+
+---
+
+### 1. CORE DIRECTIVES & MISSION INTENT
+- Executive mandates and mission goals established for this project.
+
+### 2. ARCHITECTURAL DECISIONS & REPOSITORIES
+- Concrete technical patterns, files, directories, ports, and external APIs verified.
+
+### 3. APPROVED CODE & TECHNICAL DELIVERABLES
+- Production-ready schemas, functions, or configurations committed to the project. (Include full code if present).
+
+### 4. ACTIVE WORKSTREAM & ROADMAP
+- Remaining action items, unfulfilled requirements, or immediate blockers.
+
+RAW ACCUMULATED TRANSCRIPT TO CONSOLIDATE:
+${rawLedgerContent.slice(0, 45000)}
+`;
+
+    console.log(`[*] Calling Gemini 2.5 Flash to strip fluff and consolidate ledger for: ${project}`);
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            response_mime_type: 'text/plain',
+            temperature: 0.1
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      const consolidatedText = data.candidates[0].content.parts[0].text.trim();
+
+      // Create backup of the raw file before replacing
+      const backupPath = targetFile.replace('.md', `_raw_backup_${Date.now()}.md`);
+      fs.copyFileSync(targetFile, backupPath);
+      fs.writeFileSync(targetFile, consolidatedText, 'utf8');
+
+      console.log(`[✔] Ledger consolidated without fluff. Backup stored at: ${backupPath}`);
+      return res.json({
+        success: true,
+        message: 'Master ledger consolidated and aligned with project mission.',
+        targetFile,
+        backupPath
+      });
+    }
+
+    throw new Error('Gemini API returned an invalid response structure.');
+  } catch (err) {
+    console.error('Consolidation error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================
 // SERVER LISTENER
-// ============================================================================
+// ==========================================
 
 app.listen(PORT, () => {
   const keyStatus = Boolean(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY)
@@ -471,8 +679,6 @@ app.listen(PORT, () => {
   console.log(`[PROJECTS ROOT] : ${PROJECTS_ROOT}`);
   console.log(`[CHATS ROOT]    : ${CHATS_ROOT}`);
   console.log(`[STATE LEDGER]  : ${LEDGER_FILE}`);
-  console.log(`[ENDPOINTS]     : POST   /api/review/suggest-taxonomy`);
-  console.log(`                : GET    /api/chats/all`);
-  console.log(`                : POST   /api/chats/archive`);
+  console.log(`[STATUS]        : 100% OPERATIONAL // CLEAN`);
   console.log(`====================================================`);
 });

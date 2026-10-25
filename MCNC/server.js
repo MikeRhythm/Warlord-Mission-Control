@@ -34,6 +34,7 @@ const PROJECTS_PATH = path.join(VAULT_PATH, 'Projects');
 const UPLOADS_PATH = path.join(__dirname, 'uploads');
 const VAULT_DIR = path.join(__dirname, 'vault');
 const DOCS_PATH = path.join(VAULT_DIR, 'Docs');
+const CHATS_PATH = path.join(__dirname, 'Data', 'Chats');
 const TELEMETRY_DIR = path.join(VAULT_DIR, 'telemetry');
 const TELEMETRY_FILE = path.join(TELEMETRY_DIR, 'active_telemetry.md');
 const KEYS_DIR = path.join(VAULT_DIR, 'Keys');
@@ -43,7 +44,7 @@ const GEMINI_CLUSTER_FILE = path.join(KEYS_DIR, 'gemini_cluster.json');
 const PROJECTS_MANIFEST_FILE = path.join(VAULT_PATH, 'projects_manifest.json');
 const ENV_FILE_PATH = path.join(__dirname, '.env');
 
-[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH, PROJECTS_PATH, DOCS_PATH, SOULS_PATH].forEach(dir => {
+[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH, PROJECTS_PATH, DOCS_PATH, SOULS_PATH, CHATS_PATH].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -505,7 +506,7 @@ const getActiveGeminiKeys = () => {
 };
 
 // ==========================================
-// TAB 10 DYNAMIC TUNNEL HANDLERS
+// TAB 10 DYNAMIC TUNNEL HANDLERS (ON-DEMAND ONLY)
 // ==========================================
 const handleTunnelUpdate = (req, res) => {
     try {
@@ -527,7 +528,6 @@ const handleTunnelUpdate = (req, res) => {
             fs.writeFileSync(ENV_FILE_PATH, envContent, 'utf8');
         }
 
-        broadcast('TRACE', `[KAGGLE TUNNEL] Active URL set to: ${cleanUrl}`);
         logTelemetry('KAGGLE_TUNNEL_SET', `Kaggle tunnel endpoint updated to: ${cleanUrl}`);
 
         return res.json({
@@ -545,7 +545,7 @@ const handleTunnelUpdate = (req, res) => {
 const handleTunnelGet = (req, res) => {
     res.json({
         success: true,
-        status: process.env.KAGGLE_TUNNEL_URL ? 'ACTIVE' : 'STANDBY',
+        status: process.env.KAGGLE_TUNNEL_URL ? 'ONLINE' : 'STANDBY',
         tunnelUrl: process.env.KAGGLE_TUNNEL_URL || '',
         url: process.env.KAGGLE_TUNNEL_URL || ''
     });
@@ -574,7 +574,7 @@ const MCNC_TOOLS = [
             description: "Read the exact physical contents of a file on Base 1 disk. Use this to verify a file exists before modifying it or referencing its contents.",
             parameters: {
                 type: "object",
-                properties: { targetPath: { type: "string", description: "Absolute path to the file (e.g., C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\scripts\\hvac.js)" } },
+                properties: { targetPath: { type: "string", description: "Absolute path to the file" } },
                 required: ["targetPath"]
             }
         }
@@ -597,8 +597,6 @@ async function executeNativeTool(toolCall) {
     const name = toolCall.function.name;
     let args = {};
     try { args = JSON.parse(toolCall.function.arguments); } catch (e) {}
-
-    broadcast('TRACE', `[NATIVE TOOL EXECUTION] ${name} -> ${JSON.stringify(args)}`);
 
     try {
         if (name === 'mcnc_read_file') {
@@ -692,7 +690,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 
     const requestedModel = rawBody.model || '';
 
-    // TIER 4: KAGGLE ROUTING
+    // TIER 4: KAGGLE ROUTING (ONLY ENGAGED ON EXPLICIT SELECTION)
     if (requestedModel.startsWith('KAGGLE/')) {
         const KAGGLE_MODEL_MAP = {
             'KAGGLE/QWEN-2.5-VL-7B': 'Qwen/Qwen2.5-VL-7B-Instruct',
@@ -733,7 +731,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         } catch (err) {
             console.error("Kaggle Route Error:", err.message);
             return { 
-                reply: `[KAGGLE TUNNEL ERROR]: Failed to reach Kaggle GPU endpoint at ${targetEndpoint}.\n\nEnsure your Kaggle notebook is active, Ollama/vLLM is running, and the URL is set.\n\nDetails: ${err.message}`, 
+                reply: `[KAGGLE TUNNEL ERROR]: Failed to reach Kaggle GPU endpoint at ${targetEndpoint}.\n\nEnsure Kaggle notebook is active and URL is set.\n\nDetails: ${err.message}`, 
                 modelUsed: 'KAGGLE OFFLINE' 
             };
         }
@@ -1109,7 +1107,7 @@ Strict Zero Fluff Mandate: Deliver high-signal engineering nuggets only.`;
 });
 
 // ==========================================
-// TAB 13 / UNIFIED GOVERNANCE SCANNER (DOCS, SOULS, DOCTRINE)
+// TAB 13 / UNIFIED GOVERNANCE SCANNER (DEDUPLICATED & CLEANED)
 // ==========================================
 function scanVaultDocuments() {
     const docList = [];
@@ -1117,8 +1115,9 @@ function scanVaultDocuments() {
 
     function addDoc(fullPath, domainName, nicheName, cleanTitle) {
         if (!fs.existsSync(fullPath)) return;
-        if (seenPaths.has(fullPath.toLowerCase())) return;
-        seenPaths.add(fullPath.toLowerCase());
+        const normalized = path.resolve(fullPath).toLowerCase();
+        if (seenPaths.has(normalized)) return;
+        seenPaths.add(normalized);
 
         try {
             const content = fs.readFileSync(fullPath, 'utf8');
@@ -1129,9 +1128,9 @@ function scanVaultDocuments() {
             docList.push({
                 filename: path.basename(fullPath),
                 title: title,
-                domain: domainName,
-                niche: nicheName,
-                specialization: nicheName,
+                domain: domainName.trim(),
+                niche: nicheName.trim(),
+                specialization: nicheName.trim(),
                 path: fullPath,
                 relativePath: path.relative(WORKSPACE_ROOT, fullPath),
                 content: content,
@@ -1154,7 +1153,7 @@ function scanVaultDocuments() {
         } catch (e) {}
     }
 
-    // 2. Scan Real WASP Documents directly (Master ROEs, SOPs, Mission Statement)
+    // 2. Scan Real WASP Documents directly
     const waspDocsDir = path.join(WORKSPACE_ROOT, 'WASP Documents');
     if (fs.existsSync(waspDocsDir)) {
         try {
@@ -1187,7 +1186,6 @@ function scanVaultDocuments() {
             } else if (item.isFile()) {
                 const ext = path.extname(item.name).toLowerCase();
                 if (['.md', '.txt'].includes(ext)) {
-                    // Extract exact niche name from filename
                     const cleanBaseName = item.name.replace(/\.(md|txt)$/i, '').replace(/_/g, ' ');
                     const resolvedNiche = (defaultNiche !== 'Vault' && defaultNiche !== domainName) ? defaultNiche : cleanBaseName;
                     addDoc(fullPath, domainName, resolvedNiche);
@@ -1197,8 +1195,21 @@ function scanVaultDocuments() {
     }
 
     walkDir(DOCS_PATH);
-    walkDir(path.join(WORKSPACE_ROOT, 'MCNC', 'vault'), 'Vault Core', 'System');
-    walkDir(path.join(WORKSPACE_ROOT, 'WASP Artwork'), 'Artwork', 'Palettes');
+
+    // 4. Physical Mount: Scan Data/Chats for MASTER_CHAT.md per project
+    if (fs.existsSync(CHATS_PATH)) {
+        try {
+            const projectDirs = fs.readdirSync(CHATS_PATH, { withFileTypes: true });
+            for (const pDir of projectDirs) {
+                if (pDir.isDirectory()) {
+                    const masterPath = path.join(CHATS_PATH, pDir.name, 'MASTER_CHAT.md');
+                    if (fs.existsSync(masterPath)) {
+                        addDoc(masterPath, pDir.name, 'Master Ledger', `${pDir.name} // MASTER CHAT LEDGER`);
+                    }
+                }
+            }
+        } catch (e) {}
+    }
 
     return docList;
 }
@@ -1228,16 +1239,10 @@ app.post('/api/docs/save', async (req, res) => {
 
         let targetFile = filePath;
 
-        // If direct filePath not provided, construct the target path dynamically
         if (!targetFile || !fs.existsSync(path.dirname(targetFile))) {
             const safeDomain = (domain || 'General').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
-            
-            // Accept both 'specialization' (from Tab 12) or 'niche' (from Tab 13)
             const rawNiche = specialization || niche || 'General';
-            const safeNiche = rawNiche
-                .trim()
-                .replace(/[\\\/:\*\?"<>\|]/g, '_')
-                .replace(/\s+/g, '_');
+            const safeNiche = rawNiche.trim().replace(/[\\\/:\*\?"<>\|]/g, '_').replace(/\s+/g, '_');
             
             let targetFilename = filename;
             if (!targetFilename) targetFilename = `${safeNiche}.md`;
@@ -1347,12 +1352,11 @@ server.listen(PORT, () => {
     console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
     console.log(`[WORKSPACE ROOT]         : ${WORKSPACE_ROOT}`);
     console.log(`[DOCS REPOSITORY]        : ${DOCS_PATH}`);
+    console.log(`[CHATS REPOSITORY]       : ${CHATS_PATH}`);
     console.log(`[LIVE SOULS REPOSITORY]  : ${SOULS_PATH}`);
     console.log(`[AGENT FS TOOLS]         : /api/tools/{read,write,list,search,stat}`);
-    console.log(`[DYNAMIC TUNNEL ENGINE]  : /api/tunnel/{get,set} & /api/kaggle/* ONLINE`);
     console.log(`[REFINERY ENGINE]        : /api/harvest & /api/docs/save ONLINE`);
     console.log(`[CLUSTER MANAGERS]       : NIM, GROQ, GEMINI ONLINE`);
-    console.log(`[ACTIVE KAGGLE TUNNEL]   : ${process.env.KAGGLE_TUNNEL_URL || 'NOT SET'}`);
     console.log(`[STATUS]                 : 100% OPERATIONAL // CLEAN`);
     console.log(`====================================================`);
 });

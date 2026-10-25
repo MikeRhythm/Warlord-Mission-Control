@@ -78,8 +78,8 @@ export default function Tab01Exec({ ws }) {
 
   // --- Multi-Chat & Master Ledger State ---
   const [activeProject, setActiveProject] = useState('CHIEF MADOTHI FUND');
-  const [activeChatId, setActiveChatId] = useState('Master');
-  const [activeChatTitle, setActiveChatTitle] = useState('MASTER CHAT LEDGER');
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [activeChatTitle, setActiveChatTitle] = useState('IDLE');
   const [isMasterChat, setIsMasterChat] = useState(true);
   const [newChatPromptOpen, setNewChatPromptOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
@@ -102,11 +102,11 @@ export default function Tab01Exec({ ws }) {
 
   const [chatLog, setChatLog] = useState([
     {
-      sender: 'MONTY',
-      collaborators: ['CHARLIE', 'JACK'],
-      title: 'Chief of Staff',
+      sender: 'SYSTEM',
+      collaborators: [],
+      title: 'Zero State',
       time: new Date().toLocaleTimeString(),
-      text: 'Mission Control Base 1 is live and standing by. Dynamic chat ledger online. Select a thread or dispatch instructions.'
+      text: 'Select a project sub-chat from the ledger on the left or click [+ NEW] to initialize a new thread.'
     }
   ]);
 
@@ -141,7 +141,6 @@ export default function Tab01Exec({ ws }) {
   // --- Mount: Load Catalog & Listeners ---
   useEffect(() => {
     fetchChatCatalog();
-    loadMasterChat('CHIEF MADOTHI FUND');
 
     const handleCustomKaggleEvent = (e) => {
       if (e.detail?.status) setKaggleStatus(e.detail.status);
@@ -150,13 +149,21 @@ export default function Tab01Exec({ ws }) {
       const stored = localStorage.getItem('kaggle_cluster_status');
       if (stored) setKaggleStatus(stored);
     };
+    
+    // Cross-tab Revert Listener
+    const handleRevert = () => {
+      console.log("[01 EXEC] Chat reverted from Vault. Refreshing active ledgers...");
+      fetchChatCatalog();
+    };
 
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('kaggle-status-changed', handleCustomKaggleEvent);
+    window.addEventListener('MCNC_REVERT_CHAT', handleRevert);
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('kaggle-status-changed', handleCustomKaggleEvent);
+      window.removeEventListener('MCNC_REVERT_CHAT', handleRevert);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (recognitionRef.current) recognitionRef.current.abort();
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -220,6 +227,22 @@ export default function Tab01Exec({ ws }) {
     }
   };
 
+  const setZeroState = () => {
+    setIsMasterChat(true);
+    setActiveChatId(null);
+    setActiveChatTitle('IDLE');
+    setChatLog([
+      {
+        sender: 'SYSTEM',
+        collaborators: [],
+        title: 'Zero State',
+        time: new Date().toLocaleTimeString(),
+        text: 'Select a project sub-chat from the ledger on the left or click [+ NEW] to initialize a new thread.'
+      }
+    ]);
+    handleClearInput();
+  };
+
   const handleCreateNewChat = async () => {
     if (!newChatTitle.trim()) return;
     const newId = 'Chat_' + Date.now();
@@ -274,7 +297,7 @@ export default function Tab01Exec({ ws }) {
     }));
 
     if (activeChatId === chatId) {
-      loadMasterChat(project);
+      setZeroState();
     }
 
     try {
@@ -305,7 +328,9 @@ export default function Tab01Exec({ ws }) {
       const data = await res.json();
       if (data.success) {
         await fetchChatCatalog();
-        loadMasterChat(project);
+        if (activeChatId === chatId) {
+          setZeroState();
+        }
       } else {
         alert('Archive failed: ' + (data.error || 'Server error'));
       }
@@ -386,17 +411,7 @@ export default function Tab01Exec({ ws }) {
 
   const handleCLS = () => {
     handleAllStop();
-    setChatLog([
-      {
-        sender: 'MONTY',
-        collaborators: ['CHARLIE', 'JACK'],
-        title: 'Chief of Staff',
-        time: new Date().toLocaleTimeString(),
-        text: 'Mission Control Base 1 is live and standing by. Dynamic chat ledger online. Select a thread or dispatch instructions.'
-      }
-    ]);
-    setStagedProposal(null);
-    handleClearInput();
+    setZeroState();
   };
 
   const handleAllStop = () => {
@@ -617,6 +632,17 @@ export default function Tab01Exec({ ws }) {
       );
     }
 
+    if (msg.sender === 'SYSTEM') {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="bg-[#1f242d] text-gray-400 px-2 py-0.5 rounded text-[10px] font-bold">
+            [SYSTEM]
+          </span>
+          <span className="text-gray-500 text-[9px]">{msg.time}</span>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="bg-[#14171c] border border-[#DAA520] text-[#DAA520] px-2 py-0.5 rounded text-[10px] font-bold">
@@ -815,11 +841,13 @@ export default function Tab01Exec({ ws }) {
             <span className="text-gray-400">BRAIN:</span>
             <span className="text-[#DAA520] font-bold uppercase">{selectedBrain}</span>
             <span className="text-gray-600">|</span>
-            <span className="text-gray-300 font-bold truncate max-w-[280px]">{activeChatTitle}</span>
+            <span className="text-gray-300 font-bold truncate max-w-[280px]">
+              {activeChatId === null ? 'IDLE' : activeChatTitle}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
-            {isMasterChat && (
+            {isMasterChat && activeChatId === 'Master' && (
               <span className="border border-[#DAA520] text-[#DAA520] bg-[#DAA520]/10 px-2 py-0.5 rounded text-[8px] font-bold">
                 MASTER LEDGER (READ ONLY)
               </span>
@@ -964,7 +992,7 @@ export default function Tab01Exec({ ws }) {
 
           <textarea
             ref={textareaRef}
-            disabled={isMasterChat}
+            disabled={isMasterChat || activeChatId === null}
             rows={2}
             value={inputCommand}
             onChange={(e) => setInputCommand(e.target.value)}
@@ -980,7 +1008,7 @@ export default function Tab01Exec({ ws }) {
                 : 'Enter command for Monty dispatch via ' + selectedBrain + '...'
             }
             className={'w-full bg-[#080a0c] border rounded p-2 text-[11px] text-gray-200 font-mono outline-none resize-none transition-all ' + (
-              isMasterChat
+              isMasterChat || activeChatId === null
                 ? 'border-[#1f242d] cursor-not-allowed text-gray-600'
                 : 'border-[#1f242d] focus:border-[#DAA520]'
             )}
@@ -993,10 +1021,10 @@ export default function Tab01Exec({ ws }) {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                disabled={isMasterChat || isLoading}
+                disabled={isMasterChat || activeChatId === null || isLoading}
                 onClick={handleSendMessage}
                 className={'text-[10px] font-bold px-3.5 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-all ' + (
-                  isMasterChat || isLoading
+                  isMasterChat || activeChatId === null || isLoading
                     ? 'bg-[#1f242d] text-gray-500 cursor-not-allowed'
                     : 'bg-[#DAA520] hover:bg-[#DAA520]/80 text-[#080a0c] shadow-[0_0_8px_rgba(218,165,32,0.2)]'
                 )}

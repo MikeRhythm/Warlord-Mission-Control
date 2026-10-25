@@ -1,0 +1,33 @@
+{
+  "id": "Chat_1792913028914",
+  "title": "Test 2",
+  "project": "CHIEF MADOTHI FUND",
+  "updatedAt": "2026-10-25T08:33:35.671Z",
+  "messages": [
+    {
+      "sender": "MONTY",
+      "text": "Sub-chat thread [Test 2] initialized under CHIEF MADOTHI FUND. Ready for operational directives.",
+      "timestamp": "9:33:35 AM"
+    },
+    {
+      "sender": "MIKE",
+      "text": "hi Monty okay so we're going to do a quick test so stand by for the prompt",
+      "timestamp": "9:33:35 AM"
+    },
+    {
+      "sender": "MONTY",
+      "text": "Mike, standing by.",
+      "timestamp": "9:33:35 AM"
+    },
+    {
+      "sender": "MIKE",
+      "text": "Status check for Chief Madothi initial deployment",
+      "timestamp": "9:33:35 AM"
+    },
+    {
+      "sender": "MONTY",
+      "text": "**STATUS REPORT: CHIEF MADOTHI FUND INITIAL DEPLOYMENT**\n\nA canonical dossier for \"The Chief Madothi Fund\" has been synthesized and saved to `vault/Docs/The Chief Madothi Fund/Fund_Raising.md` as of `2026-10-22T17:42:15.187Z`. This marks the completion of the initial documentation phase for the fund.\n\n**16-DIRECTOR BOARD ROSTER:**\n01. CHARLIE\n02. TESS\n03. ROXY\n04. JACK\n05. SKYLA\n06. SILAS\n07. ARES\n08. VANCE\n09. ORION\n10. THE ASKARI\n11. AMBER\n12. JAX\n13. VALERIE\n14. MAVERICK\n15. JUSTIN\n16. MONTY\n\n---",
+      "timestamp": "9:33:35 AM"
+    }
+  ]
+}
