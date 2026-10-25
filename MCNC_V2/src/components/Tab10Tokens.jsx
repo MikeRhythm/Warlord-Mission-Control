@@ -147,7 +147,6 @@ export default function Tab10Tokens({ ws }) {
   };
 
   useEffect(() => {
-    // Only check once on mount, no background timer loop running
     checkStatus();
 
     const handleCustomSync = (e) => {
@@ -251,7 +250,7 @@ export default function Tab10Tokens({ ws }) {
           <div className="flex gap-2">
             <div className="flex-1 bg-[#14171c] border border-[#1f242d] rounded px-3 py-1.5 flex flex-col items-center justify-center">
               <span className="text-[9px] text-[#5c6b7f] uppercase font-bold tracking-wider mb-0.5">Kaggle Bank</span>
-              <span className="text-[#38bdf8] font-bold text-sm">{weeklyKaggleHours.toFixed(1)}/30h</span>
+              <span className="text-[#8C3A27] font-bold text-sm">{weeklyKaggleHours.toFixed(1)}/30h</span>
             </div>
             <div className="flex-1 bg-[#14171c] border border-[#1f242d] rounded px-3 py-1.5 flex flex-col items-center justify-center">
               <span className="text-[9px] text-[#5c6b7f] uppercase font-bold tracking-wider mb-0.5">NIM Trial Bal</span>
@@ -282,12 +281,12 @@ export default function Tab10Tokens({ ws }) {
           const isNim = provider.id === 'nim';
 
           return (
-            <div key={provider.id} className="flex flex-col bg-gradient-to-b from-[#101317] to-[#0a0c0e] border border-[#1f242d] rounded p-3 relative overflow-hidden group hover:border-[#38bdf8]/50 transition-colors">
+            <div key={provider.id} className="flex flex-col bg-gradient-to-b from-[#101317] to-[#0a0c0e] border border-[#1f242d] rounded p-3 relative overflow-hidden group hover:border-[#8C3A27]/50 transition-colors">
               
               <div className="flex justify-between items-center border-b border-[#1f242d] pb-2 mb-2">
                 <div className="flex items-center gap-1.5 font-bold text-[#e2e8f0]">
                   {provider.id === 'openrouter' ? <Server className="w-3.5 h-3.5 text-[#ffb800]" /> : 
-                   provider.id === 'kaggle' ? <Database className="w-3.5 h-3.5 text-[#38bdf8]" /> :
+                   provider.id === 'kaggle' ? <Database className="w-3.5 h-3.5 text-[#8C3A27]" /> :
                    provider.id === 'nim' ? <Zap className="w-3.5 h-3.5 text-[#10b981]" /> :
                    <Cpu className="w-3.5 h-3.5 text-[#5c6b7f]" />}
                   {provider.name}
@@ -366,7 +365,7 @@ export default function Tab10Tokens({ ws }) {
 
                   <div className="flex justify-between items-center border-t border-[#1f242d]/50 pt-1.5">
                     <span className="text-[#5c6b7f] flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-[#38bdf8]" /> Session:
+                      <Clock className="w-3 h-3 text-[#8C3A27]" /> Session:
                     </span>
                     <span className={`${isOnline ? 'text-[#10b981]' : 'text-[#8fa0b5]'} font-bold`}>
                       {isOnline ? formatHoursMins(sessionSeconds) : 'STOPPED'} <span className="text-[#5c6b7f] font-normal">/ 12h</span>
@@ -480,7 +479,7 @@ export default function Tab10Tokens({ ws }) {
           </div>
           
           <div className="p-3 space-y-3 bg-[#080a0c] flex-1 overflow-y-auto custom-scrollbar">
-            <div className="bg-[#101317] border border-[#1f242d] rounded p-3 border-l-2 border-l-[#38bdf8] hover:bg-[#14181f] transition-colors">
+            <div className="bg-[#101317] border border-[#1f242d] rounded p-3 border-l-2 border-l-[#8C3A27] hover:bg-[#14181f] transition-colors">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="font-bold text-[#e2e8f0] text-[11px]">KAGGLE DUAL-T4 OFFLOAD</span>
                 <span className={`text-[9px] font-bold tracking-widest ${isOnline ? 'text-[#10b981]' : 'text-[#8fa0b5]'}`}>

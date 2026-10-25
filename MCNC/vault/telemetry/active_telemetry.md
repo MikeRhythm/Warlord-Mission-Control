@@ -13,3 +13,5 @@
 - [2026-10-22T17:42:15.187Z] **DOCS_SAVED**:Synthesized canonical dossier to vault/Docs/The Chief Madothi Fund/Fund_Raising.md
 - [2026-10-25T06:43:25.014Z] **DOCS_SAVED**:Updated document at: C:\Warlord_Inc\Warlord_WASP\MCNC\vault\Docs\System Architecture & Code\General.md
 - [2026-10-25T07:19:53.669Z] **DOCS_SAVED**:Updated document at: C:\Warlord_Inc\Warlord_WASP\MCNC\vault\Docs\System Architecture & Code\Reverse_Engineering_&_Decompilation.md
+- [2026-10-25T14:01:15.820Z] **KAGGLE_TUNNEL_SET**:Kaggle tunnel endpoint updated to: https://[a-zA-Z0-9-]+\.trycloudflare\.com
+- [2026-10-25T14:18:14.348Z] **KAGGLE_TUNNEL_SET**:Kaggle tunnel endpoint updated to: https://[a-zA-Z0-9-]+\.trycloudflare\.com

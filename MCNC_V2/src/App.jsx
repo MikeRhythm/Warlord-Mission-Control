@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './index.css'; 
 import './high_finance_master.css';
 import { initGlobalInterceptor } from './utils/execBus';
@@ -33,22 +33,34 @@ export default function App() {
   const [mcncSocket, setMcncSocket] = useState(null);
   const [wsStatus, setWsStatus] = useState('DISCONNECTED');
   
-  // Universal Background Busy State (Tracks active dispatches without blocking UI)
+  // Universal Busy State
   const [isSystemBusy, setIsSystemBusy] = useState(false);
-  const [busyCount, setBusyCount] = useState(0);
+  const [activeModel, setActiveModel] = useState('');
 
   // Shared state for War Room payload transfers from Tab 01
   const [warRoomPayload, setWarRoomPayload] = useState(null);
 
-  // Listen for Global Busy Events across fetch and agent dispatches
+  // Sync selected brain across tabs to guard the telemetry dot
   useEffect(() => {
+    const syncModel = () => {
+      const stored = localStorage.getItem('mcnc_selected_brain') || '';
+      setActiveModel(stored);
+    };
+    syncModel();
+    window.addEventListener('storage', syncModel);
+    window.addEventListener('mcnc-model-selected', (e) => {
+      if (e.detail?.model) setActiveModel(e.detail.model);
+    });
+
     const handleBusy = (e) => {
       setIsSystemBusy(Boolean(e.detail?.isBusy));
-      setBusyCount(e.detail?.count || 0);
     };
 
     window.addEventListener('mcnc-busy-state', handleBusy);
-    return () => window.removeEventListener('mcnc-busy-state', handleBusy);
+    return () => {
+      window.removeEventListener('storage', syncModel);
+      window.removeEventListener('mcnc-busy-state', handleBusy);
+    };
   }, []);
 
   // WebSocket Connection Lifecycle
@@ -97,6 +109,9 @@ export default function App() {
     };
   }, []);
 
+  // Hard check: Is a Kaggle model actively selected right now?
+  const isKaggleSelected = Boolean(activeModel && activeModel.toUpperCase().includes('KAGGLE'));
+
   return (
     <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       
@@ -107,12 +122,21 @@ export default function App() {
         </div>
 
         <div className="system-status" style={{ display: 'flex', alignItems: 'center', gap: '14px', fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--fs-meta)', color: 'var(--text-mist)' }}>
-          {/* NON-BLOCKING TELEMETRY PILL */}
-          {isSystemBusy && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.4)', padding: '2px 8px', borderRadius: '4px', color: '#38bdf8' }}>
-              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#38bdf8', animation: 'pulse 1.5s infinite' }} />
-              <span>DISPATCH RUNNING ({busyCount})</span>
-            </div>
+          
+          {/* SINGLE PINHEAD DOT: ONLY VISIBLE & BLIPPING IF A KAGGLE MODEL IS ACTIVELY RUNNING */}
+          {isKaggleSelected && isSystemBusy && (
+            <span 
+              title="Kaggle Inference Active"
+              style={{ 
+                display: 'inline-block', 
+                width: '5px', 
+                height: '5px', 
+                borderRadius: '50%', 
+                backgroundColor: '#8C3A27', 
+                boxShadow: '0 0 5px #8C3A27',
+                animation: 'pulse 1s infinite'
+              }} 
+            />
           )}
 
           <div>
@@ -121,7 +145,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* AUTO-FITTING 14-TAB NAVIGATION BAR (METAL CHAMPAGNE, PROPORTIONED TO TASK BOARD) */}
+      {/* AUTO-FITTING 14-TAB NAVIGATION BAR */}
       <nav className="tab-navigation" style={{ 
         display: 'flex', 
         alignItems: 'stretch', 
@@ -135,7 +159,6 @@ export default function App() {
         overflow: 'hidden'
       }}>
         {TABS.map(tab => {
-          const isWarRoomActive = tab === '02 WAR ROOM' && isSystemBusy;
           const isSelected = activeTab === tab;
 
           return (
@@ -147,7 +170,7 @@ export default function App() {
                 flex: '1 1 0px',
                 minWidth: 0,
                 height: 'var(--nav-btn-h)',
-                color: isSelected ? 'var(--gold-core)' : isWarRoomActive ? '#38bdf8' : '#C5BD9F',
+                color: isSelected ? 'var(--gold-core)' : '#C5BD9F',
                 padding: '0 1px',
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 'clamp(0.74rem, 0.82vw, 0.94rem)',
@@ -168,27 +191,13 @@ export default function App() {
                 transition: 'color 0.15s ease, border-color 0.15s ease'
               }}
             >
-              {/* NON-BLOCKING SPINNER DOT ON TAB 02 WHEN EXECUTING */}
-              {isWarRoomActive && (
-                <span 
-                  style={{
-                    display: 'inline-block',
-                    width: '5px',
-                    height: '5px',
-                    borderRadius: '50%',
-                    backgroundColor: '#38bdf8',
-                    boxShadow: '0 0 6px #38bdf8',
-                    animation: 'pulse 1s infinite'
-                  }} 
-                />
-              )}
               <span>{tab}</span>
             </button>
           );
         })}
       </nav>
 
-      {/* MAIN CONTENT AREA: PRESERVES DOM STATE ACROSS ALL 14 TABS */}
+      {/* MAIN CONTENT AREA */}
       <main className="tab-content-area" style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: activeTab === '01 EXEC' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
           <Tab01Exec ws={mcncSocket} />

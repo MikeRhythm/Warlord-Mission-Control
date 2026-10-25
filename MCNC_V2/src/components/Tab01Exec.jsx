@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // ============================================================================
 // MCNC TAB 01 EXEC // PERSISTENT MULTI-CHAT & DOMAIN-AWARE COCKPIT
@@ -67,14 +67,29 @@ export default function Tab01Exec({ ws }) {
   }, [activeMode]);
 
   // --- Brain & Model Hierarchy ---
-  const [selectedBrain, setSelectedBrain] = useState('meta/llama-3.2-90b-vision-instruct');
+  const [selectedBrain, setSelectedBrain] = useState(() => {
+    return localStorage.getItem('mcnc_selected_brain') || 'meta/llama-3.2-90b-vision-instruct';
+  });
+
   const [collapsedTiers, setCollapsedTiers] = useState({
     tier1: true,
     tier2: false,
     tier3: true,
     tier4: false
   });
-  const [kaggleStatus, setKaggleStatus] = useState('STANDBY');
+
+  // Unified Kaggle Status Resolver
+  const [kaggleStatus, setKaggleStatus] = useState(() => {
+    const raw = localStorage.getItem('kaggle_status') || localStorage.getItem('kaggle_cluster_status');
+    return (raw === 'ACTIVE' || raw === 'ONLINE') ? 'ONLINE' : 'STANDBY';
+  });
+
+  // Model Selection Handler with Global Broadcast
+  const handleSelectModel = (modelId) => {
+    setSelectedBrain(modelId);
+    localStorage.setItem('mcnc_selected_brain', modelId);
+    window.dispatchEvent(new CustomEvent('mcnc-model-selected', { detail: { model: modelId } }));
+  };
 
   // --- Multi-Chat & Master Ledger State ---
   const [activeProject, setActiveProject] = useState('CHIEF MADOTHI FUND');
@@ -138,19 +153,31 @@ export default function Tab01Exec({ ws }) {
     };
   }, [isLoading, isDistilling]);
 
-  // --- Mount: Load Catalog & Listeners ---
+  // --- Mount: Load Catalog & Harmonized Listeners ---
   useEffect(() => {
     fetchChatCatalog();
 
+    // Broadcast current brain on mount to guarantee top header sync
+    const currentStoredBrain = localStorage.getItem('mcnc_selected_brain') || selectedBrain;
+    localStorage.setItem('mcnc_selected_brain', currentStoredBrain);
+    window.dispatchEvent(new CustomEvent('mcnc-model-selected', { detail: { model: currentStoredBrain } }));
+
     const handleCustomKaggleEvent = (e) => {
-      if (e.detail?.status) setKaggleStatus(e.detail.status);
+      const stat = e.detail?.status;
+      if (stat) {
+        setKaggleStatus((stat === 'ACTIVE' || stat === 'ONLINE') ? 'ONLINE' : 'STANDBY');
+      }
     };
+
     const handleStorageUpdate = () => {
-      const stored = localStorage.getItem('kaggle_cluster_status');
-      if (stored) setKaggleStatus(stored);
+      const stored = localStorage.getItem('kaggle_status') || localStorage.getItem('kaggle_cluster_status');
+      if (stored) {
+        setKaggleStatus((stored === 'ACTIVE' || stored === 'ONLINE') ? 'ONLINE' : 'STANDBY');
+      }
+      const brain = localStorage.getItem('mcnc_selected_brain');
+      if (brain && brain !== selectedBrain) setSelectedBrain(brain);
     };
     
-    // Cross-tab Revert Listener
     const handleRevert = () => {
       console.log("[01 EXEC] Chat reverted from Vault. Refreshing active ledgers...");
       fetchChatCatalog();
@@ -168,7 +195,7 @@ export default function Tab01Exec({ ws }) {
       if (recognitionRef.current) recognitionRef.current.abort();
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     };
-  }, []);
+  }, [selectedBrain]);
 
   // --- Catalog & Persistence API Calls ---
   const fetchChatCatalog = async () => {
@@ -652,7 +679,7 @@ export default function Tab01Exec({ ws }) {
           <span className="text-[#94A3B8] text-[10px] flex items-center gap-1">
             Collaborating:
             {msg.collaborators.map((c, idx) => (
-              <span key={idx} className="bg-[#0b0e14] border border-[#38bdf8] text-[#38bdf8] px-1.5 py-0.5 rounded text-[9px]">
+              <span key={idx} className="bg-[#0b0e14] border border-[#C5BD9F]/30 text-[#C5BD9F] px-1.5 py-0.5 rounded text-[9px]">
                 [{c}]
               </span>
             ))}
@@ -687,7 +714,7 @@ export default function Tab01Exec({ ws }) {
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
       >
         
-        {/* Tier Selectors (Dynamically Re-Sorted by Active Domain) */}
+        {/* Tier Selectors */}
         <div className="p-2 flex flex-col gap-2 shrink-0">
           {modelTiers.map((tierGroup) => {
             const isCollapsed = collapsedTiers[tierGroup.id];
@@ -721,7 +748,7 @@ export default function Tab01Exec({ ws }) {
                         <button
                           key={m.id}
                           type="button"
-                          onClick={() => setSelectedBrain(m.id)}
+                          onClick={() => handleSelectModel(m.id)}
                           className={'flex items-center justify-between px-2 py-1 rounded text-[10px] text-left border cursor-pointer transition-all ' + (
                             isSelected
                               ? 'bg-[#14171c] border-[#DAA520] text-[#DAA520] font-bold shadow-[0_0_8px_rgba(218,165,32,0.15)]'
@@ -747,7 +774,7 @@ export default function Tab01Exec({ ws }) {
           })}
         </div>
 
-        {/* Persistent Chat Accordions (With Expanded Gap & Goldenrod Styling) */}
+        {/* Persistent Chat Accordions */}
         <div className="mt-6 border-t border-[#1f242d] pt-3 p-2 flex flex-col shrink-0 bg-[#0d0f12]">
           <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#1f242d]">
             <span className="text-[10px] font-bold text-[#DAA520] tracking-wider uppercase">
@@ -1014,7 +1041,7 @@ export default function Tab01Exec({ ws }) {
             )}
           />
 
-          {/* Action Deck: Cohesive Layout + Dedicated Expansion Bay + Wagon Wheel */}
+          {/* Action Deck */}
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
             
             {/* Primary Action Trigger + Wagon Wheel Spinner */}
@@ -1032,7 +1059,6 @@ export default function Tab01Exec({ ws }) {
                 SUBMIT
               </button>
 
-              {/* Wagon Wheel Spinner (Tab 12 Review Style) */}
               {(isLoading || isDistilling) && (
                 <div className="flex items-center gap-1.5 bg-[#080a0c] border border-[#DAA520]/50 px-2 py-1 rounded">
                   <div className="w-3.5 h-3.5 border-2 border-[#DAA520]/30 border-t-[#DAA520] rounded-full animate-spin shrink-0"></div>
@@ -1057,7 +1083,7 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handlePushToWarRoom}
-                className="border border-[#38bdf8] text-[#38bdf8] hover:bg-[#38bdf8]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all"
+                className="border border-[#C5BD9F] text-[#C5BD9F] hover:bg-[#C5BD9F]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all"
               >
                 PUSH TO WAR ROOM
               </button>
