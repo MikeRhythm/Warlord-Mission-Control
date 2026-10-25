@@ -1,4 +1,4 @@
-# MISSION CONTROL NERVE CENTER (MCNC) // MASTER STANDARD OPERATING PROCEDURES (SOP)
+﻿# MISSION CONTROL NERVE CENTER (MCNC) // MASTER STANDARD OPERATING PROCEDURES (SOP)
 DOCUMENT CLASSIFICATION: MCNC_SOP_MASTER.md
 AUTHORITY: MIKE // EXECUTIVE CONTROL
 TARGET RUNTIME: BASE 1 (AGENT COUNCILS, RUNNERS & PIPELINES)
@@ -203,3 +203,37 @@ TARGET RUNTIME: BASE 1 (AGENT COUNCILS, RUNNERS & PIPELINES)
 - **Dynamic Re-Anchoring (Tab 13 DOCS):**
   * When Mike edits or adds an operational constraint via Tab 13 DOCS, the update writes directly to on-disk markdown.
   * All agents pulling system instructions must re-parse these files on initialization to guarantee real-time compliance with updated directives.
+
+---
+
+## SOP 18: ANTI-DRIFT & INFRASTRUCTURE ANCHOR PROTOCOL (HARD MANDATE)
+- **Trigger:** Any proposed tool, outbound communication integration, credential intake, or system deployment.
+- **Zero Generic Fallbacks:**
+  * Agents must NEVER suggest, hallucinate, or pivot to consumer-grade, third-party shortcuts (e.g., personal Gmail app passwords, external trial SaaS, unmanaged webhooks, mock cloud providers) when domain/server infrastructure is already provisioned.
+  * Ground Truth Anchors are IMMUTABLE:
+    - **Host Environment:** Windows VPS running `START_WASP.bat` (Daemons on Ports 11434, 18789, 3100, 8081, 8082, 5173).
+    - **Mail Transport:** Existing Namecheap / cPanel Private Email on project domains (SSL SMTP Port 465 / IMAP Port 993).
+    - **Authorized Identities:** Dedicated team mailboxes (Mike, Robert, William) across operational project domains.
+    - **Storage & Memory:** Local persistent disk (`C:\Warlord_Inc\Warlord_WASP\WASP Documents\Final WASP Docs`).
+- **Pre-Flight Infrastructure Inventory:**
+  * Before generating any solution, the agent MUST evaluate: *"Does Mike already have an active production asset for this?"*
+  * If YES: Bind strictly to that exact asset. Offering alternatives or asking exploratory questions is a structural violation.
+  * If NO: Request ONLY the specific, minimal connection parameters required to bridge Mike's established setup.
+- **Conversational Context Persistence:**
+  * Strategic, high-level, or open-ended inquiries do NOT release the agent from technical ground truth.
+  * Every operational output must terminate in a concrete, actionable step executable within Mike's verified runtime.
+
+---
+
+## SOP 19: MANDATORY CAPITAL INITIAL CASING (ZERO LOWERCASE START)
+- **Trigger:** Creation, proposal, renaming, or refactoring of ANY directory, folder, file, script, tool, or template path on disk.
+- **The Capitalization Mandate:**
+  * **EVERY SINGLE FOLDER NAME AND FILE NAME MUST COMMENCE WITH A CAPITAL LETTER.**
+  * Lowercase initial letters (e.g., `tools/`, `scripts/`, `engine.js`, `mail_engine.js`, `config.json`) are ABSOLUTELY FORBIDDEN.
+  * Permitted Structural Formats:
+    - **Standard Document & Folder Names:** Punctuation and formatting characters such as apostrophes (`'`), underscores (`_`), hyphens, and spaces are fully permitted provided the initial character of each segment commences with a capital letter (e.g., `Master_SOP's.md`, `Master_ROE's.md`, `Final WASP Docs`, `WASP Documents`).
+    - **PascalCase / Capitalized Snake_Case:** `Tools\`, `Scripts\`, `Email_Outreach_Engine\`, `Engine.js`, `Mail_Engine.js`, `Config.json`.
+    - **All Caps Standard:** `START_WASP.bat`, `MCNC_V2`, `WASP Documents`, `Final WASP Docs`.
+- **Pre-Flight Path Audit:**
+  * Before any agent outputs a path or generates a creation script, it MUST verify the first character of every path segment.
+  * If any segment starts with a lowercase character, execution immediately aborts and corrects the string to capital initial casing before delivery.
