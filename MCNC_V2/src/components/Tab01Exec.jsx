@@ -2,7 +2,7 @@
 
 // ============================================================================
 // MCNC TAB 01 EXEC // PERSISTENT MULTI-CHAT & DOMAIN-AWARE COCKPIT
-// TOKENS: Obsidian #080a0c | Wire #1f242d | Goldenrod #DAA520
+// TOKENS: Obsidian #080a0c | Wire #1f242d | Goldenrod #DAA520 | Sky Blue #38bdf8
 // ============================================================================
 
 const RAW_MODEL_TIERS = [
@@ -109,6 +109,10 @@ export default function Tab01Exec({ ws }) {
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDistilling, setIsDistilling] = useState(false);
+  const [isRouting, setIsRouting] = useState(false);
+  const [routingRationale, setRoutingRationale] = useState('');
+  const [autoRouteHover, setAutoRouteHover] = useState(false);
+
   const [elapsedSeconds, setElapsedSeconds] = useState('0.0');
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -157,7 +161,6 @@ export default function Tab01Exec({ ws }) {
   useEffect(() => {
     fetchChatCatalog();
 
-    // Broadcast current brain on mount to guarantee top header sync
     const currentStoredBrain = localStorage.getItem('mcnc_selected_brain') || selectedBrain;
     localStorage.setItem('mcnc_selected_brain', currentStoredBrain);
     window.dispatchEvent(new CustomEvent('mcnc-model-selected', { detail: { model: currentStoredBrain } }));
@@ -469,6 +472,78 @@ export default function Tab01Exec({ ws }) {
     setIsDistilling(false);
   };
 
+  // --- SUPERPOWER: AUTO-ROUTE INTELLIGENT DISPATCH SWITCH ---
+  const handleAutoRouteLLM = async () => {
+    const promptDraft = inputCommand.trim();
+    if (!promptDraft) {
+      setRoutingRationale('PROMPT DOCK EMPTY // ENTER TEXT FIRST TO AUTO-ROUTE');
+      setTimeout(() => setRoutingRationale(''), 3000);
+      return;
+    }
+
+    setIsRouting(true);
+    setRoutingRationale('ANALYZING COGNITIVE DENSITY & TAXONOMY...');
+
+    try {
+      const res = await fetch('http://localhost:8082/api/router/classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          promptText: promptDraft,
+          activeMode
+        })
+      });
+
+      if (!res.ok) throw new Error('Classifier conduit unavailable on 8082');
+      const data = await res.json();
+
+      if (data.recommendedModel) {
+        handleSelectModel(data.recommendedModel);
+
+        if (data.tierId) {
+          setCollapsedTiers((prev) => ({
+            ...prev,
+            [data.tierId]: false
+          }));
+        }
+
+        if (data.mode) {
+          setActiveMode(data.mode);
+        }
+
+        setRoutingRationale(`ROUTED: ${data.recommendedModel.toUpperCase()} // ${data.rationale}`);
+        setTimeout(() => setRoutingRationale(''), 6000);
+      }
+    } catch (err) {
+      console.warn('Fallback local regex routing activated:', err.message);
+      const text = promptDraft.toLowerCase();
+      let targetModel = 'hermes3:latest';
+      let tier = 'tier1';
+      let rationale = 'LOCAL SOVEREIGN DISPATCH';
+
+      if (text.includes('prd') || text.includes('war room') || text.includes('directive //')) {
+        targetModel = 'deepseek/deepseek-r1';
+        tier = 'tier3';
+        rationale = 'REASONING ARCHITECTURE // DEEPSEEK R1';
+      } else if (text.includes('landing page') || text.includes('html') || text.includes('code') || text.includes('react')) {
+        targetModel = 'anthropic/claude-3.5-sonnet';
+        tier = 'tier3';
+        rationale = 'FRONTEND SYNTHESIS // CLAUDE 3.5 SONNET';
+      } else if (text.includes('copy') || text.includes('marketing') || text.includes('story')) {
+        targetModel = 'google/gemini-1.5-pro';
+        tier = 'tier2';
+        rationale = 'CONTENT & NARRATIVE // GEMINI 1.5 PRO';
+      }
+
+      handleSelectModel(targetModel);
+      setCollapsedTiers((prev) => ({ ...prev, [tier]: false }));
+      setRoutingRationale(`AUTO-LOCKED: ${targetModel.toUpperCase()} // ${rationale}`);
+      setTimeout(() => setRoutingRationale(''), 5000);
+    } finally {
+      setIsRouting(false);
+    }
+  };
+
   const handleCreatePrompt = async () => {
     if (chatLog.length <= 1) {
       alert('Conversation log is empty. Exchange requirements with Monty first.');
@@ -588,7 +663,6 @@ export default function Tab01Exec({ ws }) {
       const finalMessages = [...updatedLog, aiMsg];
       setChatLog(finalMessages);
 
-      // Persist to Port 8082 disk
       await fetch('http://localhost:8082/api/chats/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -855,7 +929,7 @@ export default function Tab01Exec({ ws }) {
       {/* ======================================================== */}
       {/* MAIN VIEWPORT: FEED & CONTROLS */}
       {/* ======================================================== */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
         
         {/* Status Header */}
         <div className="h-9 shrink-0 border-b border-[#1f242d] bg-[#0b0e14] flex items-center justify-between px-3 text-[10px]">
@@ -900,9 +974,9 @@ export default function Tab01Exec({ ws }) {
           </div>
         </div>
 
-        {/* Message Feed */}
+        {/* Message Feed Area */}
         <div
-          className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0"
+          className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0 relative"
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
         >
           {chatLog.map((msg, i) => (
@@ -959,6 +1033,162 @@ export default function Tab01Exec({ ws }) {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* ======================================================== */}
+        {/* TAB 12 REVIEW STYLE: DEDICATED FULL-VIEWPORT HUD OVERLAY */}
+        {/* ======================================================== */}
+        {(isLoading || isDistilling) && (
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(8, 10, 12, 0.88)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 99999,
+              pointerEvents: 'all'
+            }}
+          >
+            {/* SVG Multi-Ring Gyroscope from Tab 12 */}
+            <div style={{ position: 'relative', width: '130px', height: '130px', marginBottom: '22px' }}>
+              <svg 
+                viewBox="0 0 100 100" 
+                style={{ width: '100%', height: '100%', overflow: 'visible' }}
+              >
+                {/* Outer Ring: Emerald (#10b981) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="44"
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray="75 160"
+                  style={{
+                    transformOrigin: '50% 50%',
+                    animation: 'spin-cw 2.4s linear infinite'
+                  }}
+                />
+
+                {/* Middle Ring: Sky Blue (#38bdf8) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="34"
+                  fill="none"
+                  stroke="#38bdf8"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray="50 120"
+                  style={{
+                    transformOrigin: '50% 50%',
+                    animation: 'spin-ccw 1.8s linear infinite'
+                  }}
+                />
+
+                {/* Inner Ring: Acacia Gold (#ffb800) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="24"
+                  fill="none"
+                  stroke="#ffb800"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="38 90"
+                  style={{
+                    transformOrigin: '50% 50%',
+                    animation: 'spin-cw 1.2s ease-in-out infinite'
+                  }}
+                />
+              </svg>
+
+              {/* Central Core Telemetry */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffb800'
+                }}
+              >
+                <span style={{ fontSize: '18px', lineHeight: 1, textShadow: '0 0 8px #ffb800' }}>✦</span>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#38bdf8', marginTop: '2px', letterSpacing: '-0.5px' }}>
+                  {elapsedSeconds}s
+                </span>
+              </div>
+            </div>
+
+            {/* Status Header Telemetry */}
+            <div 
+              style={{
+                fontSize: '13px',
+                fontWeight: 900,
+                letterSpacing: '2px',
+                color: '#ffb800',
+                textTransform: 'uppercase',
+                marginBottom: '8px',
+                textShadow: '0 0 14px rgba(255, 184, 0, 0.5)'
+              }}
+            >
+              {isDistilling
+                ? 'SYNTHESIZING ACTIONABLE DIRECTIVE...'
+                : 'EXECUTING INFERENCE RUN...'}
+            </div>
+
+            {/* Engine Subtitle Banner */}
+            <div 
+              style={{
+                fontSize: '11px',
+                color: '#94a3b8',
+                fontWeight: 700,
+                letterSpacing: '1px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}
+            >
+              <span>ENGINE:</span>
+              <span 
+                style={{
+                  color: '#38bdf8',
+                  backgroundColor: '#0c1a29',
+                  border: '1px solid #1e3a5f',
+                  padding: '3px 10px',
+                  borderRadius: '3px',
+                  boxShadow: '0 0 10px rgba(56, 189, 248, 0.25)'
+                }}
+              >
+                {selectedBrain.toUpperCase()}
+              </span>
+              <span style={{ color: '#334155' }}>|</span>
+              <span style={{ color: '#10b981' }}>PROCESS IS LOCKED &amp; RUNNING</span>
+            </div>
+
+            <div 
+              style={{
+                fontSize: '9px',
+                color: '#64748b',
+                marginTop: '16px',
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase'
+              }}
+            >
+              Process continues in background if navigating away
+            </div>
+          </div>
+        )}
+
         {/* New Chat Popover */}
         {newChatPromptOpen && (
           <div className="mx-3 mb-2 p-2 border border-[#DAA520] bg-[#14171c] rounded flex items-center gap-2">
@@ -990,6 +1220,15 @@ export default function Tab01Exec({ ws }) {
 
         {/* Command & Input Dock */}
         <div className="border-t border-[#1f242d] bg-[#0b0e14] p-2.5 flex flex-col gap-2 shrink-0">
+          
+          {/* Telemetry Rationale Flash Banner */}
+          {routingRationale && (
+            <div className="bg-[#07131e] border border-[#38bdf8] text-[#38bdf8] px-2.5 py-1 rounded text-[9px] font-bold flex items-center justify-between shadow-[0_0_12px_rgba(56,189,248,0.3)]">
+              <span>◈ {routingRationale}</span>
+              <span className="text-[#C5BD9F] text-[8px] font-normal">AUTO-ROUTER LOCKED</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-[9px]">
             <div className="flex items-center gap-2">
               <button
@@ -1044,7 +1283,7 @@ export default function Tab01Exec({ ws }) {
           {/* Action Deck */}
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
             
-            {/* Primary Action Trigger + Wagon Wheel Spinner */}
+            {/* Primary Action Trigger + Auto-Route Switch */}
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -1059,14 +1298,50 @@ export default function Tab01Exec({ ws }) {
                 SUBMIT
               </button>
 
-              {(isLoading || isDistilling) && (
-                <div className="flex items-center gap-1.5 bg-[#080a0c] border border-[#DAA520]/50 px-2 py-1 rounded">
-                  <div className="w-3.5 h-3.5 border-2 border-[#DAA520]/30 border-t-[#DAA520] rounded-full animate-spin shrink-0"></div>
-                  <span className="text-[9px] text-[#DAA520] font-bold tracking-wider">
-                    {elapsedSeconds}s
-                  </span>
-                </div>
-              )}
+              {/* 3D HIGH-LUMINANCE METALLIC AUTO-ROUTE LLM HARDWARE SWITCH */}
+              <button
+                type="button"
+                disabled={isMasterChat || activeChatId === null || isRouting}
+                onClick={handleAutoRouteLLM}
+                onMouseEnter={() => setAutoRouteHover(true)}
+                onMouseLeave={() => setAutoRouteHover(false)}
+                title="Analyze input text & auto-select optimal LLM engine"
+                style={{
+                  position: 'relative',
+                  padding: '7px 16px',
+                  fontSize: '11px',
+                  fontWeight: 900,
+                  letterSpacing: '1.2px',
+                  borderRadius: '3px',
+                  cursor: isMasterChat || activeChatId === null ? 'not-allowed' : 'pointer',
+                  opacity: isMasterChat || activeChatId === null ? 0.45 : 1,
+                  transition: 'all 0.16s ease-in-out',
+                  color: autoRouteHover ? '#ffffff' : '#f0f9ff',
+                  background: autoRouteHover
+                    ? 'linear-gradient(180deg, #1b5b94 0%, #2982d6 45%, #196bb8 55%, #0f406e 100%)'
+                    : 'linear-gradient(180deg, #144673 0%, #1f68ab 45%, #165389 55%, #0c3154 100%)',
+                  border: '1px solid #38bdf8',
+                  boxShadow: autoRouteHover
+                    ? 'inset 0 1px 1px rgba(224, 242, 254, 0.95), inset 0 -1px 2px rgba(0, 0, 0, 0.9), 0 4px 20px rgba(56, 189, 248, 0.6), 0 2px 5px rgba(0, 0, 0, 0.9)'
+                    : 'inset 0 1px 1px rgba(186, 230, 253, 0.8), inset 0 -1px 2px rgba(0, 0, 0, 0.85), 0 3px 14px rgba(2, 132, 199, 0.45), 0 1px 2px rgba(0, 0, 0, 0.8)',
+                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.95), 0 0 10px rgba(56, 189, 248, 0.65)',
+                  transform: autoRouteHover ? 'translateY(-1px)' : 'translateY(0)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <span style={{
+                  display: 'inline-block',
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  backgroundColor: '#38bdf8',
+                  boxShadow: '0 0 8px #38bdf8, 0 0 16px #0284c7',
+                  animation: isRouting ? 'pulse 0.8s infinite' : 'none'
+                }} />
+                {isRouting ? 'ROUTING...' : 'AUTO-ROUTE LLM'}
+              </button>
             </div>
 
             {/* Pipeline Controls */}
@@ -1170,6 +1445,18 @@ export default function Tab01Exec({ ws }) {
           </div>
         </div>
       </div>
+
+      {/* Global Embedded Keyframes for SVG Orbital Gyroscope */}
+      <style>{`
+        @keyframes spin-cw {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes spin-ccw {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -152,8 +152,12 @@ export default function Tab12Review() {
   };
 
   const handleSuggestTaxonomy = async () => {
-    if (!harvestedNugget || harvestedNugget.startsWith('// Paste')) {
-      alert("Please harvest or paste a dossier first.");
+    // BUG FIX: Combine all fields so no context is ever missed or overridden by stale right-pane text.
+    const payloadText = `${url} ${contentDump} ${harvestedNugget}`.trim();
+    
+    // Check if the only thing in the payload is the default boilerplate
+    if (contentDump.trim() === '' && url.trim() === '' && harvestedNugget.includes('// Paste videos')) {
+      alert("Please paste text into the dump box on the left, or harvest a nugget first.");
       return;
     }
 
@@ -163,37 +167,53 @@ export default function Tab12Review() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: harvestedNugget,
+          content: payloadText,
           existingTaxonomy: specializationsMap
         })
       });
 
       const data = await response.json();
-      console.log("[Taxonomy Suggestion Received]:", data);
 
-      if (data && data.domain && data.subNiche) {
-        const cleanDomain = data.domain.trim();
-        const cleanNiche = data.subNiche.trim();
+      const suggestedDomain = (data.domain || data.topic || '').trim();
+      const suggestedSubNiche = (data.subNiche || data.specialization || '').trim();
 
-        // 1. Synchronously update the catalog options first
-        setTopicDomains(prev => prev.includes(cleanDomain) ? prev : [...prev, cleanDomain]);
+      if (suggestedDomain && suggestedSubNiche) {
+        setTopicDomains(prev => prev.includes(suggestedDomain) ? prev : [...prev, suggestedDomain]);
 
         setSpecializationsMap(prev => {
-          const currentSpecs = prev[cleanDomain] || [];
+          const currentSpecs = prev[suggestedDomain] || [];
           return {
             ...prev,
-            [cleanDomain]: currentSpecs.includes(cleanNiche) ? currentSpecs : [...currentSpecs, cleanNiche]
+            [suggestedDomain]: currentSpecs.includes(suggestedSubNiche) ? currentSpecs : [...currentSpecs, suggestedSubNiche]
           };
         });
 
-        // 2. Lock the dropdowns onto the new keys
-        setTimeout(() => {
-          setTopicDomain(cleanDomain);
-          setSpecialization(cleanNiche);
-        }, 50);
+        setTopicDomain(suggestedDomain);
+        setSpecialization(suggestedSubNiche);
       }
     } catch (err) {
-      console.error("Auto taxonomy suggestion failed:", err);
+      console.error("Auto taxonomy suggestion network error:", err);
+      // BUG FIX: Bulletproof local fallback routing
+      const low = payloadText.toLowerCase();
+      let d = 'Cutting Edge AI';
+      let s = 'Hermes';
+
+      if (low.includes('mql') && low.includes('node')) {
+        d = 'System Architecture & Code';
+        s = 'MQL5 / Node.js Bridges';
+      } else if (low.includes('mql') || low.includes('trading') || low.includes('forex') || low.includes('arbitrage')) {
+        d = 'Market & Currency Pairs';
+        s = 'Cross-Asset Momentum';
+      } else if (low.includes('react') || low.includes('vite') || low.includes('dashboard')) {
+        d = 'System Architecture & Code';
+        s = 'React Vite Interfaces';
+      } else if (low.includes('dell') || low.includes('poweredge') || low.includes('server')) {
+        d = 'Hardware & Infrastructure';
+        s = 'Base 1 Server Setup';
+      }
+
+      setTopicDomain(d);
+      setSpecialization(s);
     } finally {
       setIsSuggesting(false);
     }
@@ -252,7 +272,6 @@ export default function Tab12Review() {
   return (
     <div className="relative flex flex-col h-full w-full bg-[#080a0c] text-xs font-mono text-[#e2e8f0] p-3 gap-3 select-none">
       
-      {/* FULL-SCREEN SPINNER OVERLAY */}
       {(isHarvesting || isSaving) && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#080a0c]/85 backdrop-blur-sm rounded">
           <div className="relative flex items-center justify-center w-28 h-28 mb-5">
@@ -269,7 +288,6 @@ export default function Tab12Review() {
         </div>
       )}
 
-      {/* HEADER BAR */}
       <div className="flex items-center justify-between bg-[#0d0f12] border border-[#1f242d] px-4 py-2.5 rounded">
         <div>
           <div className="text-[#ffb800] font-bold text-sm tracking-wider">
@@ -295,7 +313,6 @@ export default function Tab12Review() {
         </div>
       </div>
 
-      {/* SIGNAL DENSITY METER */}
       <div className="bg-[#0d0f12] border border-[#1f242d] p-3 rounded space-y-1.5">
         <div className="flex justify-between items-center text-[11px]">
           <span className="text-[#5c6b7f] font-bold tracking-wide">SIGNAL DENSITY // FLUFF-TO-NUGGET RATIO</span>
@@ -320,10 +337,8 @@ export default function Tab12Review() {
         </div>
       </div>
 
-      {/* DUAL PANE WORKSPACE */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-0">
         
-        {/* LEFT PANE: INTAKE & HARVESTING */}
         <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-3 space-y-3 overflow-y-auto custom-scrollbar">
           <div className="flex justify-between items-center text-[11px] text-[#ffb800] font-bold border-b border-[#14181f] pb-2">
             <span>INTAKE & HARVESTING</span>
@@ -398,7 +413,7 @@ export default function Tab12Review() {
             <button
               type="button"
               onClick={handleSuggestTaxonomy}
-              disabled={isSuggesting || isHarvesting || harvestedNugget.startsWith('// Paste')}
+              disabled={isSuggesting || isHarvesting}
               className="flex items-center gap-1.5 px-3 py-1 bg-[#14171c] hover:bg-[#ffb800]/20 text-[#ffb800] border border-[#ffb800]/40 hover:border-[#ffb800] rounded text-[10px] font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isSuggesting ? '⚡ ANALYZING...' : '✦ SUGGEST TOPIC & SUB-NICHE'}
@@ -419,7 +434,6 @@ export default function Tab12Review() {
           </button>
         </div>
 
-        {/* RIGHT PANE: HARVESTED NUGGET */}
         <div className="flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded p-3 space-y-3">
           <div className={`flex justify-between items-center text-[11px] font-bold border-b border-[#14181f] pb-2 ${hasError ? 'text-[#ef4444]' : saveSuccess ? 'text-[#10b981]' : 'text-[#10b981]'}`}>
             <span>THE HARVESTED NUGGET (EDITABLE)</span>
