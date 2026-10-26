@@ -32,6 +32,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('01 EXEC');
   const [mcncSocket, setMcncSocket] = useState(null);
   const [wsStatus, setWsStatus] = useState('DISCONNECTED');
+  const [heartbeatActive, setHeartbeatActive] = useState(false);
   
   // Universal Busy State
   const [isSystemBusy, setIsSystemBusy] = useState(false);
@@ -39,6 +40,22 @@ export default function App() {
 
   // Shared state for War Room payload transfers from Tab 01
   const [warRoomPayload, setWarRoomPayload] = useState(null);
+
+  // Trigger WASP Heartbeat GUI HUD via Port 8082 Express Pipeline
+  const triggerHeartbeat = async () => {
+    try {
+      setHeartbeatActive(true);
+      await fetch('http://localhost:8082/api/heartbeat', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trigger: 'COCKPIT_HEADER' })
+      });
+      setTimeout(() => setHeartbeatActive(false), 1200);
+    } catch (err) {
+      console.error('[HEARTBEAT] Trigger failed:', err);
+      setHeartbeatActive(false);
+    }
+  };
 
   // Sync selected brain across tabs to guard the telemetry dot
   useEffect(() => {
@@ -116,7 +133,7 @@ export default function App() {
     <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       
       {/* GLOBAL MASTER HEADER */}
-      <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(6px, 0.6vw, 10px) clamp(10px, 1vw, 16px)', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(12, 12, 12, 0.85)', flexShrink: 0 }}>
+      <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(6px, 0.6vw, 10px) clamp(10px, 1vw, 16px)', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(10, 12, 16, 0.95)', flexShrink: 0 }}>
         <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: 'var(--fs-title)' }}>
           <span>MISSION CONTROL // MCNC MASTER</span>
         </div>
@@ -138,6 +155,55 @@ export default function App() {
               }} 
             />
           )}
+
+          {/* OBSIDIAN PULSE: WASP HEARTBEAT MASTER TRIGGER */}
+          <button
+            onClick={triggerHeartbeat}
+            style={{
+              background: heartbeatActive 
+                ? 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.25) 0%, rgba(6, 9, 13, 0.95) 100%)' 
+                : 'linear-gradient(180deg, #12161F 0%, #080A0E 100%)',
+              border: heartbeatActive ? '1px solid #10B981' : '1px solid #2B3545',
+              color: heartbeatActive ? '#34D399' : '#D4AF37',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '11px',
+              fontWeight: '700',
+              padding: '4px 14px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              letterSpacing: '1.2px',
+              boxShadow: heartbeatActive 
+                ? '0 0 14px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)' 
+                : '0 2px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+              transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(180deg, #1C222F 0%, #0E121A 100%)';
+              e.currentTarget.style.borderColor = '#DAA520';
+              e.currentTarget.style.color = '#F5D77F';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(218, 165, 32, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(180deg, #12161F 0%, #080A0E 100%)';
+              e.currentTarget.style.borderColor = '#2B3545';
+              e.currentTarget.style.color = '#D4AF37';
+              e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06)';
+            }}
+            title="Launch WASP Heartbeat Conduits HUD"
+          >
+            <span style={{
+              display: 'inline-block',
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: heartbeatActive ? '#10B981' : '#059669',
+              boxShadow: heartbeatActive ? '0 0 8px #10B981' : '0 0 4px #059669'
+            }} />
+            <span>[ HEARTBEAT ]</span>
+          </button>
 
           <div>
             BRIDGE: <span style={{ color: wsStatus === 'ACTIVE' ? 'var(--emerald-core)' : 'var(--ruby-core)', fontWeight: 'bold' }}>{wsStatus}</span> | FRAMEWORK: REACT VITE
