@@ -48,8 +48,15 @@ const RAW_MODEL_TIERS = [
 ];
 
 export default function Tab01Exec({ ws }) {
-  // --- Active Operational Discipline Mode ---
-  const [activeMode, setActiveMode] = useState('general');
+  // --- Active Operational Discipline Mode (Persisted) ---
+  const [activeMode, setActiveModeState] = useState(() => {
+    return localStorage.getItem('mcnc_active_mode') || 'general';
+  });
+
+  const setActiveMode = (mode) => {
+    setActiveModeState(mode);
+    localStorage.setItem('mcnc_active_mode', mode);
+  };
 
   // --- Dynamic Model Sorter ---
   const modelTiers = useMemo(() => {
@@ -78,13 +85,13 @@ export default function Tab01Exec({ ws }) {
     tier4: false
   });
 
-  // Unified Kaggle Status Resolver
+  // HARDENED: Defaults strictly to STANDBY. Clears stale legacy cache automatically.
   const [kaggleStatus, setKaggleStatus] = useState(() => {
-    const raw = localStorage.getItem('kaggle_status') || localStorage.getItem('kaggle_cluster_status');
-    return (raw === 'ACTIVE' || raw === 'ONLINE') ? 'ONLINE' : 'STANDBY';
+    localStorage.removeItem('kaggle_status');
+    localStorage.removeItem('kaggle_cluster_status');
+    return 'STANDBY';
   });
 
-  // Model Selection Handler with Global Broadcast
   const handleSelectModel = (modelId) => {
     setSelectedBrain(modelId);
     localStorage.setItem('mcnc_selected_brain', modelId);
@@ -168,21 +175,19 @@ export default function Tab01Exec({ ws }) {
     const handleCustomKaggleEvent = (e) => {
       const stat = e.detail?.status;
       if (stat) {
-        setKaggleStatus((stat === 'ACTIVE' || stat === 'ONLINE') ? 'ONLINE' : 'STANDBY');
+        setKaggleStatus(stat === 'ACTIVE' || stat === 'ONLINE' ? 'ONLINE' : 'STANDBY');
       }
     };
 
     const handleStorageUpdate = () => {
-      const stored = localStorage.getItem('kaggle_status') || localStorage.getItem('kaggle_cluster_status');
-      if (stored) {
-        setKaggleStatus((stored === 'ACTIVE' || stored === 'ONLINE') ? 'ONLINE' : 'STANDBY');
-      }
       const brain = localStorage.getItem('mcnc_selected_brain');
       if (brain && brain !== selectedBrain) setSelectedBrain(brain);
+      
+      const storedMode = localStorage.getItem('mcnc_active_mode');
+      if (storedMode && storedMode !== activeMode) setActiveModeState(storedMode);
     };
     
     const handleRevert = () => {
-      console.log("[01 EXEC] Chat reverted from Vault. Refreshing active ledgers...");
       fetchChatCatalog();
     };
 
@@ -198,9 +203,9 @@ export default function Tab01Exec({ ws }) {
       if (recognitionRef.current) recognitionRef.current.abort();
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     };
-  }, [selectedBrain]);
+  }, [selectedBrain, activeMode]);
 
-  // --- Catalog & Persistence API Calls ---
+  // --- Catalog API Calls ---
   const fetchChatCatalog = async () => {
     try {
       const res = await fetch('http://localhost:8082/api/chats/all');
@@ -361,12 +366,9 @@ export default function Tab01Exec({ ws }) {
         if (activeChatId === chatId) {
           setZeroState();
         }
-      } else {
-        alert('Archive failed: ' + (data.error || 'Server error'));
       }
     } catch (err) {
       console.error('Archive chat error:', err);
-      alert('Archive network failure: Ensure server_pipeline.js is running on 8082');
     }
   };
 
@@ -411,11 +413,7 @@ export default function Tab01Exec({ ws }) {
       setInputCommand((prev) => (prev ? prev + ' ' + transcript : transcript));
     };
 
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      setIsRecording(false);
-    };
-
+    recognition.onerror = () => setIsRecording(false);
     recognition.onend = () => setIsRecording(false);
 
     recognitionRef.current = recognition;
@@ -472,7 +470,7 @@ export default function Tab01Exec({ ws }) {
     setIsDistilling(false);
   };
 
-  // --- SUPERPOWER: AUTO-ROUTE INTELLIGENT DISPATCH SWITCH ---
+  // --- AUTO-ROUTE LLM (NO MODE HIJACKING) ---
   const handleAutoRouteLLM = async () => {
     const promptDraft = inputCommand.trim();
     if (!promptDraft) {
@@ -488,10 +486,7 @@ export default function Tab01Exec({ ws }) {
       const res = await fetch('http://localhost:8082/api/router/classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          promptText: promptDraft,
-          activeMode
-        })
+        body: JSON.stringify({ promptText: promptDraft, activeMode })
       });
 
       if (!res.ok) throw new Error('Classifier conduit unavailable on 8082');
@@ -501,21 +496,13 @@ export default function Tab01Exec({ ws }) {
         handleSelectModel(data.recommendedModel);
 
         if (data.tierId) {
-          setCollapsedTiers((prev) => ({
-            ...prev,
-            [data.tierId]: false
-          }));
-        }
-
-        if (data.mode) {
-          setActiveMode(data.mode);
+          setCollapsedTiers((prev) => ({ ...prev, [data.tierId]: false }));
         }
 
         setRoutingRationale(`ROUTED: ${data.recommendedModel.toUpperCase()} // ${data.rationale}`);
         setTimeout(() => setRoutingRationale(''), 6000);
       }
     } catch (err) {
-      console.warn('Fallback local regex routing activated:', err.message);
       const text = promptDraft.toLowerCase();
       let targetModel = 'hermes3:latest';
       let tier = 'tier1';
@@ -586,7 +573,6 @@ export default function Tab01Exec({ ws }) {
       }
     } catch (err) {
       console.error('Distillation Error:', err);
-      alert('Prompt synthesis failed: ' + err.message);
     } finally {
       setIsDistilling(false);
     }
@@ -603,7 +589,6 @@ export default function Tab01Exec({ ws }) {
     alert('Directive staged for War Room [Tab 02] under project: ' + activeProject);
   };
 
-  // --- Message Dispatch ---
   const handleSendMessage = async () => {
     if (!inputCommand.trim() || isMasterChat || isLoading) return;
 
@@ -677,7 +662,6 @@ export default function Tab01Exec({ ws }) {
       if (err.name === 'AbortError') {
         setChatLog((prev) => [...prev, { sender: 'SYSTEM', collaborators: [], title: 'System', time: new Date().toLocaleTimeString(), text: 'Execution aborted by Mike.' }]);
       } else {
-        console.error('Server Bridge Error:', err);
         setChatLog((prev) => [
           ...prev,
           {
@@ -720,7 +704,6 @@ export default function Tab01Exec({ ws }) {
     }
   };
 
-  // --- SOP 01 Identity Header Renderer ---
   const renderIdentityHeader = (msg) => {
     if (msg.sender === 'MIKE') {
       return (
@@ -767,7 +750,6 @@ export default function Tab01Exec({ ws }) {
   return (
     <div className="flex w-full h-[calc(100vh-40px)] max-h-full min-h-0 bg-[#080a0c] text-gray-200 font-mono overflow-hidden box-border pt-1">
       
-      {/* File Upload Hidden Input */}
       <input
         type="file"
         ref={fileInputRef}
@@ -780,15 +762,11 @@ export default function Tab01Exec({ ws }) {
         }}
       />
 
-      {/* ======================================================== */}
-      {/* LEFT SIDEBAR: SINGLE FLUID SCROLLABLE TRACK */}
-      {/* ======================================================== */}
+      {/* LEFT SIDEBAR */}
       <div 
         className="w-[300px] shrink-0 border-r border-[#1f242d] bg-[#080a0c] flex flex-col h-full overflow-y-auto min-h-0"
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
       >
-        
-        {/* Tier Selectors */}
         <div className="p-2 flex flex-col gap-2 shrink-0">
           {modelTiers.map((tierGroup) => {
             const isCollapsed = collapsedTiers[tierGroup.id];
@@ -848,7 +826,6 @@ export default function Tab01Exec({ ws }) {
           })}
         </div>
 
-        {/* Persistent Chat Accordions */}
         <div className="mt-6 border-t border-[#1f242d] pt-3 p-2 flex flex-col shrink-0 bg-[#0d0f12]">
           <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#1f242d]">
             <span className="text-[10px] font-bold text-[#DAA520] tracking-wider uppercase">
@@ -868,7 +845,6 @@ export default function Tab01Exec({ ws }) {
               <div key={proj} className="flex flex-col gap-1">
                 <span className="text-[9px] font-bold text-[#DAA520] uppercase px-1">{proj}</span>
 
-                {/* Master Ledger Button */}
                 <button
                   type="button"
                   onClick={() => loadMasterChat(proj)}
@@ -885,7 +861,6 @@ export default function Tab01Exec({ ws }) {
                   <span className="text-[8px] text-gray-500 shrink-0">[LOCK]</span>
                 </button>
 
-                {/* Sub-Chats with Archive and Delete Buttons */}
                 {(chatCatalog[proj] || []).map((c) => (
                   <div
                     key={c.id}
@@ -926,12 +901,8 @@ export default function Tab01Exec({ ws }) {
         </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* MAIN VIEWPORT: FEED & CONTROLS */}
-      {/* ======================================================== */}
+      {/* MAIN VIEWPORT */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
-        
-        {/* Status Header */}
         <div className="h-9 shrink-0 border-b border-[#1f242d] bg-[#0b0e14] flex items-center justify-between px-3 text-[10px]">
           <div className="flex items-center gap-2">
             <span className="text-emerald-400 font-bold flex items-center gap-1">
@@ -974,7 +945,6 @@ export default function Tab01Exec({ ws }) {
           </div>
         </div>
 
-        {/* Message Feed Area */}
         <div
           className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0 relative"
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
@@ -1011,7 +981,6 @@ export default function Tab01Exec({ ws }) {
             </div>
           ))}
 
-          {/* Staged Code Diff Review */}
           {stagedProposal && (
             <div className="border border-[#DAA520] bg-[#14171c] p-3 rounded flex flex-col gap-2">
               <div className="flex items-center justify-between text-[10px] font-bold text-[#DAA520]">
@@ -1033,9 +1002,7 @@ export default function Tab01Exec({ ws }) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ======================================================== */}
-        {/* TAB 12 REVIEW STYLE: DEDICATED FULL-VIEWPORT HUD OVERLAY */}
-        {/* ======================================================== */}
+        {/* FULL VIEWPORT ORBITAL HUD OVERLAY */}
         {(isLoading || isDistilling) && (
           <div 
             style={{
@@ -1055,13 +1022,8 @@ export default function Tab01Exec({ ws }) {
               pointerEvents: 'all'
             }}
           >
-            {/* SVG Multi-Ring Gyroscope from Tab 12 */}
             <div style={{ position: 'relative', width: '130px', height: '130px', marginBottom: '22px' }}>
-              <svg 
-                viewBox="0 0 100 100" 
-                style={{ width: '100%', height: '100%', overflow: 'visible' }}
-              >
-                {/* Outer Ring: Emerald (#10b981) */}
+              <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
                 <circle
                   cx="50"
                   cy="50"
@@ -1071,13 +1033,8 @@ export default function Tab01Exec({ ws }) {
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeDasharray="75 160"
-                  style={{
-                    transformOrigin: '50% 50%',
-                    animation: 'spin-cw 2.4s linear infinite'
-                  }}
+                  style={{ transformOrigin: '50% 50%', animation: 'spin-cw 2.4s linear infinite' }}
                 />
-
-                {/* Middle Ring: Sky Blue (#38bdf8) */}
                 <circle
                   cx="50"
                   cy="50"
@@ -1087,13 +1044,8 @@ export default function Tab01Exec({ ws }) {
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeDasharray="50 120"
-                  style={{
-                    transformOrigin: '50% 50%',
-                    animation: 'spin-ccw 1.8s linear infinite'
-                  }}
+                  style={{ transformOrigin: '50% 50%', animation: 'spin-ccw 1.8s linear infinite' }}
                 />
-
-                {/* Inner Ring: Acacia Gold (#ffb800) */}
                 <circle
                   cx="50"
                   cy="50"
@@ -1103,14 +1055,10 @@ export default function Tab01Exec({ ws }) {
                   strokeWidth="3"
                   strokeLinecap="round"
                   strokeDasharray="38 90"
-                  style={{
-                    transformOrigin: '50% 50%',
-                    animation: 'spin-cw 1.2s ease-in-out infinite'
-                  }}
+                  style={{ transformOrigin: '50% 50%', animation: 'spin-cw 1.2s ease-in-out infinite' }}
                 />
               </svg>
 
-              {/* Central Core Telemetry */}
               <div 
                 style={{
                   position: 'absolute',
@@ -1129,7 +1077,6 @@ export default function Tab01Exec({ ws }) {
               </div>
             </div>
 
-            {/* Status Header Telemetry */}
             <div 
               style={{
                 fontSize: '13px',
@@ -1141,12 +1088,9 @@ export default function Tab01Exec({ ws }) {
                 textShadow: '0 0 14px rgba(255, 184, 0, 0.5)'
               }}
             >
-              {isDistilling
-                ? 'SYNTHESIZING ACTIONABLE DIRECTIVE...'
-                : 'EXECUTING INFERENCE RUN...'}
+              {isDistilling ? 'SYNTHESIZING ACTIONABLE DIRECTIVE...' : 'EXECUTING INFERENCE RUN...'}
             </div>
 
-            {/* Engine Subtitle Banner */}
             <div 
               style={{
                 fontSize: '11px',
@@ -1189,7 +1133,7 @@ export default function Tab01Exec({ ws }) {
           </div>
         )}
 
-        {/* New Chat Popover */}
+        {/* NEW CHAT MODAL */}
         {newChatPromptOpen && (
           <div className="mx-3 mb-2 p-2 border border-[#DAA520] bg-[#14171c] rounded flex items-center gap-2">
             <span className="text-[10px] font-bold text-[#DAA520] shrink-0">NEW SUB-CHAT:</span>
@@ -1218,10 +1162,8 @@ export default function Tab01Exec({ ws }) {
           </div>
         )}
 
-        {/* Command & Input Dock */}
+        {/* INPUT DOCK */}
         <div className="border-t border-[#1f242d] bg-[#0b0e14] p-2.5 flex flex-col gap-2 shrink-0">
-          
-          {/* Telemetry Rationale Flash Banner */}
           {routingRationale && (
             <div className="bg-[#07131e] border border-[#38bdf8] text-[#38bdf8] px-2.5 py-1 rounded text-[9px] font-bold flex items-center justify-between shadow-[0_0_12px_rgba(56,189,248,0.3)]">
               <span>◈ {routingRationale}</span>
@@ -1280,10 +1222,7 @@ export default function Tab01Exec({ ws }) {
             )}
           />
 
-          {/* Action Deck */}
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            
-            {/* Primary Action Trigger + Auto-Route Switch */}
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -1298,7 +1237,6 @@ export default function Tab01Exec({ ws }) {
                 SUBMIT
               </button>
 
-              {/* 3D HIGH-LUMINANCE METALLIC AUTO-ROUTE LLM HARDWARE SWITCH */}
               <button
                 type="button"
                 disabled={isMasterChat || activeChatId === null || isRouting}
@@ -1344,7 +1282,6 @@ export default function Tab01Exec({ ws }) {
               </button>
             </div>
 
-            {/* Pipeline Controls */}
             <div className="flex items-center gap-1 bg-[#080a0c] border border-[#1f242d] px-1 py-0.5 rounded">
               <button
                 type="button"
@@ -1396,10 +1333,8 @@ export default function Tab01Exec({ ws }) {
               </button>
             </div>
 
-            {/* Expansion Bay */}
             <div className="w-[110px] shrink-0" aria-hidden="true" />
 
-            {/* + NEW CHAT */}
             <button
               type="button"
               onClick={() => setNewChatPromptOpen(true)}
@@ -1408,10 +1343,8 @@ export default function Tab01Exec({ ws }) {
               + NEW CHAT
             </button>
 
-            {/* Divider */}
             <div className="h-5 w-[1px] bg-[#1f242d] mx-0.5"></div>
 
-            {/* Mode Selector */}
             <div className="flex items-center gap-1.5 bg-[#080a0c] border border-[#1f242d] px-2 py-1 rounded shadow-inner">
               <span className="text-[9px] text-[#DAA520] uppercase font-bold tracking-wider mr-0.5">
                 MODE:
@@ -1441,12 +1374,10 @@ export default function Tab01Exec({ ws }) {
                 );
               })}
             </div>
-
           </div>
         </div>
       </div>
 
-      {/* Global Embedded Keyframes for SVG Orbital Gyroscope */}
       <style>{`
         @keyframes spin-cw {
           from { transform: rotate(0deg); }
