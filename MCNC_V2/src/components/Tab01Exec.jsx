@@ -78,14 +78,15 @@ export default function Tab01Exec({ ws }) {
     return localStorage.getItem('mcnc_selected_brain') || 'meta/llama-3.2-90b-vision-instruct';
   });
 
+  // HARDENED: Defaults all tiers completely collapsed / minimized on load
   const [collapsedTiers, setCollapsedTiers] = useState({
     tier1: true,
-    tier2: false,
+    tier2: true,
     tier3: true,
-    tier4: false
+    tier4: true
   });
 
-  // HARDENED: Defaults strictly to STANDBY. Clears stale legacy cache automatically.
+  // HARDENED: Defaults strictly to STANDBY
   const [kaggleStatus, setKaggleStatus] = useState(() => {
     localStorage.removeItem('kaggle_status');
     localStorage.removeItem('kaggle_cluster_status');
@@ -140,6 +141,7 @@ export default function Tab01Exec({ ws }) {
   const messagesEndRef = useRef(null);
   const timerIntervalRef = useRef(null);
   const recognitionRef = useRef(null);
+  const isRecordingRef = useRef(false);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -164,7 +166,7 @@ export default function Tab01Exec({ ws }) {
     };
   }, [isLoading, isDistilling]);
 
-  // --- Mount: Load Catalog & Harmonized Listeners ---
+  // --- Mount: Load Catalog & Listeners ---
   useEffect(() => {
     fetchChatCatalog();
 
@@ -196,6 +198,7 @@ export default function Tab01Exec({ ws }) {
     window.addEventListener('MCNC_REVERT_CHAT', handleRevert);
 
     return () => {
+      isRecordingRef.current = false;
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('kaggle-status-changed', handleCustomKaggleEvent);
       window.removeEventListener('MCNC_REVERT_CHAT', handleRevert);
@@ -397,28 +400,59 @@ export default function Tab01Exec({ ws }) {
       return;
     }
 
-    if (isRecording && recognitionRef.current) {
-      recognitionRef.current.stop();
+    if (isRecording) {
+      isRecordingRef.current = false;
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
       setIsRecording(false);
       return;
     }
 
+    isRecordingRef.current = true;
+    setIsRecording(true);
+
     const recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = false;
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setInputCommand((prev) => (prev ? prev + ' ' + transcript : transcript));
+      let finalSpeech = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalSpeech += event.results[i][0].transcript;
+        }
+      }
+      if (finalSpeech.trim()) {
+        setInputCommand((prev) => (prev ? prev + ' ' + finalSpeech.trim() : finalSpeech.trim()));
+      }
     };
 
-    recognition.onerror = () => setIsRecording(false);
-    recognition.onend = () => setIsRecording(false);
+    recognition.onerror = (e) => {
+      if (e.error === 'no-speech') return;
+      if (e.error === 'not-allowed') {
+        isRecordingRef.current = false;
+        setIsRecording(false);
+      }
+    };
+
+    recognition.onend = () => {
+      if (isRecordingRef.current) {
+        try {
+          recognition.start();
+        } catch (err) {}
+      } else {
+        setIsRecording(false);
+      }
+    };
 
     recognitionRef.current = recognition;
-    recognition.start();
-    setIsRecording(true);
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error('Speech recognition start error:', e);
+    }
   };
 
   // --- Control Bar Actions ---
@@ -443,10 +477,12 @@ export default function Tab01Exec({ ws }) {
   };
 
   const handleAllStop = () => {
-    if (isRecording && recognitionRef.current) {
+    isRecordingRef.current = false;
+    if (recognitionRef.current) {
       recognitionRef.current.stop();
-      setIsRecording(false);
     }
+    setIsRecording(false);
+
     if (isSpeaking && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
@@ -470,7 +506,7 @@ export default function Tab01Exec({ ws }) {
     setIsDistilling(false);
   };
 
-  // --- AUTO-ROUTE LLM (NO MODE HIJACKING) ---
+  // --- AUTO-ROUTE LLM ---
   const handleAutoRouteLLM = async () => {
     const promptDraft = inputCommand.trim();
     if (!promptDraft) {
@@ -584,9 +620,24 @@ export default function Tab01Exec({ ws }) {
       alert('No synthesized prompt in input dock. Click "CREATE PROMPT" first.');
       return;
     }
+
+    // 1. Stage in localStorage for Tab 02 mount ingestion
     localStorage.setItem('mcnc_warroom_seed_prompt', promptToSend);
     localStorage.setItem('mcnc_warroom_seed_project', activeProject);
+
+    // 2. Dispatch live event in case Tab 02 is mounted or listening in DOM
+    window.dispatchEvent(new CustomEvent('push-to-warroom', {
+      detail: { project: activeProject, payload: promptToSend, prompt: promptToSend }
+    }));
+
+    // 3. User confirmation
     alert('Directive staged for War Room [Tab 02] under project: ' + activeProject);
+
+    // 4. Trigger auto-navigation to Tab 02 War Room across common application routing conventions
+    window.dispatchEvent(new CustomEvent('switch-tab', { detail: '02 WAR ROOM' }));
+    window.dispatchEvent(new CustomEvent('switch-tab', { detail: '02' }));
+    window.dispatchEvent(new CustomEvent('tab-change', { detail: '02 WAR ROOM' }));
+    window.dispatchEvent(new CustomEvent('mcnc-switch-tab', { detail: '02 WAR ROOM' }));
   };
 
   const handleSendMessage = async () => {
@@ -768,6 +819,30 @@ export default function Tab01Exec({ ws }) {
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#1f242d #080a0c' }}
       >
         <div className="p-2 flex flex-col gap-2 shrink-0">
+          
+          {/* SECTION HEADER: COMPUTE TIERS POOL */}
+          <div className="flex items-center justify-between pb-1.5 mb-1 border-b border-[#1f242d]">
+            <span className="text-[10px] font-bold text-[#DAA520] tracking-wider uppercase">
+              COMPUTE TIERS // ENGINE POOL
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const anyOpen = Object.values(collapsedTiers).some(v => v === false);
+                setCollapsedTiers({
+                  tier1: anyOpen,
+                  tier2: anyOpen,
+                  tier3: anyOpen,
+                  tier4: anyOpen
+                });
+              }}
+              className="text-gray-500 hover:text-[#DAA520] text-[8px] font-bold uppercase transition-colors cursor-pointer"
+              title="Toggle all accordions"
+            >
+              {Object.values(collapsedTiers).some(v => v === false) ? 'COLLAPSE ALL' : 'EXPAND ALL'}
+            </button>
+          </div>
+
           {modelTiers.map((tierGroup) => {
             const isCollapsed = collapsedTiers[tierGroup.id];
             const isTier4 = tierGroup.id === 'tier4';
@@ -777,7 +852,7 @@ export default function Tab01Exec({ ws }) {
                 <button
                   type="button"
                   onClick={() => setCollapsedTiers((prev) => ({ ...prev, [tierGroup.id]: !prev[tierGroup.id] }))}
-                  className="flex items-center justify-between text-[10px] font-bold text-[#DAA520] hover:text-white px-1 py-1 rounded bg-[#0b0e14] border border-[#1f242d] cursor-pointer"
+                  className="flex items-center justify-between text-[10px] font-bold text-[#DAA520] hover:text-white px-2 py-1.5 rounded bg-[#0b0e14] border border-[#1f242d] cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-1.5 min-w-0 pr-1">
                     <span className="truncate">{tierGroup.tier}</span>
@@ -787,7 +862,7 @@ export default function Tab01Exec({ ws }) {
                       </span>
                     )}
                   </div>
-                  <span className="text-gray-500 text-[8px]">{isCollapsed ? '+' : '-'}</span>
+                  <span className="text-gray-500 text-[9px] font-bold">{isCollapsed ? '+' : '−'}</span>
                 </button>
 
                 {!isCollapsed && (
@@ -1194,7 +1269,7 @@ export default function Tab01Exec({ ws }) {
                   : 'text-gray-400 hover:text-white border border-[#1f242d]'
               )}
             >
-              <span>MIC</span> {isRecording ? 'LISTENING...' : 'CHROME MIC'}
+              <span>MIC</span> {isRecording ? 'LISTENING (CONTINUOUS)...' : 'CHROME MIC'}
             </button>
           </div>
 
@@ -1384,7 +1459,7 @@ export default function Tab01Exec({ ws }) {
           to { transform: rotate(360deg); }
         }
         @keyframes spin-ccw {
-          from { transform: rotate(360deg); }
+          from { transform: rotate(0deg); }
           to { transform: rotate(0deg); }
         }
       `}</style>

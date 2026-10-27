@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { 
   Palette, Sliders, Check, Copy, RefreshCw, 
-  Monitor, Layers, Droplets, ArrowRight
+  Monitor, Layers, Droplets, ArrowRight, Folder, FileImage, TreePine
 } from 'lucide-react';
 import './Tab08Palettes.css';
 
@@ -31,6 +31,79 @@ const HIGH_FINANCE_METALS = [
   { id: 'metal-midnight', name: 'Metal Midnight', gradient: 'linear-gradient(180deg, #2D5063 0%, #142933 50%, #071014 100%)', sub: 'TYPE: Gradient', category: 'PRECIOUS' }
 ];
 
+// Africa Palette Master Swatches (From AFRICA_PALETTE_MASTER.md)
+const AFRICA_MASTER_SWATCHES = [
+  // Static Core Tokens
+  { id: 'madothi-charcoal', name: 'Madothi Charcoal', gradient: '#1A0F0A', sub: 'TYPE: Solid Hex', category: 'FOUNDATIONS' },
+  { id: 'madothi-espresso', name: 'Madothi Espresso', gradient: '#2B1A11', sub: 'TYPE: Solid Hex', category: 'FOUNDATIONS' },
+  { id: 'malawi-sunset', name: 'Malawi Sunset', gradient: '#E35503', sub: 'TYPE: Solid Hex', category: 'IDENTITY ACCENTS' },
+  { id: 'african-ochre', name: 'African Ochre', gradient: '#C7923E', sub: 'TYPE: Solid Hex', category: 'IDENTITY ACCENTS' },
+  { id: 'canopy-forest', name: 'Canopy Forest', gradient: '#2B4422', sub: 'TYPE: Solid Hex', category: 'PROGRAM & CANOPY' },
+  { id: 'canopy-sage', name: 'Canopy Sage', gradient: '#547A4E', sub: 'TYPE: Solid Hex', category: 'PROGRAM & CANOPY' },
+  { id: 'safari-tan', name: 'Safari Tan', gradient: '#C49A7D', sub: 'TYPE: Solid Hex', category: 'SURFACES & LINEN' },
+  { id: 'wicker-sand', name: 'Wicker Sand', gradient: '#D9C3B0', sub: 'TYPE: Solid Hex', category: 'SURFACES & LINEN' },
+  { id: 'linen-canvas', name: 'Linen Canvas', gradient: '#F5F0EA', sub: 'TYPE: Solid Hex', category: 'SURFACES & LINEN' },
+  { id: 'linen-highlight', name: 'Linen Highlight', gradient: '#FAF8F5', sub: 'TYPE: Solid Hex', category: 'SURFACES & LINEN' },
+
+  // 10-Tier Wood & Timber Matrix
+  { id: 'timber-w01', name: 'W-01 Charred Ironwood', gradient: '#1A0F0A', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w02', name: 'W-02 Deep Ebony Sinker', gradient: '#26160E', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w03', name: 'W-03 Roasted Mopane', gradient: '#362015', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w04', name: 'W-04 Aged African Walnut', gradient: '#4A2E1F', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w05', name: 'W-05 Seasoned Teak', gradient: '#5E3D2B', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w06', name: 'W-06 Earthy Kiaat', gradient: '#75503A', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w07', name: 'W-07 Wild Tamboti', gradient: '#8F664C', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w08', name: 'W-08 Sun-Baked Mahogany', gradient: '#AA7F62', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w09', name: 'W-09 Weathered Safari Plank', gradient: '#C49A7D', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' },
+  { id: 'timber-w10', name: 'W-10 Bleached Limba', gradient: '#DFBAA0', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' }
+];
+
+// Physical Asset Manifest (Expanded Tranches 1-7 Mapping)
+const AFRICA_ASSET_MANIFEST = [
+  { name: "Aged Ochre Weave.jpg", role: "Class B: Rustic Reading Surface", type: "JPG" },
+  { name: "Background 1.png", role: "Class B: Layout Canvas Plate", type: "PNG" },
+  { name: "Background 2.png", role: "Class B: Layout Canvas Plate", type: "PNG" },
+  { name: "Background 3.png", role: "Class B: Layout Canvas Plate", type: "PNG" },
+  { name: "Border Strip 2.png", role: "Class A/C: Slicing Panel & Rail", type: "PNG" },
+  { name: "Border Strip 3.png", role: "Class A/C: Slicing Panel & Rail", type: "PNG" },
+  { name: "Border Strip 4.png", role: "Class A/C: Slicing Panel & Rail", type: "PNG" },
+  { name: "Border Strip 5.png", role: "Class A/C: Slicing Panel & Rail", type: "PNG" },
+  { name: "Border Strip 6.png", role: "Class A/C: Slicing Panel & Rail", type: "PNG" },
+  { name: "Border Strip 7.png", role: "Class A/C: Slicing Panel & Rail", type: "PNG" },
+  { name: "Border Strip Green.png", role: "Class A/C: Slicing Panel & Rail", type: "PNG" },
+  { name: "Border Strip Weave Wide.png", role: "Class A: Full-Width Primary Landing Header Band", type: "PNG" },
+  { name: "Border Strip Weave.png", role: "Class A: Intermediate Section Header Band", type: "PNG" },
+  { name: "Border Strip.png", role: "Class A/C: Slicing Panel & Rail", type: "PNG" },
+  { name: "Fine Beige Weave.jpeg", role: "Class B: Rustic Reading Surface", type: "JPEG" },
+  { name: "Fine Thin Weave.jpg", role: "Class B: Rustic Reading Surface", type: "JPG" },
+  { name: "Graphics.png", role: "Class C: General UI Asset", type: "PNG" },
+  { name: "Header Strip.png", role: "Class A: Section Header Band", type: "PNG" },
+  { name: "Header Strip2.png", role: "Class A: Section Header Band", type: "PNG" },
+  { name: "Header Strip3.png", role: "Class A: Section Header Band", type: "PNG" },
+  { name: "Mat Weave Rich.png", role: "Class B: Rustic Reading Surface", type: "PNG" },
+  { name: "pattern-beige-floor.jpg", role: "Class C: General UI Asset", type: "JPG" },
+  { name: "pattern-green.jpg", role: "Class C: General UI Asset", type: "JPG" },
+  { name: "pattern-main.jpeg", role: "Class C: General UI Asset", type: "JPEG" },
+  { name: "pattern-main.jpg", role: "Class C: General UI Asset", type: "JPG" },
+  { name: "pattern-wicker.jpg", role: "Class C: General UI Asset", type: "JPG" },
+  { name: "Ratan Fine Beige.jpg", role: "Class C: General UI Asset", type: "JPG" },
+  { name: "row1.png", role: "Class C: General UI Asset", type: "PNG" },
+  { name: "row2.png", role: "Class C: General UI Asset", type: "PNG" },
+  { name: "row3.png", role: "Class C: General UI Asset", type: "PNG" },
+  { name: "Thick Green Palm Weave.jpg", role: "Class B: Rustic Reading Surface", type: "JPG" },
+  { name: "Trim 1.png", role: "Class C: Carved Section Boundary", type: "PNG" },
+  { name: "Trim 13.png", role: "Class C: Carved Section Boundary", type: "PNG" },
+  { name: "Trim 2.png", role: "Class C: Carved Section Boundary", type: "PNG" },
+  { name: "Trim 3.png", role: "Class C: Carved Section Boundary", type: "PNG" },
+  { name: "Trim 4.png", role: "Class C: Carved Section Boundary", type: "PNG" },
+  { name: "Trim12.png", role: "Class C: Carved Section Boundary", type: "PNG" },
+  { name: "Vine 2.png", role: "Class C: Crawling Leaf & Foliage Frame", type: "PNG" },
+  { name: "Vine 3.png", role: "Class C: Crawling Leaf & Foliage Frame", type: "PNG" },
+  { name: "Vine 4.png", role: "Class C: Crawling Leaf & Foliage Frame", type: "PNG" },
+  { name: "vine.png", role: "Class C: Crawling Leaf & Foliage Frame", type: "PNG" },
+  { name: "woven-basket-dry.jpg", role: "Class C: General UI Asset", type: "JPG" }
+];
+
 const DEFAULT_KEY_BINDINGS = [
   { key: 'header-bg', label: 'Primary Header / Top Bar', targetCss: '--warlord-header-bg', assignedValue: '#0C0C0C', description: 'Top navigation deck & controls' },
   { key: 'main-bg', label: 'Dashboard Base Canvas', targetCss: '--warlord-bg-base', assignedValue: '#0C0C0C', description: 'Master root page backdrop' },
@@ -41,9 +114,19 @@ const DEFAULT_KEY_BINDINGS = [
   { key: 'gold-accent', label: 'Core Signal Accent', targetCss: '--warlord-accent-gold', assignedValue: '#DAA520', description: 'Active tabs and title callouts' }
 ];
 
+const AFRICA_KEY_BINDINGS = [
+  { key: 'header-bg', label: 'Primary Header / Top Bar', targetCss: '--warlord-header-bg', assignedValue: '#1A0F0A', description: 'Madothi Charcoal Top Bar' },
+  { key: 'main-bg', label: 'Dashboard Base Canvas', targetCss: '--warlord-bg-base', assignedValue: '#2B1A11', description: 'Madothi Espresso Deep Foundation' },
+  { key: 'card-bg', label: 'Card Slate & Viewports', targetCss: '--warlord-card-bg', assignedValue: '#362015', description: 'W-03 Roasted Mopane Timber Slate' },
+  { key: 'wire-border', label: 'Structural Wire / Borders', targetCss: '--warlord-border-wire', assignedValue: '#4A2E1F', description: 'W-04 Aged African Walnut Framing' },
+  { key: 'button-cta', label: 'Interactive CTA Buttons', targetCss: '--warlord-btn-cta', assignedValue: '#DAA520', description: 'Goldenrod Action Trigger' },
+  { key: 'text-primary', label: 'Primary Heading Text', targetCss: '--warlord-text-main', assignedValue: '#F5F0EA', description: 'Linen Canvas High Readability' },
+  { key: 'gold-accent', label: 'Core Signal Accent', targetCss: '--warlord-accent-gold', assignedValue: '#C7923E', description: 'African Ochre Focal Highlight' }
+];
+
 export default function Tab08Palettes({ ws }) {
   const [activeSideView, setActiveSideView] = useState('MASTER');
-  const [selectedMetal, setSelectedMetal] = useState(HIGH_FINANCE_METALS[5]); // Metal Champagne
+  const [selectedMetal, setSelectedMetal] = useState(HIGH_FINANCE_METALS[5]);
   const [draggedMetal, setDraggedMetal] = useState(null);
   const [copiedContract, setCopiedContract] = useState(false);
 
@@ -67,7 +150,15 @@ export default function Tab08Palettes({ ws }) {
     applyTokensToDom(bindings);
   }, [bindings]);
 
-  // Drag and drop mechanics
+  const handleSelectSideView = (view) => {
+    setActiveSideView(view);
+    if (view === 'AFRICA') {
+      setSelectedMetal(AFRICA_MASTER_SWATCHES[3]); // African Ochre
+    } else if (view === 'MASTER') {
+      setSelectedMetal(HIGH_FINANCE_METALS[5]);
+    }
+  };
+
   const handleDragStart = (e, metal) => {
     setDraggedMetal(metal);
     e.dataTransfer.setData('application/json', JSON.stringify(metal));
@@ -91,16 +182,22 @@ export default function Tab08Palettes({ ws }) {
     setDraggedMetal(null);
   };
 
-  const assignMetalToTarget = (targetKey, gradientValue) => {
+  const assignMetalToTarget = (targetKey, value) => {
     const updated = bindings.map(b => {
       if (b.key === targetKey) {
-        return { ...b, assignedValue: gradientValue };
+        return { ...b, assignedValue: value };
       }
       return b;
     });
     setBindings(updated);
     localStorage.setItem('MCNC_PALETTE_METALLIC_BINDINGS_V3', JSON.stringify(updated));
     applyTokensToDom(updated);
+  };
+
+  const handleApplyAfricaMaster = () => {
+    setBindings(AFRICA_KEY_BINDINGS);
+    localStorage.setItem('MCNC_PALETTE_METALLIC_BINDINGS_V3', JSON.stringify(AFRICA_KEY_BINDINGS));
+    applyTokensToDom(AFRICA_KEY_BINDINGS);
   };
 
   const handleReset = () => {
@@ -110,8 +207,12 @@ export default function Tab08Palettes({ ws }) {
   };
 
   const handleCopyContract = () => {
+    const title = activeSideView === 'AFRICA' 
+      ? '### WARLORD AFRICA PALETTE MASTER APPLIED CONTRACT' 
+      : '### WARLORD HIGH-FINANCE APPLIED SPEC CONTRACT';
+
     const lines = [
-      '### WARLORD HIGH-FINANCE APPLIED SPEC CONTRACT',
+      title,
       ...bindings.map(b => `- ${b.label} (${b.targetCss}): ${b.assignedValue}`)
     ];
     navigator.clipboard.writeText(lines.join('\n'));
@@ -119,25 +220,27 @@ export default function Tab08Palettes({ ws }) {
     setTimeout(() => setCopiedContract(false), 2000);
   };
 
+  const activeSwatches = activeSideView === 'AFRICA' ? AFRICA_MASTER_SWATCHES : HIGH_FINANCE_METALS;
+
   return (
     <div className="flex h-full w-full bg-[#0C0C0C] text-xs font-mono select-none p-2 gap-2 overflow-hidden text-[#E2E8F0]">
       
       {/* 1. LEFT NAVIGATION DECK */}
-      <div className="w-52 flex flex-col gap-2 overflow-hidden flex-shrink-0">
+      <div className="w-56 flex flex-col gap-2 overflow-hidden flex-shrink-0">
         <div className="border border-[#1E1E1E] rounded bg-[#090C0E] p-3 flex flex-col gap-3 flex-1">
           <div>
             <span className="text-[#DAA520] font-bold text-[10px] tracking-widest block uppercase">
-              14 PALETTES
+              WARLORD PALETTES
             </span>
-            <span className="text-[8px] text-[#94A3B8] uppercase">LEGACY PROGRAM</span>
+            <span className="text-[8px] text-[#94A3B8] uppercase">CORE GOVERNANCE</span>
           </div>
 
           <div className="space-y-1.5 pt-2">
             <button
-              onClick={() => setActiveSideView('MASTER')}
+              onClick={() => handleSelectSideView('MASTER')}
               className={`w-full text-left p-2.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
                 activeSideView === 'MASTER'
-                  ? 'border-[#047857] text-[#047857] bg-[#047857]/10'
+                  ? 'border-[#047857] text-[#047857] bg-[#047857]/10 shadow-[0_0_8px_rgba(4,120,87,0.3)]'
                   : 'border-[#1E1E1E] text-[#94A3B8] hover:text-white bg-[#0C0C0C]'
               }`}
             >
@@ -145,7 +248,19 @@ export default function Tab08Palettes({ ws }) {
             </button>
 
             <button
-              onClick={() => setActiveSideView('DRIFT')}
+              onClick={() => handleSelectSideView('AFRICA')}
+              className={`w-full text-left p-2.5 rounded text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-between ${
+                activeSideView === 'AFRICA'
+                  ? 'border-[#DAA520] text-[#DAA520] bg-[#DAA520]/10 shadow-[0_0_8px_rgba(218,165,32,0.3)]'
+                  : 'border-[#1E1E1E] text-[#94A3B8] hover:text-[#DAA520] bg-[#0C0C0C]'
+              }`}
+            >
+              <span>Africa Palette Master</span>
+              <span className="text-[8px] bg-[#DAA520]/20 text-[#DAA520] px-1 rounded font-bold">20 TOKENS</span>
+            </button>
+
+            <button
+              onClick={() => handleSelectSideView('DRIFT')}
               className={`w-full text-left p-2.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
                 activeSideView === 'DRIFT'
                   ? 'border-[#DAA520] text-[#DAA520] bg-[#DAA520]/10'
@@ -156,7 +271,7 @@ export default function Tab08Palettes({ ws }) {
             </button>
 
             <button
-              onClick={() => setActiveSideView('GUIDE')}
+              onClick={() => handleSelectSideView('GUIDE')}
               className={`w-full text-left p-2.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
                 activeSideView === 'GUIDE'
                   ? 'border-[#38bdf8] text-[#38bdf8] bg-[#38bdf8]/10'
@@ -166,6 +281,18 @@ export default function Tab08Palettes({ ws }) {
               MCNC GUIDE DECK
             </button>
           </div>
+
+          {/* Quick Apply Africa Preset */}
+          {activeSideView === 'AFRICA' && (
+            <div className="pt-2 border-t border-[#1E1E1E]">
+              <button
+                onClick={handleApplyAfricaMaster}
+                className="w-full py-2 px-2 bg-[#DAA520]/10 hover:bg-[#DAA520] text-[#DAA520] hover:text-black border border-[#DAA520] rounded text-[9px] font-bold uppercase transition-all shadow-[0_0_8px_rgba(218,165,32,0.2)] cursor-pointer"
+              >
+                APPLY AFRICA PRESET TO DOM
+              </button>
+            </div>
+          )}
 
           {/* Active Brush Readout */}
           <div className="mt-auto border border-[#1E1E1E] bg-[#0C0C0C] p-2.5 rounded flex flex-col gap-1.5">
@@ -179,14 +306,14 @@ export default function Tab08Palettes({ ws }) {
         </div>
       </div>
 
-      {/* 2. CENTER: DRAGGABLE METALLIC SWATCH DECK */}
+      {/* 2. CENTER: DRAGGABLE SWATCH DECK & ASSETS DRAWER */}
       <div className="flex-1 flex flex-col border border-[#1E1E1E] rounded bg-[#090C0E] overflow-hidden">
         
         {/* Status Header */}
         <div className="p-2.5 bg-[#0C0C0C] border-b border-[#1E1E1E] flex justify-between items-center select-none">
           <div className="flex items-center gap-2">
             <span className="text-[#94A3B8] font-bold text-[10px] uppercase tracking-wider">
-              ACTIVE PIPELINE //
+              {activeSideView === 'AFRICA' ? 'CHIEF MADOTHI OUTREACH //' : 'ACTIVE PIPELINE //'}
             </span>
             <span className="text-[#E2E8F0] font-bold text-[10px] uppercase tracking-widest">
               [ DRAG ANY SWATCH CARD TO ASSIGN ]
@@ -200,7 +327,7 @@ export default function Tab08Palettes({ ws }) {
               title="Reset default bindings"
             >
               <RefreshCw className="w-3 h-3" />
-              RESET DEFAULTS
+              RESET HIGH FINANCE
             </button>
             <button
               onClick={handleCopyContract}
@@ -210,15 +337,15 @@ export default function Tab08Palettes({ ws }) {
                   : 'bg-[#14171C] hover:bg-[#DAA520]/20 text-[#DAA520] border-[#DAA520]/40'
               }`}
             >
-              {copiedContract ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              {copiedContract ? <Check className="w-3 h-3 text-[#047857]" /> : <Copy className="w-3 h-3 text-[#DAA520]" />}
               <span>{copiedContract ? 'CONTRACT COPIED' : 'COPY SPEC'}</span>
             </button>
           </div>
         </div>
 
-        {/* 19 Draggable Swatches Grid */}
+        {/* Dynamic Swatches Grid */}
         <div className="flex-1 p-2.5 overflow-y-auto grid grid-cols-4 gap-2 custom-scrollbar">
-          {HIGH_FINANCE_METALS.map((metal) => {
+          {activeSwatches.map((metal) => {
             const isSelected = selectedMetal.id === metal.id;
             return (
               <div
@@ -236,7 +363,7 @@ export default function Tab08Palettes({ ws }) {
                   className="h-12 w-full p-1.5 flex items-start"
                   style={{ background: metal.gradient }}
                 >
-                  <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-black/60 text-white shadow-sm truncate">
+                  <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-black/70 text-white shadow-sm truncate">
                     {metal.name}
                   </span>
                 </div>
@@ -248,6 +375,42 @@ export default function Tab08Palettes({ ws }) {
             );
           })}
         </div>
+
+        {/* Physical Assets Drawer */}
+        {activeSideView === 'AFRICA' && (
+          <div className="border-t border-[#1E1E1E] bg-[#0A0D10] p-2.5 max-h-48 overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between pb-1.5 border-b border-[#1E1E1E] mb-2">
+              <span className="text-[9px] font-bold text-[#DAA520] flex items-center gap-1.5 uppercase">
+                <Folder className="w-3.5 h-3.5 text-[#DAA520]" />
+                PHYSICAL ASSET MAPPING // C:\Warlord_Inc\...\Africa Assets
+              </span>
+              <span className="text-[8px] text-[#94A3B8]">TRANCHES 1-7 READY</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {AFRICA_ASSET_MANIFEST.map((asset, idx) => (
+                <div 
+                  key={idx}
+                  className="bg-[#0C0C0C] border border-[#1E1E1E] rounded p-1.5 flex items-center justify-between gap-1 hover:border-[#DAA520] transition-colors"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <FileImage className="w-3.5 h-3.5 text-[#DAA520] flex-shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[9px] font-bold text-gray-200 block truncate">{asset.name}</span>
+                      <span className="text-[7px] text-[#94A3B8] block truncate">{asset.role}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(asset.name)}
+                    className="text-[7.5px] bg-[#14171C] hover:bg-[#DAA520] hover:text-black text-[#94A3B8] px-1 py-0.5 rounded border border-[#232832] font-mono cursor-pointer flex-shrink-0"
+                    title="Copy filename"
+                  >
+                    COPY
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -294,7 +457,7 @@ export default function Tab08Palettes({ ws }) {
           ))}
         </div>
 
-        {/* Live Metallic Harmony Viewport */}
+        {/* Live Preview Viewport */}
         <div className="border-t border-[#1E1E1E] p-2.5 bg-[#0C0C0C] flex flex-col gap-2">
           <div className="flex justify-between items-center">
             <span className="text-[9px] font-bold text-gray-300 uppercase flex items-center gap-1">
@@ -309,17 +472,17 @@ export default function Tab08Palettes({ ws }) {
             style={{ background: bindings.find(b => b.key === 'card-bg')?.assignedValue }}
           >
             <div className="flex justify-between items-center">
-              <span className="text-[9px] font-bold text-white">Concession Matrix</span>
-              <span className="text-[7px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-[#DAA520]">
-                STAGE 09
+              <span className="text-[9px] font-bold text-white">Chief Madothi Landing Scope</span>
+              <span className="text-[7px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-[#C7923E]">
+                STAGE 01
               </span>
             </div>
-            <div className="text-base font-bold font-mono text-white">$14,892,400</div>
+            <div className="text-sm font-bold font-mono text-white">Children's Daily Feeding & Education</div>
             <button
-              className="w-full py-1 rounded text-[8px] font-bold uppercase transition-all shadow-md mt-0.5 cursor-pointer"
+              className="w-full py-1.5 rounded text-[9px] font-bold uppercase transition-all shadow-md mt-0.5 cursor-pointer"
               style={{ background: bindings.find(b => b.key === 'button-cta')?.assignedValue, color: '#0C0C0C' }}
             >
-              DISPATCH DIRECTIVE
+              DONATE TO THE BOREHOLE FUND
             </button>
           </div>
         </div>

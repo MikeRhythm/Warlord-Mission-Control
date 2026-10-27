@@ -24,8 +24,7 @@ Ingest the core project scope and strip it of all conversational drift, prematur
 [MANDATORY CONSTRAINTS]
 1. NO SOLUTIONS OR PREMATURE CODE: State WHAT must be achieved, never write execution code.
 2. PALETTE & TOKEN SANITIZATION:
-   - UI/UX (Roxy / 02) strictly uses High Finance tokens: Obsidian (#080a0c), Gold Core (#ffb800), Wire Border (#1f242d), Emerald (#10b981), Ruby (#ef4444).
-   - MQL/Trading (01) strictly uses DodgerBlue, OrangeRed, and Goldenrod lines only.
+__PALETTE_RULES__
 3. MEMORY SAFETY: Every domain requirement must include rhythm_multiplier: 1.0.
 
 [OUTPUT FORMAT]
@@ -170,6 +169,7 @@ export default function Tab02WarRoom({ ws }) {
   });
 
   const [copiedFeed, setCopiedFeed] = useState(false);
+  const [copiedDirective, setCopiedDirective] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   
   const isAnyExecuting = Boolean(isCascading || isMultiAgentExecuting || isLLMExecuting);
@@ -339,16 +339,67 @@ export default function Tab02WarRoom({ ws }) {
     setTimeout(() => setCopiedFeed(false), 2000);
   };
 
+  const handleCopyDirective = () => {
+    if (!inputBuffer || !inputBuffer.trim()) return;
+    navigator.clipboard.writeText(inputBuffer);
+    setCopiedDirective(true);
+    setTimeout(() => setCopiedDirective(false), 2000);
+  };
+
+  // Auto-Sync Staged Directive & Project from Tab 01
   useEffect(() => {
-    const handleTransfer = (e) => {
-      if (e.detail && e.detail.payload) {
-        setInputBuffer(prev => prev ? prev + '\n\n' + e.detail.payload : e.detail.payload);
-        if (e.detail.project) handleSelectProject(e.detail.project);
+    const ingestStagedDirective = (targetProject, targetPrompt) => {
+      if (targetProject) {
+        const cleanProj = targetProject.trim();
+        setProjects(prev => {
+          if (!prev.includes(cleanProj)) {
+            const updated = [...prev, cleanProj];
+            try { localStorage.setItem('MCNC_PROJECT_LIST', JSON.stringify(updated)); } catch (e) {}
+            return updated;
+          }
+          return prev;
+        });
+        setSelectedProject(cleanProj);
+        try { localStorage.setItem('MCNC_ACTIVE_PROJECT', cleanProj); } catch (e) {}
+      }
+
+      if (targetPrompt && targetPrompt.trim()) {
+        setInputBuffer(targetPrompt.trim());
       }
     };
+
+    try {
+      const seedPrompt = localStorage.getItem('mcnc_warroom_seed_prompt');
+      const seedProject = localStorage.getItem('mcnc_warroom_seed_project');
+      if (seedPrompt || seedProject) {
+        ingestStagedDirective(seedProject, seedPrompt);
+        localStorage.removeItem('mcnc_warroom_seed_prompt');
+        localStorage.removeItem('mcnc_warroom_seed_project');
+      }
+    } catch (e) {}
+
+    const handleTransfer = (e) => {
+      if (e.detail) {
+        ingestStagedDirective(e.detail.project, e.detail.payload || e.detail.prompt);
+      }
+    };
+
+    const handleStorage = (e) => {
+      if (e.key === 'mcnc_warroom_seed_prompt' && e.newValue) {
+        const targetProj = localStorage.getItem('mcnc_warroom_seed_project') || selectedProject;
+        ingestStagedDirective(targetProj, e.newValue);
+        localStorage.removeItem('mcnc_warroom_seed_prompt');
+        localStorage.removeItem('mcnc_warroom_seed_project');
+      }
+    };
+
     window.addEventListener('push-to-warroom', handleTransfer);
-    return () => window.removeEventListener('push-to-warroom', handleTransfer);
-  }, []);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('push-to-warroom', handleTransfer);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [selectedProject]);
 
   const handleCreateProject = () => {
     if (!newProjectName.trim()) return;
@@ -363,6 +414,7 @@ export default function Tab02WarRoom({ ws }) {
     setIsCreatingProject(false);
   };
 
+  // Dynamic Directive Generation with Project-Aware Token Governance
   const handleGenerateDirective = () => {
     if (!inputBuffer || !inputBuffer.trim()) {
       return;
@@ -372,7 +424,26 @@ export default function Tab02WarRoom({ ws }) {
       return;
     }
 
-    const wrapped = STAGE1_TEMPLATE_HEADER.replace("__PROJECT_NAME__", selectedProject) + inputBuffer.trim();
+    const isAfricaProject = selectedProject.toUpperCase().includes('MADOTHI') || 
+                            selectedProject.toUpperCase().includes('AFRICA');
+
+    const projectPaletteConstraint = isAfricaProject
+      ? `   - UI/UX (Roxy / 02) strictly uses the Authentic Africa Palette & Timber Matrix:
+     * Madothi Charcoal (#1A0F0A), Madothi Espresso (#2B1A11)
+     * Malawi Sunset (#E35503), African Ochre (#C7923E)
+     * Canopy Forest (#2B4422), Canopy Sage (#547A4E)
+     * Linen Canvas (#F5F0EA) reading surfaces (no neon colors, no raw white)
+     * 10-Tier Wood & Timber Matrix (W-01 through W-10)
+     * Physical asset mapping from C:\\Warlord_Inc\\...\\Africa Assets (Tranches 1-7)
+   - MQL/Trading (01) strictly uses DodgerBlue, OrangeRed, and Goldenrod lines only.`
+      : `   - UI/UX (Roxy / 02) strictly uses High Finance tokens: Obsidian (#080a0c), Gold Core (#ffb800), Wire Border (#1f242d), Emerald (#10b981), Ruby (#ef4444).
+   - MQL/Trading (01) strictly uses DodgerBlue, OrangeRed, and Goldenrod lines only.`;
+
+    const dynamicScaffold = STAGE1_TEMPLATE_HEADER
+      .replace("__PROJECT_NAME__", selectedProject)
+      .replace("__PALETTE_RULES__", projectPaletteConstraint);
+
+    const wrapped = dynamicScaffold + inputBuffer.trim();
     setInputBuffer(wrapped);
 
     setStreamLog(prev => [
@@ -380,13 +451,12 @@ export default function Tab02WarRoom({ ws }) {
       { 
         id: Date.now(), 
         sender: 'CHARLIE // CODING LEAD', 
-        text: `Stage 1 Forensic Deconstruction scaffold injected into prompt buffer for [${selectedProject}].`, 
+        text: `Stage 1 Forensic Deconstruction scaffold injected into prompt buffer for [${selectedProject}] with ${isAfricaProject ? 'Africa Master' : 'High Finance'} token governance.`, 
         type: 'system' 
       }
     ]);
   };
 
-  // Hardened CLS: Resets memory and purges persistent storage cache
   const handleCls = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -478,9 +548,6 @@ export default function Tab02WarRoom({ ws }) {
     setSelectedSubModels([modelId]);
   };
 
-  // ==========================================
-  // WEBSOCKET PROMISE WRAPPER
-  // ==========================================
   const dispatchAndWait = async (payload) => {
     const res = await fetch('http://127.0.0.1:8081/api/chat', {
       method: 'POST',
@@ -524,7 +591,6 @@ export default function Tab02WarRoom({ ws }) {
     }
   };
 
-  // Multi-Turn Chained Cascade Loop
   const runLiveCascadeLoop = async (steps, cascadeTitle) => {
     setIsCascading(true);
     setWorkflowState('ANALYZING');
@@ -921,7 +987,6 @@ Format strictly as:
                 
                 {/* 1. THREE-WAY TOP PLATFORM SELECTION BUTTONS */}
                 <div className="grid grid-cols-3 gap-1">
-                  {/* KAGGLE DUAL-T4 */}
                   <button
                     onClick={() => handleSwitchPlatform('KAGGLE-T4')}
                     className={`px-1.5 py-2 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
@@ -936,7 +1001,6 @@ Format strictly as:
                     </span>
                   </button>
 
-                  {/* LOCAL / CLUSTERS (NIM, GROQ, GEMINI, OLLAMA) */}
                   <button
                     onClick={() => handleSwitchPlatform('LOCAL_CLUSTERS')}
                     className={`px-1.5 py-2 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
@@ -949,7 +1013,6 @@ Format strictly as:
                     <span className="text-[7.5px] opacity-75 font-normal">FREE CLUSTERS</span>
                   </button>
 
-                  {/* 4-TURN ELITE (OPENROUTER) */}
                   <button
                     onClick={() => handleSwitchPlatform('ELITE_CASCADE')}
                     className={`px-1.5 py-2 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
@@ -1139,26 +1202,6 @@ Format strictly as:
           </div>
         </div>
 
-        {/* STATIC STICKY BANNER INSIDE CHAT */}
-        {isAnyExecuting && (
-          <div className="mx-3 mt-2 py-2 px-3 border border-[#ffb800] bg-[#14171c] rounded shadow-[0_0_12px_rgba(255,184,0,0.2)] font-mono flex items-center justify-between select-none z-10">
-            <div className="flex items-center gap-2.5 text-[#ffb800]">
-              <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
-              <span className="text-xs font-bold tracking-wide uppercase">
-                {selectedLLM === 'KAGGLE-T4' ? 'Kaggle Dual-T4' : selectedLLM === 'LOCAL_CLUSTERS' ? 'Local / Free Clusters' : 'Elite Frontier'} Sequence Running... [ELAPSED: {formatElapsed(elapsedSeconds)}]
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleAllStop}
-              className="px-2.5 py-1 bg-[#ef4444]/20 hover:bg-[#ef4444] text-[#fca5a5] hover:text-white border border-[#ef4444]/50 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(239,68,68,0.2)]"
-            >
-              <Square className="w-3 h-3 fill-current" />
-              <span>TERMINATE BATCH JOB</span>
-            </button>
-          </div>
-        )}
-
         {/* TERMINAL LOG FEED: SELECT-TEXT PERMITTED */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
           {streamLog.map(log => (
@@ -1179,29 +1222,160 @@ Format strictly as:
           <div ref={streamBottomRef} />
         </div>
 
+        {/* FULL VIEWPORT ORBITAL HUD OVERLAY (IDENTICAL PARITY TO TAB 01 EXEC & TAB 12) */}
+        {isAnyExecuting && (
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(8, 10, 12, 0.88)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 99999,
+              pointerEvents: 'all'
+            }}
+          >
+            <div style={{ position: 'relative', width: '130px', height: '130px', marginBottom: '22px' }}>
+              <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="44"
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray="75 160"
+                  style={{ transformOrigin: '50% 50%', animation: 'spin-cw 2.4s linear infinite' }}
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="34"
+                  fill="none"
+                  stroke="#38bdf8"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray="50 120"
+                  style={{ transformOrigin: '50% 50%', animation: 'spin-ccw 1.8s linear infinite' }}
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="24"
+                  fill="none"
+                  stroke="#ffb800"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="38 90"
+                  style={{ transformOrigin: '50% 50%', animation: 'spin-cw 1.2s ease-in-out infinite' }}
+                />
+              </svg>
+
+              <div 
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffb800'
+                }}
+              >
+                <span style={{ fontSize: '18px', lineHeight: 1, textShadow: '0 0 8px #ffb800' }}>✦</span>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#38bdf8', marginTop: '2px', letterSpacing: '-0.5px' }}>
+                  {formatElapsed(elapsedSeconds)}
+                </span>
+              </div>
+            </div>
+
+            <div 
+              style={{
+                fontSize: '13px',
+                fontWeight: 900,
+                letterSpacing: '2px',
+                color: '#ffb800',
+                textTransform: 'uppercase',
+                marginBottom: '8px',
+                textShadow: '0 0 14px rgba(255, 184, 0, 0.5)'
+              }}
+            >
+              {isCascading ? `EXECUTING TURN ${cascadeIndex + 1} OF 5 CASCADE...` : 'EXECUTING WAR ROOM INFERENCE RUN...'}
+            </div>
+
+            <div 
+              style={{
+                fontSize: '11px',
+                color: '#94a3b8',
+                fontWeight: 700,
+                letterSpacing: '1px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}
+            >
+              <span>ENGINE:</span>
+              <span 
+                style={{
+                  color: '#38bdf8',
+                  backgroundColor: '#0c1a29',
+                  border: '1px solid #1e3a5f',
+                  padding: '3px 10px',
+                  borderRadius: '3px',
+                  boxShadow: '0 0 10px rgba(56, 189, 248, 0.25)'
+                }}
+              >
+                {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE DUAL-T4' : selectedLLM === 'LOCAL_CLUSTERS' ? 'LOCAL / FREE CLUSTERS' : 'OPENROUTER ELITE'}
+              </span>
+              <span style={{ color: '#334155' }}>|</span>
+              <span style={{ color: '#10b981' }}>PROCESS IS LOCKED &amp; RUNNING</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAllStop}
+              style={{
+                marginTop: '18px',
+                padding: '7px 18px',
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid #ef4444',
+                color: '#fca5a5',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: 800,
+                fontFamily: 'monospace',
+                cursor: 'pointer',
+                letterSpacing: '1px'
+              }}
+            >
+              TERMINATE BATCH JOB
+            </button>
+
+            <div 
+              style={{
+                fontSize: '9px',
+                color: '#64748b',
+                marginTop: '14px',
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase'
+              }}
+            >
+              Process continues in background if navigating away
+            </div>
+          </div>
+        )}
+
         {/* INPUT DOCK */}
         <div className="p-3 bg-[#0a0c0e] border-t border-[#1f242d] space-y-2 select-none relative z-10">
           
-          {/* Universal Execution Lock Banner above textarea */}
-          {isAnyExecuting && (
-            <div className="flex items-center justify-between bg-[#14171c] border border-[#ffb800] px-3 py-1.5 rounded text-[11px] font-mono text-[#ffb800]">
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 text-[#ffb800] animate-spin" />
-                <span className="font-bold tracking-wider">
-                  SEQUENCE ACTIVE // INFERENCE RUNNING [{formatElapsed(elapsedSeconds)}]
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleAllStop}
-                className="px-2 py-0.5 bg-[#450a0a] hover:bg-[#7f1d1d] text-[#fca5a5] hover:text-white border border-[#7f1d1d] rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
-              >
-                <Square className="w-2.5 h-2.5 fill-current text-[#ef4444]" />
-                <span>TERMINATE</span>
-              </button>
-            </div>
-          )}
-
           <div className="flex items-center justify-between text-[11px] bg-[#14171c] px-3 py-1.5 rounded border border-[#232832]">
             <label className={`flex items-center gap-2 font-bold tracking-wider transition-colors select-none ${isAnyExecuting ? 'text-[#5c6b7f] cursor-not-allowed' : 'text-[#ffb800] hover:text-[#fef08a] cursor-pointer'}`}>
               <Paperclip className={`w-4 h-4 ${isAnyExecuting ? 'text-[#5c6b7f]' : 'text-[#ffb800]'}`} />
@@ -1226,7 +1400,7 @@ Format strictly as:
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono">
             <div className="flex items-center gap-1.5 flex-wrap">
-              {/* INITIATE LLM (IDENTICAL RESTING PARITY -> PURE GOLD ON HOVER) */}
+              {/* INITIATE LLM */}
               <button 
                 onClick={() => handleAction('INITIATE LLM ANALYSIS')} 
                 disabled={isAnyExecuting} 
@@ -1242,7 +1416,7 @@ Format strictly as:
                 <span>{isLLMExecuting || isCascading ? `ACTIVE [${formatElapsed(elapsedSeconds)}]` : 'INITIATE LLM'}</span>
               </button>
               
-              {/* INITIATE DIR (IDENTICAL RESTING PARITY -> PURE CYAN ON HOVER) */}
+              {/* INITIATE DIR */}
               <button 
                 onClick={() => handleAction('INITIATE DIRECTOR ANALYSIS')} 
                 disabled={isAnyExecuting} 
@@ -1293,6 +1467,22 @@ Format strictly as:
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>GENERATE DIRECTIVE</span>
+              </button>
+
+              {/* COPY DIRECTIVE BUTTON */}
+              <button
+                type="button"
+                onClick={handleCopyDirective}
+                disabled={!inputBuffer || !inputBuffer.trim()}
+                className={`px-3 py-1.5 font-bold rounded text-[11px] flex items-center gap-1.5 border transition-all cursor-pointer ${
+                  copiedDirective
+                    ? 'bg-[#10b981]/20 text-[#10b981] border-[#10b981]'
+                    : 'bg-[#14171c] hover:bg-[#ffb800]/15 text-[#ffb800] border-[#ffb800]/40 hover:border-[#ffb800]'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+                title="Copy entire directive prompt to clipboard"
+              >
+                {copiedDirective ? <Check className="w-3.5 h-3.5 text-[#10b981]" /> : <Copy className="w-3.5 h-3.5 text-[#ffb800]" />}
+                <span>{copiedDirective ? 'DIRECTIVE COPIED' : 'COPY DIRECTIVE'}</span>
               </button>
             </div>
 

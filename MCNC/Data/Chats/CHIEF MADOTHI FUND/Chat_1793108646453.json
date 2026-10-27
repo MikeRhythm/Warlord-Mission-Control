@@ -1,0 +1,35 @@
+{
+  "id": "Chat_1793108646453",
+  "title": "Chief Madothi Fund - Landing Page",
+  "project": "CHIEF MADOTHI FUND",
+  "updatedAt": "2026-10-27T13:45:32.846Z",
+  "messages": [
+    {
+      "sender": "MONTY",
+      "collaborators": [
+        "CHARLIE"
+      ],
+      "title": "Chief of Staff",
+      "time": "2:44:06 PM",
+      "text": "Sub-chat thread [Chief Madothi Fund - Landing Page] initialized under CHIEF MADOTHI FUND. Ready for operational directives."
+    },
+    {
+      "sender": "MIKE",
+      "collaborators": [],
+      "title": "Executive Control",
+      "time": "2:45:19 PM",
+      "text": "okay so Monty I want to create a landing page for chief for the chief Madothi children's school and feeding fund using the Africa palette this landing page is going to be part of an email campaign that we will set up I need you to provide me with a prompt to push through to the war room where our director agents can analyze the project scope and come up with the PRD that we can follow I have put a lot of information into a folder under the chief Madothi fund project folder so this is the first step and I need your response I want to know how you think we should handle this",
+      "attachments": []
+    },
+    {
+      "sender": "MONTY",
+      "collaborators": [
+        "CHARLIE",
+        "JACK"
+      ],
+      "title": "Chief of Staff",
+      "time": "2:45:32 PM",
+      "text": "WAR ROOM DIRECTIVE // CHIEF MADOHTI CHILDREN'S SCHOOL AND FEEDING FUND LANDING PAGE\n\nProject Classification: High-Priority Email Campaign\nCanonical Target Path: C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\projects\\Chief_Madothi_Fund\n\nDirector Assignments:\n- Charlie: Coding Lead & Systems Architecture\n- Skyla: Lead Frontend & Web Engineer\n- Roxy: UI/UX & Creative Director\n- Amber: High-Impact Copywriting & Narrative Architecture\n- Jack: Backend Engineer & Disk Provisioning\n\nTechnical Delivery Constraints:\n- Single-file HTML5 structure\n- Fully responsive design\n- Tab 09 Port 8082 preview ready\n\nPlease acknowledge and confirm the project scope and PRD before proceeding with the development of the landing page."
+    }
+  ]
+}
