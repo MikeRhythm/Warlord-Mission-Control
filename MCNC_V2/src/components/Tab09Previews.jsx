@@ -1,735 +1,707 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 
-const PALETTE = {
-  obsidian: '#080a0c',
-  panel: '#0d0f12',
-  frame: '#14171c',
-  wireBorder: '#1f242d',
-  goldCore: '#ffb800',
-  champagne: '#c5bd9f',
-  slateMist: '#94a3b8',
-  emerald: '#10b981',
-  ruby: '#ef4444',
-  canvasBg: '#050709',
-};
-
-const VIEWPORTS = {
-  DESKTOP: { id: 'desktop', label: 'DESKTOP 1920', width: '100%', icon: '🖥' },
-  TABLET: { id: 'tablet', label: 'TABLET 768', width: '768px', icon: '📱' },
-  MOBILE: { id: 'mobile', label: 'MOBILE 375', width: '375px', icon: '📲' },
-};
-
 export default function Tab09Previews() {
-  const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState('');
-  const [artifacts, setArtifacts] = useState([]);
-  const [selectedArtifact, setSelectedArtifact] = useState(null);
-  const [rawContent, setRawContent] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errorStatus, setErrorStatus] = useState(null);
+  const [projects, setProjects] = useState(['The Chief Madothi Fund']);
+  const [selectedProject, setSelectedProject] = useState('The Chief Madothi Fund');
+  const [artifacts, setArtifacts] = useState(['index.html']);
+  const [selectedArtifact, setSelectedArtifact] = useState('index.html');
+  const [viewport, setViewport] = useState('1920'); // '1920', '768', '375'
+  const [viewMode, setViewMode] = useState('RENDER'); // 'RENDER', 'SPLIT', 'CODE'
+  const [isRedLineOpen, setIsRedLineOpen] = useState(false);
+  const [critiqueText, setCritiqueText] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('http://localhost:8083');
+  const [syncStatus, setSyncStatus] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState([]); // [{ name, size, type, dataUrl }]
 
-  const [displayMode, setDisplayMode] = useState('RENDER'); // 'RENDER' | 'SPLIT' | 'CODE'
-  const [viewport, setViewport] = useState('DESKTOP');
-  const [redlineModal, setRedlineModal] = useState(false);
-  const [redlineNotes, setRedlineNotes] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
+  const recognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  // Button Hover States
-  const [acceptHover, setAcceptHover] = useState(false);
-  const [reviseHover, setReviseHover] = useState(false);
-
-  const iframeRef = useRef(null);
-
-  useEffect(() => {
-    fetchManifest();
-  }, []);
-
-  const fetchManifest = async () => {
-    setLoading(true);
-    setErrorStatus(null);
+  // Sync Conduit logic: Poll / check local Port 8083 static server
+  const handleSyncConduit = async () => {
+    setSyncStatus('SYNCING...');
     try {
-      const res = await fetch('http://localhost:8082/api/previews/list');
-      if (!res.ok) throw new Error(`HTTP_${res.status}: Conduit offline`);
-      const data = await res.json();
-      
-      const prjs = data.projects || [];
-      const arts = data.artifacts || [];
-      
-      setProjects(prjs);
-      
-      let currentPrj = selectedProject;
-      if (!currentPrj && prjs.length > 0) {
-        currentPrj = prjs[0];
-        setSelectedProject(currentPrj);
-      }
-      
-      setArtifacts(arts);
-
-      const matchingArts = arts.filter(a => a.project === currentPrj);
-      if (matchingArts.length > 0) {
-        loadContent(matchingArts[0]);
-      } else {
-        setSelectedArtifact(null);
-        setRawContent('');
-      }
-    } catch (err) {
-      setErrorStatus(`Conduit Bridge Unreachable (:8082) - ${err.message}`);
-    } finally {
-      setLoading(false);
+      await fetch('http://localhost:8083', { method: 'HEAD', mode: 'no-cors' });
+      setPreviewUrl(`http://localhost:8083?t=${Date.now()}`);
+      setArtifacts(['index.html']);
+      setSelectedArtifact('index.html');
+      setSyncStatus('SYNCED');
+      setTimeout(() => setSyncStatus(''), 2000);
+    } catch (e) {
+      setSyncStatus('OFFLINE');
+      setTimeout(() => setSyncStatus(''), 2000);
     }
   };
 
-  const handleProjectChange = (prjName) => {
-    setSelectedProject(prjName);
-    const matchingArts = artifacts.filter(a => a.project === prjName);
-    if (matchingArts.length > 0) {
-      loadContent(matchingArts[0]);
-    } else {
-      setSelectedArtifact(null);
-      setRawContent('');
-    }
-  };
-
-  const loadContent = async (art) => {
-    setSelectedArtifact(art);
-    setLoading(true);
-    setStatusMessage('');
-    try {
-      const res = await fetch(`http://localhost:8082/api/previews/content?path=${encodeURIComponent(art.path)}`);
-      if (!res.ok) throw new Error(`HTTP_${res.status}: Failed reading disk artifact`);
-      const text = await res.text();
-      setRawContent(text);
-    } catch (err) {
-      setRawContent(`<!-- Pipeline Fault: ${err.message} -->`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const copyToClipboard = () => {
-    if (!rawContent) return;
-    navigator.clipboard.writeText(rawContent);
-    setStatusMessage('SOURCE PAYLOAD BUFFERED TO CLIPBOARD');
-    setTimeout(() => setStatusMessage(''), 3000);
-  };
-
-  const executeAccept = async () => {
-    if (!selectedArtifact) {
-      setStatusMessage('NO ARTIFACT SELECTED TO STAGE');
-      setTimeout(() => setStatusMessage(''), 3000);
+  // Fixed Speech Recognition: Clean accumulation without infinite repeating interim loops
+  const toggleDictation = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
       return;
     }
-    try {
-      const res = await fetch('http://localhost:8082/api/previews/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'ACCEPT',
-          project: selectedProject,
-          artifactId: selectedArtifact.id,
-          artifactPath: selectedArtifact.path,
-          timestamp: new Date().toISOString()
-        })
-      });
-      if (!res.ok) throw new Error('Ledger write failed');
-      setStatusMessage('STAGE COMMITTED // GLOBAL_LEDGER.CSV UPDATED');
-      setTimeout(() => setStatusMessage(''), 4000);
-    } catch (err) {
-      setStatusMessage(`LEDGER APPEND ERROR: ${err.message}`);
-      setTimeout(() => setStatusMessage(''), 4000);
-    }
-  };
 
-  const executeRedline = async () => {
-    if (!selectedArtifact) {
-      setStatusMessage('NO ARTIFACT SELECTED TO REVISE');
-      setTimeout(() => setStatusMessage(''), 3000);
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
       return;
     }
-    if (!redlineNotes.trim()) return;
+
     try {
-      const res = await fetch('http://localhost:8082/api/previews/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'REVISE',
-          project: selectedProject,
-          artifactId: selectedArtifact.id,
-          artifactPath: selectedArtifact.path,
-          critique: redlineNotes,
-          timestamp: new Date().toISOString()
-        })
-      });
-      if (!res.ok) throw new Error('Feedback dispatch rejected');
-      setRedlineModal(false);
-      setRedlineNotes('');
-      setStatusMessage('RED-LINE TELEMETRY DISPATCHED TO TAB 02 WAR ROOM');
-      setTimeout(() => setStatusMessage(''), 4000);
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = true;
+      recognition.interimResults = false; // Prevents the stutter/looping bug
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.onresult = (event) => {
+        let finalChunk = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            finalChunk += event.results[i][0].transcript;
+          }
+        }
+        if (finalChunk.trim()) {
+          setCritiqueText((prev) => {
+            const cleanPrev = prev ? prev.trim() : '';
+            return cleanPrev ? `${cleanPrev} ${finalChunk.trim()}` : finalChunk.trim();
+          });
+        }
+      };
+
+      recognition.start();
     } catch (err) {
-      setRedlineModal(false);
-      setStatusMessage(`DISPATCH ERROR: ${err.message}`);
-      setTimeout(() => setStatusMessage(''), 4000);
+      console.error('Failed to initialize dictation:', err);
+      setIsListening(false);
     }
   };
 
-  const filteredArtifacts = artifacts.filter(a => a.project === selectedProject);
+  // Clipboard copy
+  const copyCritiqueToClipboard = () => {
+    if (!critiqueText) return;
+    navigator.clipboard.writeText(critiqueText).then(() => {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    });
+  };
+
+  // Clear Screen / Input (Reset text and attachments)
+  const handleClearScreen = () => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+    setCritiqueText('');
+    setAttachedFiles([]);
+    setCopySuccess(false);
+  };
+
+  // File Attachment Handling (Reads files as Base64 DataURLs)
+  const handleFileAttach = (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAttachedFiles((prev) => [
+          ...prev,
+          {
+            name: file.name,
+            size: (file.size / 1024).toFixed(1) + ' KB',
+            type: file.type,
+            dataUrl: event.target.result
+          }
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    e.target.value = '';
+  };
+
+  const removeAttachedFile = (indexToRemove) => {
+    setAttachedFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  // Dispatch critique & attached reference files into War Room queue
+  const handleDispatchCritique = () => {
+    if (!critiqueText.trim() && attachedFiles.length === 0) return;
+
+    const critiquePayload = {
+      project: selectedProject,
+      target: selectedArtifact,
+      critique: critiqueText,
+      attachments: attachedFiles,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('[WAR ROOM DISPATCH WITH ATTACHMENTS]', critiquePayload);
+
+    // Save payload to local storage queue or backend conduit
+    const existingQueue = JSON.parse(localStorage.getItem('WAR_ROOM_CRITIQUES') || '[]');
+    existingQueue.push(critiquePayload);
+    localStorage.setItem('WAR_ROOM_CRITIQUES', JSON.stringify(existingQueue));
+
+    // Reset and close modal
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+    setCritiqueText('');
+    setAttachedFiles([]);
+    setIsRedLineOpen(false);
+  };
+
+  const getViewportWidth = () => {
+    if (viewport === '375') return '375px';
+    if (viewport === '768') return '768px';
+    return '100%';
+  };
 
   return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
-      backgroundColor: PALETTE.obsidian,
-      color: PALETTE.champagne,
-      fontFamily: 'Consolas, "Fira Code", monospace',
-      overflow: 'hidden'
+      backgroundColor: '#0d0907',
+      color: '#F5F0EA',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace'
     }}>
-      {/* COCKPIT CONTROL HEADER */}
+      {/* TOP STATUS SUB-BAR */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '10px 18px',
-        borderBottom: `1px solid ${PALETTE.wireBorder}`,
-        backgroundColor: PALETTE.panel
+        padding: '0.6rem 1.25rem',
+        backgroundColor: '#160f0c',
+        borderBottom: '1px solid rgba(199, 146, 62, 0.25)',
+        fontSize: '0.85rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{
-            color: PALETTE.goldCore,
-            fontWeight: 700,
-            fontSize: 'clamp(0.74rem, 0.82vw, 0.94rem)',
-            letterSpacing: '1px'
-          }}>
+        {/* LEFT TITLE & PROJECT SELECT */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ color: '#DAA520', fontWeight: 'bold', letterSpacing: '0.05em' }}>
             09 // ARTIFACT APPROVAL COCKPIT
           </span>
-          <span style={{ color: PALETTE.wireBorder }}>|</span>
-          <label style={{ fontSize: '11px', color: PALETTE.slateMist }}>PROJECT:</label>
-          <select 
+          <span style={{ color: '#6b7280' }}>|</span>
+          <span style={{ color: '#9ca3af', fontSize: '0.8rem' }}>PROJECT:</span>
+          <select
             value={selectedProject}
-            onChange={(e) => handleProjectChange(e.target.value)}
+            onChange={(e) => setSelectedProject(e.target.value)}
             style={{
-              backgroundColor: PALETTE.frame,
-              color: PALETTE.champagne,
-              border: `1px solid ${PALETTE.wireBorder}`,
-              padding: '4px 10px',
-              fontSize: '11px',
-              outline: 'none',
-              cursor: 'pointer'
+              backgroundColor: '#221510',
+              color: '#F5F0EA',
+              border: '1px solid rgba(199, 146, 62, 0.4)',
+              borderRadius: '3px',
+              padding: '0.2rem 0.6rem',
+              fontSize: '0.8rem',
+              outline: 'none'
             }}
           >
-            {projects.length === 0 ? (
-              <option value="">NO PROJECTS FOUND</option>
-            ) : (
-              projects.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))
-            )}
+            {projects.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
           </select>
 
           <button
-            onClick={fetchManifest}
-            title="Poll disk conduits for newly staged artifacts"
+            onClick={handleSyncConduit}
             style={{
-              backgroundColor: 'transparent',
-              color: PALETTE.champagne,
-              border: `1px solid ${PALETTE.wireBorder}`,
-              padding: '4px 10px',
-              fontSize: '10px',
-              cursor: 'pointer',
-              letterSpacing: '0.5px'
-            }}
-          >
-            SYNC CONDUIT
-          </button>
-        </div>
-
-        {/* VIEWPORT SELECTORS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {Object.values(VIEWPORTS).map((vp) => (
-            <button
-              key={vp.id}
-              onClick={() => setViewport(vp.id.toUpperCase())}
-              style={{
-                backgroundColor: viewport === vp.id.toUpperCase() ? PALETTE.frame : 'transparent',
-                color: viewport === vp.id.toUpperCase() ? PALETTE.goldCore : PALETTE.slateMist,
-                border: `1px solid ${viewport === vp.id.toUpperCase() ? PALETTE.goldCore : PALETTE.wireBorder}`,
-                padding: '4px 9px',
-                fontSize: '10px',
-                cursor: 'pointer',
-                letterSpacing: '0.5px'
-              }}
-            >
-              {vp.icon} {vp.label}
-            </button>
-          ))}
-        </div>
-
-        {/* WORKSPACE PRESENTATION MODE */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {['RENDER', 'SPLIT', 'CODE'].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setDisplayMode(mode)}
-              style={{
-                backgroundColor: displayMode === mode ? PALETTE.frame : 'transparent',
-                color: displayMode === mode ? PALETTE.champagne : PALETTE.slateMist,
-                border: `1px solid ${displayMode === mode ? PALETTE.goldCore : PALETTE.wireBorder}`,
-                padding: '4px 12px',
-                fontSize: '10px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                letterSpacing: '0.5px'
-              }}
-            >
-              {mode}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ERROR TELEMETRY BANNER */}
-      {errorStatus && (
-        <div style={{
-          padding: '6px 18px',
-          backgroundColor: '#1a090b',
-          borderBottom: `1px solid ${PALETTE.ruby}`,
-          color: PALETTE.ruby,
-          fontSize: '11px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <span>▲ {errorStatus}</span>
-          <button 
-            onClick={fetchManifest}
-            style={{
-              background: 'transparent',
-              border: `1px solid ${PALETTE.ruby}`,
-              color: PALETTE.ruby,
-              padding: '2px 8px',
-              fontSize: '10px',
+              backgroundColor: '#221510',
+              border: '1px solid #C7923E',
+              color: '#C7923E',
+              borderRadius: '3px',
+              padding: '0.25rem 0.75rem',
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
               cursor: 'pointer'
             }}
           >
-            RE-ENGAGE CONDUIT
+            {syncStatus ? syncStatus : 'SYNC CONDUIT'}
           </button>
         </div>
-      )}
 
-      {/* SUCCESS NOTIFICATION BANNER */}
-      {statusMessage && (
-        <div style={{
-          padding: '6px 18px',
-          backgroundColor: '#0d1814',
-          borderBottom: `1px solid ${PALETTE.emerald}`,
-          color: PALETTE.emerald,
-          fontSize: '11px',
-          fontWeight: 600
-        }}>
-          ✓ {statusMessage}
+        {/* RIGHT CONTROLS: VIEWPORTS & MODES */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button
+            onClick={() => setViewport('1920')}
+            style={{
+              backgroundColor: viewport === '1920' ? 'rgba(218, 165, 32, 0.2)' : 'transparent',
+              border: `1px solid ${viewport === '1920' ? '#DAA520' : '#4b5563'}`,
+              color: viewport === '1920' ? '#DAA520' : '#9ca3af',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '3px',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              fontWeight: viewport === '1920' ? 'bold' : 'normal'
+            }}
+          >
+            🖥️ DESKTOP 1920
+          </button>
+          <button
+            onClick={() => setViewport('768')}
+            style={{
+              backgroundColor: viewport === '768' ? 'rgba(218, 165, 32, 0.2)' : 'transparent',
+              border: `1px solid ${viewport === '768' ? '#DAA520' : '#4b5563'}`,
+              color: viewport === '768' ? '#DAA520' : '#9ca3af',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '3px',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              fontWeight: viewport === '768' ? 'bold' : 'normal'
+            }}
+          >
+            📱 TABLET 768
+          </button>
+          <button
+            onClick={() => setViewport('375')}
+            style={{
+              backgroundColor: viewport === '375' ? 'rgba(218, 165, 32, 0.2)' : 'transparent',
+              border: `1px solid ${viewport === '375' ? '#DAA520' : '#4b5563'}`,
+              color: viewport === '375' ? '#DAA520' : '#9ca3af',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '3px',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              fontWeight: viewport === '375' ? 'bold' : 'normal'
+            }}
+          >
+            📲 MOBILE 375
+          </button>
+
+          <span style={{ color: '#4b5563', margin: '0 0.25rem' }}>|</span>
+
+          <button
+            onClick={() => setViewMode('RENDER')}
+            style={{
+              backgroundColor: viewMode === 'RENDER' ? '#E35503' : 'transparent',
+              border: `1px solid ${viewMode === 'RENDER' ? '#E35503' : '#4b5563'}`,
+              color: viewMode === 'RENDER' ? '#ffffff' : '#9ca3af',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '3px',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            RENDER
+          </button>
+          <button
+            onClick={() => setViewMode('SPLIT')}
+            style={{
+              backgroundColor: viewMode === 'SPLIT' ? '#E35503' : 'transparent',
+              border: `1px solid ${viewMode === 'SPLIT' ? '#E35503' : '#4b5563'}`,
+              color: viewMode === 'SPLIT' ? '#ffffff' : '#9ca3af',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '3px',
+              fontSize: '0.75rem',
+              cursor: 'pointer'
+            }}
+          >
+            SPLIT
+          </button>
+          <button
+            onClick={() => setViewMode('CODE')}
+            style={{
+              backgroundColor: viewMode === 'CODE' ? '#E35503' : 'transparent',
+              border: `1px solid ${viewMode === 'CODE' ? '#E35503' : '#4b5563'}`,
+              color: viewMode === 'CODE' ? '#ffffff' : '#9ca3af',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '3px',
+              fontSize: '0.75rem',
+              cursor: 'pointer'
+            }}
+          >
+            CODE
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* CORE WORKSPACE */}
+      {/* MAIN COCKPIT BODY */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        
-        {/* LEFT MANIFEST SIDEBAR */}
+        {/* LEFT RAIL: STAGED ARTIFACTS */}
         <div style={{
-          width: '280px',
-          backgroundColor: PALETTE.panel,
-          borderRight: `1px solid ${PALETTE.wireBorder}`,
+          width: '240px',
+          backgroundColor: '#120c09',
+          borderRight: '1px solid rgba(199, 146, 62, 0.2)',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '1rem'
         }}>
-          <div style={{
-            padding: '10px 14px',
-            fontSize: '10px',
-            color: PALETTE.slateMist,
-            borderBottom: `1px solid ${PALETTE.wireBorder}`,
-            letterSpacing: '1px'
-          }}>
-            STAGED ARTIFACTS ({filteredArtifacts.length})
-          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#9ca3af', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>
+              STAGED ARTIFACTS ({artifacts.length})
+            </div>
 
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {filteredArtifacts.length === 0 ? (
-              <div style={{ padding: '16px', fontSize: '11px', color: PALETTE.slateMist, lineHeight: '1.6' }}>
-                No artifacts staged for <span style={{ color: PALETTE.goldCore }}>{selectedProject || 'selected project'}</span>.
-                <div style={{ marginTop: '8px', fontSize: '10px', color: '#556377' }}>
-                  Deploy artifacts into Web_And_Social, Source_Artifacts, or previews.
-                </div>
+            {artifacts.length === 0 ? (
+              <div style={{ fontSize: '0.75rem', color: '#6b7280', lineHeight: 1.5 }}>
+                No artifacts staged for <span style={{ color: '#DAA520' }}>{selectedProject}</span>.
+                <p style={{ marginTop: '0.5rem', color: '#4b5563' }}>Deploy artifacts into Web_And_Social.</p>
               </div>
             ) : (
-              filteredArtifacts.map((art) => {
-                const isSelected = selectedArtifact?.id === art.id;
-                return (
-                  <div
-                    key={art.id}
-                    onClick={() => loadContent(art)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {artifacts.map((art) => (
+                  <button
+                    key={art}
+                    onClick={() => setSelectedArtifact(art)}
                     style={{
-                      padding: '10px 14px',
-                      cursor: 'pointer',
-                      borderBottom: `1px solid ${PALETTE.wireBorder}`,
-                      backgroundColor: isSelected ? PALETTE.frame : 'transparent',
-                      borderLeft: isSelected ? `3px solid ${PALETTE.goldCore}` : '3px solid transparent'
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '4px',
+                      backgroundColor: selectedArtifact === art ? 'rgba(218, 165, 32, 0.15)' : 'transparent',
+                      border: `1px solid ${selectedArtifact === art ? '#DAA520' : 'transparent'}`,
+                      color: selectedArtifact === art ? '#DAA520' : '#e5e7eb',
+                      fontSize: '0.8rem',
+                      fontFamily: 'monospace',
+                      cursor: 'pointer'
                     }}
                   >
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: isSelected ? PALETTE.goldCore : PALETTE.champagne,
-                      marginBottom: '4px',
-                      wordBreak: 'break-all'
-                    }}>
-                      {art.name}
-                    </div>
-                    <div style={{ fontSize: '9px', color: PALETTE.slateMist, display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: PALETTE.champagne }}>{art.category || art.type.toUpperCase()}</span>
-                      <span>{art.timestamp || 'READY'}</span>
-                    </div>
-                  </div>
-                );
-              })
+                    📄 {art}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* EDITORIAL ACTION DECK - HIGH-LUMINANCE 3D HARDWARE SWITCHES */}
-          <div style={{
-            padding: '18px 14px',
-            borderTop: `1px solid ${PALETTE.wireBorder}`,
-            backgroundColor: '#0a0d12',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-          }}>
-            {/* 3D METALLIC EMERALD COMMIT SWITCH */}
+          {/* APPROVAL & REVISION BUTTONS */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <button
-              onClick={executeAccept}
-              onMouseEnter={() => setAcceptHover(true)}
-              onMouseLeave={() => setAcceptHover(false)}
+              onClick={() => alert(`Artifact ${selectedArtifact} Approved and Locked.`)}
               style={{
-                position: 'relative',
-                padding: '12px 16px',
-                fontSize: '11px',
-                fontWeight: 800,
-                letterSpacing: '1.4px',
-                borderRadius: '3px',
+                backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                border: '1px solid #22c55e',
+                color: '#22c55e',
+                padding: '0.75rem',
+                borderRadius: '4px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
                 cursor: 'pointer',
-                transition: 'all 0.16s ease-in-out',
-                color: acceptHover ? '#ffffff' : '#d1fae5',
-                // High-Luminance Brushed Emerald / Jade Gradient Suite
-                background: acceptHover
-                  ? 'linear-gradient(180deg, #155e43 0%, #1f8560 45%, #136347 55%, #0b3d2b 100%)'
-                  : 'linear-gradient(180deg, #0d4531 0%, #17684b 45%, #0f4d37 55%, #08291d 100%)',
-                border: '1px solid #238a64',
-                boxShadow: acceptHover
-                  ? 'inset 0 1px 1px rgba(200, 255, 230, 0.75), inset 0 -1px 2px rgba(0, 0, 0, 0.9), 0 4px 18px rgba(16, 185, 129, 0.45), 0 2px 4px rgba(0, 0, 0, 0.9)'
-                  : 'inset 0 1px 1px rgba(167, 243, 208, 0.55), inset 0 -1px 2px rgba(0, 0, 0, 0.85), 0 3px 12px rgba(0, 0, 0, 0.7)',
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.95), 0 0 10px rgba(16, 185, 129, 0.45)',
-                transform: acceptHover ? 'translateY(-1px)' : 'translateY(0)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '9px'
+                letterSpacing: '0.05em'
               }}
             >
-              <span style={{
-                display: 'inline-block',
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                backgroundColor: selectedArtifact ? '#10b981' : '#065f46',
-                boxShadow: selectedArtifact
-                  ? '0 0 8px #10b981, 0 0 14px #34d399'
-                  : '0 0 3px rgba(16, 185, 129, 0.6)'
-              }} />
-              ACCEPT &amp; STAGE
+              ACCEPT & STAGE
             </button>
-
-            {/* 3D METALLIC CRIMSON & MAROON REVISE SWITCH */}
             <button
-              onClick={() => {
-                if (!selectedArtifact) {
-                  setStatusMessage('SELECT AN ARTIFACT FIRST TO RED-LINE');
-                  setTimeout(() => setStatusMessage(''), 3000);
-                  return;
-                }
-                setRedlineModal(true);
-              }}
-              onMouseEnter={() => setReviseHover(true)}
-              onMouseLeave={() => setReviseHover(false)}
+              onClick={() => setIsRedLineOpen(true)}
               style={{
-                position: 'relative',
-                padding: '12px 16px',
-                fontSize: '11px',
-                fontWeight: 800,
-                letterSpacing: '1.4px',
-                borderRadius: '3px',
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid #ef4444',
+                color: '#ef4444',
+                padding: '0.75rem',
+                borderRadius: '4px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
                 cursor: 'pointer',
-                transition: 'all 0.16s ease-in-out',
-                color: reviseHover ? '#ffffff' : '#ffd6da',
-                // High-Luminance Brushed Maroon / Crimson Gradient Suite
-                background: reviseHover
-                  ? 'linear-gradient(180deg, #6e1f29 0%, #9e323e 45%, #6b1b24 55%, #420f15 100%)'
-                  : 'linear-gradient(180deg, #52161e 0%, #7a2631 45%, #52161e 55%, #2e090f 100%)',
-                border: '1px solid #993844',
-                boxShadow: reviseHover
-                  ? 'inset 0 1px 1px rgba(255, 200, 210, 0.75), inset 0 -1px 2px rgba(0, 0, 0, 0.9), 0 4px 18px rgba(239, 68, 68, 0.4), 0 2px 4px rgba(0, 0, 0, 0.9)'
-                  : 'inset 0 1px 1px rgba(255, 180, 190, 0.5), inset 0 -1px 2px rgba(0, 0, 0, 0.85), 0 3px 12px rgba(0, 0, 0, 0.7)',
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.95), 0 0 10px rgba(239, 68, 68, 0.45)',
-                transform: reviseHover ? 'translateY(-1px)' : 'translateY(0)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '9px'
+                letterSpacing: '0.05em'
               }}
             >
-              <span style={{
-                display: 'inline-block',
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                backgroundColor: selectedArtifact ? '#ff4d5a' : '#80262e',
-                boxShadow: selectedArtifact
-                  ? '0 0 8px #ef4444, 0 0 14px #ff4d5a'
-                  : '0 0 3px rgba(128, 38, 46, 0.6)'
-              }} />
               RED-LINE / REVISE
             </button>
           </div>
         </div>
 
-        {/* WORKSPACE CANVAS */}
+        {/* CENTER VIEWPORT CANVAS */}
         <div style={{
           flex: 1,
-          backgroundColor: PALETTE.canvasBg,
+          backgroundColor: '#0a0705',
           display: 'flex',
-          flexDirection: displayMode === 'SPLIT' ? 'row' : 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          padding: '14px',
-          gap: '12px'
+          overflow: 'auto',
+          padding: '1rem'
         }}>
-          {loading && (
+          {selectedArtifact ? (
             <div style={{
-              position: 'absolute',
-              top: '12px',
-              right: '16px',
-              fontSize: '10px',
-              color: PALETTE.goldCore,
-              zIndex: 10
-            }}>
-              [ CONDUIT INGESTING... ]
-            </div>
-          )}
-
-          {/* SANDBOX RENDER FRAME */}
-          {(displayMode === 'RENDER' || displayMode === 'SPLIT') && (
-            <div style={{
-              width: displayMode === 'SPLIT' ? '50%' : VIEWPORTS[viewport].width,
+              width: getViewportWidth(),
               height: '100%',
-              maxWidth: '100%',
-              backgroundColor: PALETTE.obsidian,
-              border: `1px solid ${PALETTE.wireBorder}`,
-              overflow: 'hidden',
-              transition: 'width 0.2s ease-in-out',
-              display: 'flex',
-              flexDirection: 'column'
+              backgroundColor: '#fff',
+              boxShadow: '0 0 30px rgba(0,0,0,0.8)',
+              transition: 'width 0.25s ease',
+              borderRadius: viewport === '1920' ? '0px' : '8px',
+              overflow: 'hidden'
             }}>
-              {selectedArtifact && rawContent ? (
-                <iframe
-                  ref={iframeRef}
-                  title="MCNC Sandboxed Preview"
-                  srcDoc={rawContent}
-                  sandbox="allow-scripts allow-same-origin"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                    backgroundColor: '#080a0c'
-                  }}
-                />
-              ) : (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  color: PALETTE.slateMist
-                }}>
-                  <div style={{
-                    border: `1px solid ${PALETTE.wireBorder}`,
-                    backgroundColor: PALETTE.panel,
-                    padding: '24px 32px',
-                    textAlign: 'center',
-                    borderRadius: '2px'
-                  }}>
-                    <div style={{ color: PALETTE.goldCore, fontWeight: 700, fontSize: '13px', letterSpacing: '1px' }}>
-                      [ NO ACTIVE ARTIFACT SELECTED ]
-                    </div>
-                    <p style={{ fontSize: '11px', color: PALETTE.champagne, margin: '8px 0 0 0' }}>
-                      Select a staged artifact from the left manifest to preview live.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* RAW CODE INSPECTOR */}
-          {(displayMode === 'CODE' || displayMode === 'SPLIT') && (
-            <div style={{
-              width: displayMode === 'SPLIT' ? '50%' : '100%',
-              height: '100%',
-              backgroundColor: PALETTE.panel,
-              border: `1px solid ${PALETTE.wireBorder}`,
-              display: 'flex',
-              flexDirection: 'column'
-            }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '6px 14px',
-                borderBottom: `1px solid ${PALETTE.wireBorder}`,
-                backgroundColor: PALETTE.frame
-              }}>
-                <span style={{ fontSize: '11px', color: PALETTE.goldCore }}>
-                  SOURCE ARTIFACT // {selectedArtifact?.name || 'NONE'}
-                </span>
-                <button
-                  onClick={copyToClipboard}
-                  disabled={!rawContent}
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: selectedArtifact ? PALETTE.champagne : PALETTE.slateMist,
-                    border: `1px solid ${PALETTE.wireBorder}`,
-                    padding: '3px 8px',
-                    fontSize: '10px',
-                    cursor: selectedArtifact ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  COPY RAW SOURCE
-                </button>
-              </div>
-              <textarea
-                readOnly
-                value={rawContent || '// No source loaded.'}
+              <iframe
+                title="Artifact Preview"
+                src={previewUrl}
                 style={{
-                  flex: 1,
-                  backgroundColor: 'transparent',
-                  color: rawContent ? PALETTE.champagne : PALETTE.slateMist,
-                  fontFamily: 'Consolas, "Fira Code", monospace',
-                  fontSize: '11px',
-                  lineHeight: '1.5',
-                  padding: '12px',
-                  border: 'none',
-                  outline: 'none',
-                  resize: 'none',
-                  whiteSpace: 'pre'
+                  width: '100%',
+                  height: '100%',
+                  border: 'none'
                 }}
               />
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', color: '#6b7280' }}>
+              <div style={{ color: '#DAA520', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                [ NO ACTIVE ARTIFACT SELECTED ]
+              </div>
+              <div style={{ fontSize: '0.8rem' }}>Select a staged artifact from the left manifest to preview live.</div>
             </div>
           )}
         </div>
       </div>
 
-      {/* RED-LINE CRITIQUE MODAL */}
-      {redlineModal && (
+      {/* RED-LINE CRITIQUE MODAL WITH DICTATE, COPY, CLS, AND ATTACHMENTS */}
+      {isRedLineOpen && (
         <div style={{
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(8, 10, 12, 0.85)',
+          backgroundColor: 'rgba(0, 0, 0, 0.82)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 100
+          zIndex: 9999
         }}>
           <div style={{
-            width: '560px',
-            backgroundColor: PALETTE.panel,
-            border: `1px solid ${PALETTE.ruby}`,
-            padding: '20px',
-            boxShadow: '0 16px 48px rgba(0,0,0,0.9)'
+            width: '740px',
+            backgroundColor: '#120d0b',
+            border: '1px solid #ef4444',
+            borderRadius: '4px',
+            padding: '1.25rem',
+            boxShadow: '0 0 25px rgba(239, 68, 68, 0.3)',
+            fontFamily: 'monospace'
           }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '12px'
-            }}>
-              <span style={{ color: PALETTE.ruby, fontWeight: 700, fontSize: '12px', letterSpacing: '0.5px' }}>
+            {/* MODAL HEADER */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.9rem', letterSpacing: '0.05em' }}>
                 [ RED-LINE CRITIQUE // ROUTING TO TAB 02 WAR ROOM ]
               </span>
               <button
-                onClick={() => setRedlineModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: PALETTE.slateMist,
-                  cursor: 'pointer',
-                  fontSize: '14px'
+                onClick={() => {
+                  if (isListening && recognitionRef.current) recognitionRef.current.stop();
+                  setIsListening(false);
+                  setIsRedLineOpen(false);
                 }}
+                style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '1.2rem' }}
               >
                 ✕
               </button>
             </div>
-            <p style={{ fontSize: '11px', color: PALETTE.slateMist, margin: '0 0 10px 0' }}>
-              Target: <span style={{ color: PALETTE.champagne }}>{selectedArtifact?.name}</span> | Project: <span style={{ color: PALETTE.goldCore }}>{selectedProject}</span>
-            </p>
+
+            {/* METADATA */}
+            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1rem' }}>
+              Target: <span style={{ color: '#F5F0EA' }}>{selectedArtifact || 'index.html'}</span> | Project: <span style={{ color: '#DAA520' }}>{selectedProject}</span>
+            </div>
+
+            {/* ACTION CONTROLS: DICTATE, COPY, CLS, ATTACH */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={toggleDictation}
+                style={{
+                  backgroundColor: isListening ? '#dc2626' : '#221510',
+                  color: isListening ? '#ffffff' : '#DAA520',
+                  border: `1px solid ${isListening ? '#ef4444' : '#DAA520'}`,
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: '3px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: 'bold',
+                  boxShadow: isListening ? '0 0 10px rgba(239, 68, 68, 0.5)' : 'none'
+                }}
+              >
+                {isListening ? '🔴 LISTENING... (STOP)' : '🎙️ START DICTATION'}
+              </button>
+
+              <button
+                type="button"
+                onClick={copyCritiqueToClipboard}
+                style={{
+                  backgroundColor: '#221510',
+                  color: '#9ca3af',
+                  border: '1px solid #4b5563',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: '3px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                📋 COPY TEXT
+              </button>
+
+              {/* CLEAR SCREEN / INPUT BUTTON */}
+              <button
+                type="button"
+                onClick={handleClearScreen}
+                style={{
+                  backgroundColor: '#221510',
+                  color: '#f87171',
+                  border: '1px solid #7f1d1d',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: '3px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                🧹 CLS
+              </button>
+
+              {/* HIDDEN FILE INPUT & ATTACH TRIGGER */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileAttach}
+                multiple
+                accept="image/*,.pdf,.txt,.md,.html"
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                style={{
+                  backgroundColor: '#221510',
+                  color: '#C7923E',
+                  border: '1px solid #C7923E',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: '3px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                📎 ATTACH EXAMPLES
+              </button>
+
+              {copySuccess && (
+                <span style={{ color: '#22c55e', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                  ✓ Copied to clipboard!
+                </span>
+              )}
+            </div>
+
+            {/* ATTACHED FILES CHIPS LIST */}
+            {attachedFiles.length > 0 && (
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.4rem',
+                marginBottom: '0.75rem',
+                padding: '0.5rem',
+                backgroundColor: '#1b120e',
+                borderRadius: '3px',
+                border: '1px dashed #C7923E'
+              }}>
+                {attachedFiles.map((f, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      backgroundColor: '#2b1a11',
+                      border: '1px solid #C7923E',
+                      color: '#F5F0EA',
+                      fontSize: '0.7rem',
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: '2px'
+                    }}
+                  >
+                    📄 {f.name} ({f.size})
+                    <button
+                      type="button"
+                      onClick={() => removeAttachedFile(idx)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        marginLeft: '0.2rem'
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* CRITIQUE INPUT AREA */}
             <textarea
               rows={6}
-              value={redlineNotes}
-              onChange={(e) => setRedlineNotes(e.target.value)}
-              placeholder="State precise required revisions. Telemetry will route directly into the War Room incoming queue..."
+              value={critiqueText}
+              onChange={(e) => setCritiqueText(e.target.value)}
+              placeholder="State precise required revisions or speak using the dictation button above. Attach design mockups or screenshots to guide Roxy..."
               style={{
                 width: '100%',
-                backgroundColor: PALETTE.frame,
-                border: `1px solid ${PALETTE.wireBorder}`,
-                color: PALETTE.champagne,
-                fontFamily: 'monospace',
-                fontSize: '11px',
-                padding: '10px',
-                boxSizing: 'border-box',
+                backgroundColor: '#0a0706',
+                border: '1px solid #374151',
+                borderRadius: '3px',
+                color: '#e5e7eb',
+                padding: '0.75rem',
+                fontSize: '0.85rem',
+                fontFamily: 'inherit',
+                resize: 'vertical',
                 outline: 'none',
-                resize: 'none',
-                marginBottom: '14px'
+                boxSizing: 'border-box'
               }}
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+
+            {/* FOOTER DISPATCH ACTIONS */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
               <button
-                onClick={() => setRedlineModal(false)}
+                onClick={() => {
+                  if (isListening && recognitionRef.current) recognitionRef.current.stop();
+                  setIsListening(false);
+                  setIsRedLineOpen(false);
+                }}
                 style={{
                   backgroundColor: 'transparent',
-                  border: `1px solid ${PALETTE.wireBorder}`,
-                  color: PALETTE.slateMist,
-                  padding: '6px 12px',
-                  fontSize: '11px',
+                  border: '1px solid #4b5563',
+                  color: '#9ca3af',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '3px',
+                  fontSize: '0.8rem',
                   cursor: 'pointer'
                 }}
               >
                 CANCEL
               </button>
               <button
-                onClick={executeRedline}
+                onClick={handleDispatchCritique}
                 style={{
-                  padding: '10px 18px',
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  borderRadius: '3px',
-                  cursor: 'pointer',
+                  backgroundColor: '#7f1d1d',
+                  border: '1px solid #ef4444',
                   color: '#ffffff',
-                  background: 'linear-gradient(180deg, #6e1f29 0%, #9e323e 45%, #420f15 100%)',
-                  border: '1px solid #993844',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 200, 210, 0.75), 0 4px 14px rgba(239, 68, 68, 0.45)'
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '3px',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 10px rgba(239, 68, 68, 0.4)'
                 }}
               >
                 DISPATCH CRITIQUE

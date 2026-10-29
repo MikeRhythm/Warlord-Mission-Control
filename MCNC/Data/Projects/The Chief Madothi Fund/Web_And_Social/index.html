@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Chief Madothi Fund | Nurturing Minds, Feeding Futures in Cape Maclear</title>
+  <style>
+    :root {
+      --bg-dark: #1A0F0A;
+      --bg-surface: #2B1A11;
+      --bg-card: #382419;
+      --canvas-light: #F5F0EA;
+      --canvas-card: #EAE3D9;
+      --sunset: #E35503;
+      --sunset-hover: #C54700;
+      --ochre: #C7923E;
+      --ochre-soft: rgba(199, 146, 62, 0.15);
+      --forest: #2B4422;
+      --sage: #547A4E;
+      --text-main: #F5F0EA;
+      --text-muted: #B8A99A;
+      --text-dark: #1A0F0A;
+      --border-subtle: rgba(199, 146, 62, 0.25);
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-stack);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* HEADER */
+    header {
+      background-color: rgba(26, 15, 10, 0.95);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--sunset), var(--ochre));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 1.1rem;
+      color: var(--text-main);
+      box-shadow: 0 2px 8px rgba(227, 85, 3, 0.35);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .brand-title span {
+      color: var(--ochre);
+    }
+
+    .nav-cta {
+      background-color: var(--sunset);
+      color: #FFF;
+      padding: 0.65rem 1.35rem;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    /* HERO SECTION */
+    .hero {
+      position: relative;
+      padding: 5rem 1.5rem 4.5rem;
+      background: radial-gradient(circle at top right, rgba(227, 85, 3, 0.12) 0%, transparent 60%),
+                  radial-gradient(circle at bottom left, rgba(84, 122, 78, 0.1) 0%, transparent 50%),
+                  var(--bg-dark);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      background: var(--ochre-soft);
+      border: 1px solid var(--ochre);
+      color: var(--ochre);
+      padding: 0.35rem 0.85rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      line-height: 1.15;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      margin-bottom: 1.25rem;
+      max-width: 900px;
+    }
+
+    .hero h1 em {
+      color: var(--ochre);
+      font-style: normal;
+    }
+
+    .hero-lead {
+      font-size: clamp(1.05rem, 2vw, 1.3rem);
+      color: var(--text-muted);
+      max-width: 720px;
+      margin-bottom: 2.25rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--sunset), #F97316);
+      color: #FFF;
+      padding: 0.9rem 2rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 0.9rem 1.8rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    /* THREE PILLARS */
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-top: 3.5rem;
+    }
+
+    .pillar-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1.75rem;
+      position: relative;
+    }
+
+    .pillar-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--ochre);
+    }
+
+    .pillar-card.feeding::before {
+      background: var(--sunset);
+    }
+
+    .pillar-card.school::before {
+      background: var(--sage);
+    }
+
+    .pillar-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+    }
+
+    .pillar-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* MISSION SECTION */
+    .mission-section {
+      padding: 5rem 1.5rem;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    @media (max-width: 860px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+    }
+
+    .section-eyebrow {
+      color: var(--sunset);
+      font-size: 0.85rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .section-heading {
+      font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 1.25rem;
+    }
+
+    .prose p {
+      margin-bottom: 1rem;
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    .quote-box {
+      background: var(--bg-card);
+      border-left: 3px solid var(--ochre);
+      padding: 1.5rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1.5rem 0;
+      font-style: italic;
+      color: var(--text-main);
+    }
+
+    .quote-author {
+      display: block;
+      margin-top: 0.5rem;
+      font-style: normal;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--ochre);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* IMPACT CALCULATOR */
+    .calculator-section {
+      padding: 5rem 1.5rem;
+      background: var(--bg-dark);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .calc-box {
+      background: var(--canvas-light);
+      color: var(--text-dark);
+      border-radius: 12px;
+      padding: 2.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      max-width: 850px;
+      margin: 0 auto;
+    }
+
+    .calc-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .calc-header h3 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text-dark);
+      margin-bottom: 0.5rem;
+    }
+
+    .calc-header p {
+      color: #6B5E52;
+      font-size: 0.95rem;
+    }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .slider {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: #D5C9BC;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--sunset);
+      cursor: pointer;
+      border: 2px solid #FFF;
+    }
+
+    .calc-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.25rem;
+      background: var(--canvas-card);
+      padding: 1.5rem;
+      border-radius: 8px;
+      text-align: center;
+      margin: 2rem 0;
+    }
+
+    .calc-stat-value {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: var(--sunset);
+      line-height: 1;
+      margin-bottom: 0.35rem;
+    }
+
+    .calc-stat-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #6B5E52;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 3.5rem 1.5rem 2.5rem;
+      background: #110A07;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 680px) {
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .footer-disclaimer {
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: #7A6F64;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="nav-container">
+      <a href="#" class="brand">
+        <div class="brand-logo">M</div>
+        <div class="brand-title">Chief Madothi <span>Fund</span></div>
+      </a>
+      <a href="#calculator" class="nav-cta">Take Action</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">Cape Maclear, Chembe • Malawi</div>
+      <h1>Nourishing the Children.<br><em>Building Their Sanctuary.</em></h1>
+      <p class="hero-lead">
+        Under the stewardship of Traditional Authority Chief Madothi, we are expanding primary school infrastructure, funding community teachers, and providing vital daily nutrition to 400+ children in Chembe Village.
+      </p>
+      <div class="hero-actions">
+        <a href="#calculator" class="btn-primary">Calculate Your Impact</a>
+        <a href="#mission" class="btn-secondary">The Vision & Governance</a>
+      </div>
+
+      <div class="pillars">
+        <div class="pillar-card school">
+          <div class="pillar-title">Classrooms & Desks</div>
+          <p class="pillar-desc">Constructing 8 dedicated classrooms and sanitary facilities to eliminate the dangerous 8km daily trek.</p>
+        </div>
+        <div class="pillar-card feeding">
+          <div class="pillar-title">Direct Daily Feeding</div>
+          <p class="pillar-desc">Hot, fortified likuni phala porridge delivered every morning to ensure focus and retention in class.</p>
+        </div>
+        <div class="pillar-card">
+          <div class="pillar-title">Community Stewardship</div>
+          <p class="pillar-desc">Gifted on a sovereign 99-year educational deed by Chief Madothi. Built by local Malawian artisans.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mission-section" id="mission">
+    <div class="container grid-2">
+      <div class="prose">
+        <div class="section-eyebrow">The Cape Maclear Reality</div>
+        <h2 class="section-heading">When Classrooms Have 250 Students, Nobody Learns.</h2>
+        <p>In Chembe Village, children often endure shifts where a single teacher is tasked with over 200 pupils in a sweltering room.</p>
+        <p>Chief Madothi donated the land with a singular mandate: create a permanent educational ecosystem capped at 45 students per class, supported by vetted local teachers and a hot morning meal.</p>
+      </div>
+      <div>
+        <div class="quote-box">
+          "Education is the only inheritance that cannot be stolen from our sons and daughters. We provided the earth; now we build the shelter together."
+          <span class="quote-author">— Chief Madothi, Traditional Authority, Chembe</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="calculator-section" id="calculator">
+    <div class="container">
+      <div class="calc-box">
+        <div class="calc-header">
+          <h3>Your Direct Village Impact</h3>
+          <p>Drag the slider to choose a monthly sponsorship level.</p>
+        </div>
+
+        <div>
+          <div class="slider-labels">
+            <span>Sponsorship Level</span>
+            <span id="donationDisplay" style="color: var(--sunset); font-size: 1.25rem;">$35 / month</span>
+          </div>
+          <input type="range" min="10" max="250" value="35" step="5" class="slider" id="impactSlider">
+        </div>
+
+        <div class="calc-results">
+          <div>
+            <div class="calc-stat-value" id="mealsValue">140</div>
+            <div class="calc-stat-label">Hot Meals / Mo</div>
+          </div>
+          <div>
+            <div class="calc-stat-value" id="studentsValue">1</div>
+            <div class="calc-stat-label">Student Sponsorships</div>
+          </div>
+          <div>
+            <div class="calc-stat-value" id="booksValue">4</div>
+            <div class="calc-stat-label">Exercise Books</div>
+          </div>
+        </div>
+
+        <div style="text-align: center;">
+          <a href="mailto:info@chiefmadothifund.org?subject=Sponsorship%20Pledge" class="btn-primary" style="width: 100%; justify-content: center;">
+            Pledge Sponsorship
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <strong style="color: var(--text-main);">The Chief Madothi Fund</strong>
+          <p class="footer-disclaimer" style="margin-top: 0.5rem;">
+            Established under the authority of Chief Madothi in Chembe Village, Mangochi District, Malawi.
+          </p>
+        </div>
+        <div>
+          <p>Palette: <strong>Authentic Africa</strong></p>
+          <p style="font-size: 0.75rem; color: #5A5046; margin-top: 0.5rem;">© 2026 The Chief Madothi Fund.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const slider = document.getElementById('impactSlider');
+    const display = document.getElementById('donationDisplay');
+    const meals = document.getElementById('mealsValue');
+    const students = document.getElementById('studentsValue');
+    const books = document.getElementById('booksValue');
+
+    function updateMetrics() {
+      const val = parseInt(slider.value, 10);
+      display.textContent = '$' + val + ' / month';
+      meals.textContent = Math.floor(val * 4);
+      students.textContent = Math.max(1, Math.floor(val / 35));
+      books.textContent = Math.floor(val / 8);
+    }
+
+    slider.addEventListener('input', updateMetrics);
+    updateMetrics();
+  </script>
+</body>
+</html>

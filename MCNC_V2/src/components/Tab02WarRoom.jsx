@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles, FileText, Server
+  Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles, FileText, Server, AlertTriangle, Eye, Trash2, Code, ArrowRight, Lock, RotateCcw
 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 import './Tab02WarRoom.css';
@@ -8,24 +8,21 @@ import './Tab02WarRoom.css';
 // Stage 1 Forensic Deconstruction Template Wrapper
 const STAGE1_TEMPLATE_HEADER = `EXECUTE: STAGE 1 ZERO-SOLUTION FORENSIC DECONSTRUCTION
 GOVERNANCE: WARLORD ROE TIER 1 - TIER 5
-TARGET: 5-TURN ROUND-ROBIN KAGGLE CASCADE
+TARGET: 4-TURN LOCAL / FREE CLUSTER CASCADE
 DOMINANT METRIC: ABSOLUTE PRECISION
 
 [MISSION DIRECTIVE]
-Ingest the core project scope and strip it of all conversational drift, premature technology assumptions, and emotional bias. Deconstruct the requirements across the 16 MECE Directors Matrix (00_core through 15_social).
+Ingest the core project scope. Deconstruct the requirements across the 16 MECE Directors Matrix (00_core through 15_social).
+NEGATIVE CONSTRAINTS:
+- Do NOT cite temperature formulas (e.g. T=0.20), top_p, or internal framework scripts.
+- Do NOT explain what Monty or Omni-Director is. Jump directly into technical deconstruction.
+- Never use square brackets around placeholders (e.g. do not output [Client], [Insert], [Date]).
 
 [CASCADE RULES OF ENGAGEMENT]
-- Turn 1 (Qwen 2.5 7B): System Architect & Strategy. Establish core architectural pillars and extract pure functional requirements. No code.
-- Turn 2 (Llama 3 8B): Director Critique & Ops. Pressure-test operational boundaries, identify dependency bottlenecks, and enforce MECE domain isolation.
-- Turn 3 (Qwen 2.5 Coder): Technical Refinement. Define precise data contracts, input/output interfaces, and absolute path requirements.
-- Turn 4 (Qwen 2.5 Judge Gate): Risk Audit & Verification. Hard-check all constraints, apply the default 1.0 Rhythm Multiplier across all pillars, and enforce zero-state memory boundaries.
-- Turn 5 (Consensus Synthesis): Emit the final validated JSON contract for Stage 1.
-
-[MANDATORY CONSTRAINTS]
-1. NO SOLUTIONS OR PREMATURE CODE: State WHAT must be achieved, never write execution code.
-2. PALETTE & TOKEN SANITIZATION:
-__PALETTE_RULES__
-3. MEMORY SAFETY: Every domain requirement must include rhythm_multiplier: 1.0.
+- Turn 1 (NIM Llama 3.3 70B): System Architecture. Extract functional requirements and component topology.
+- Turn 2 (Nemotron 70B): UI/UX & Asset Audit. Map the Authentic Africa Palette, timber tokens, and attached design references.
+- Turn 3 (Groq Llama 3.3 70B): Narrative & Statutory Lead. Lock in the accurate humanitarian mission (fees & food, not building schools).
+- Turn 4 (The Judge Gate): Risk & Contract Verification. Enforce rhythm_multiplier: 1.0 and output the final validated ### DISPATCH MANIFEST.
 
 [OUTPUT FORMAT]
 Output STRICT RAW JSON ONLY. No markdown code blocks, no preamble, no commentary:
@@ -52,11 +49,35 @@ Output STRICT RAW JSON ONLY. No markdown code blocks, no preamble, no commentary
 [INPUT SPECIFICATION]:
 `;
 
-// Elite Frontier LLMs Pool
+// Stage 2 Full Code Production Scaffold
+const STAGE2_CODE_PROMPT_TEMPLATE = `EXECUTE: STAGE 2 FULL SINGLE-FILE PRODUCTION DELIVERABLE
+GOVERNANCE: WARLORD ROE TIER 1 - TIER 5
+TARGET: FULL SINGLE-FILE READY-TO-PASTE PRODUCTION ARTIFACT
+DOMINANT METRIC: ABSOLUTE PRECISION & DIRECT VISUAL FIDELITY
+
+[MISSION DIRECTIVE]
+Ingest the approved Stage 1 PRD and all attached reference assets. Deliver the 100% complete, fully functional, responsive, single-file HTML5/CSS3/Vanilla JS production code for __PROJECT_NAME__ (__TARGET_ARTIFACT__).
+- Zero snippets. Zero ellipses (...). Zero diffs.
+- Zero placeholder brackets (e.g. no [Client], no [Insert Code Here]).
+- Output the full, complete document from <!DOCTYPE html> to </html>.
+
+[PROJECT PALETTE & DESIGN MATRIX]
+__PALETTE_RULES__
+
+[APPROVED STAGE 1 SCOPE & PRD CONTEXT]
+__STAGE1_CONTEXT__
+
+[ATTACHED REFERENCE ASSETS DIRECTIVE]
+__ASSET_DIRECTIVES__
+
+Deliver the COMPLETE code block below:
+`;
+
+// Elite Frontier LLMs Pool - Active Pinned OpenRouter Slugs
 const ELITE_MODELS_POOL = [
-  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', role: 'Architectural Synthesis', tag: 'Turn 1' },
-  { id: 'openai/gpt-4o', name: 'GPT-4o Frontier', role: 'Logic & Scaffolding', tag: 'Turn 2' },
-  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', role: 'Contextual Deep Dive', tag: 'Turn 3' },
+  { id: 'anthropic/claude-3.5-sonnet-20241022', name: 'Claude 3.5 Sonnet', role: 'Architectural Synthesis', tag: 'Turn 1' },
+  { id: 'openai/gpt-4o-2024-11-20', name: 'GPT-4o Frontier', role: 'Logic & Scaffolding', tag: 'Turn 2' },
+  { id: 'google/gemini-pro-1.5', name: 'Gemini 1.5 Pro', role: 'Contextual Deep Dive', tag: 'Turn 3' },
   { id: 'deepseek/deepseek-r1', name: 'DeepSeek-R1', role: 'Validation & PRD Lock', tag: 'Turn 4' }
 ];
 
@@ -70,7 +91,7 @@ const KAGGLE_MODELS_POOL = [
 
 // Local / Free Harvested Clusters Pool (NIM, Groq, Gemini, Ollama)
 const LOCAL_CLUSTERS_MODELS_POOL = [
-  { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (NIM)', role: 'Core Logic & Architecture', tag: 'NIM' },
+  { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (NIM)', role: 'Core Logic & Architecture', tag: 'NIM' },
   { id: 'nvidia/nemotron-70b-ultra', name: 'Nemotron 70B (NIM)', role: 'Deep Reasoning & Audit', tag: 'NIM' },
   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Groq)', role: 'Ultra-Fast Synthesis', tag: 'GROQ' },
   { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Studio)', role: 'Broad Context & Retrieval', tag: 'GEMINI' },
@@ -78,11 +99,11 @@ const LOCAL_CLUSTERS_MODELS_POOL = [
 ];
 
 const FREE_CASCADE_STEPS = [
-  { id: 'TURN-1-NIM', label: 'NVIDIA NIM CLUSTER', model: 'meta/llama-3.3-70b-instruct', role: 'Turn 1: Agent Discussion' },
+  { id: 'TURN-1-NIM', label: 'NVIDIA NIM CLUSTER', model: 'meta-llama/llama-3.3-70b-instruct', role: 'Turn 1: Agent Discussion' },
   { id: 'TURN-2-GROQ', label: 'GROQ LPU ACCELERATOR', model: 'llama-3.3-70b-versatile', role: 'Turn 2: Director Critique' },
   { id: 'TURN-3-GEMINI', label: 'GOOGLE GEMINI CLUSTER', model: 'gemini-1.5-pro', role: 'Turn 3: Synthesis' },
   { id: 'TURN-4-NIM', label: 'NVIDIA NIM CLUSTER', model: 'nvidia/nemotron-70b-ultra', role: 'Turn 4: Refinement' },
-  { id: 'TURN-5-JUDGE', label: 'THE JUDGE GATE', model: 'meta/llama-3.3-70b-instruct', role: 'Turn 5: Validation Check' }
+  { id: 'TURN-5-JUDGE', label: 'THE JUDGE GATE', model: 'meta-llama/llama-3.3-70b-instruct', role: 'Turn 5: Validation Check' }
 ];
 
 const DIRECTOR_BOARD_CONFIG = [
@@ -104,7 +125,7 @@ const DIRECTOR_BOARD_CONFIG = [
   { name: 'ORION // STRATEGIC INTEL', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' }
 ];
 
-const DEFAULT_PROJECTS = ['MAKING MONEY IDEAS', 'ZAMBEZI SAFARI', 'WAR ROOM - DIRECTOR BOARD KAGGLE TEST', 'MCNC REACT VITE', 'RHYTHM WASP V8.5'];
+const DEFAULT_PROJECTS = ['The Chief Madothi Fund', 'MAKING MONEY IDEAS', 'ZAMBEZI SAFARI', 'WAR ROOM - DIRECTOR BOARD KAGGLE TEST', 'MCNC REACT VITE', 'RHYTHM WASP V8.5'];
 
 export default function Tab02WarRoom({ ws }) {
   const [assignedDirectors, setAssignedDirectors] = useState([]);
@@ -113,7 +134,13 @@ export default function Tab02WarRoom({ ws }) {
   const [cascadeIndex, setCascadeIndex] = useState(0);
   const [isCascading, setIsCascading] = useState(false);
   const [isLLMExecuting, setIsLLMExecuting] = useState(false);
+  const [isCodeGenerating, setIsCodeGenerating] = useState(false);
   const [analysisMode, setAnalysisMode] = useState('BOARDROOM'); 
+
+  // Pipeline Stage: 1 = Forensic Deconstruction, 2 = Physical Artifact Delivery
+  const [pipelineStage, setPipelineStage] = useState(() => {
+    return parseInt(localStorage.getItem('MCNC_WARROOM_PIPELINE_STAGE') || '1', 10);
+  });
 
   const [workflowState, setWorkflowState] = useState(() => {
     return localStorage.getItem('MCNC_WARROOM_STATE') || 'IDLE';
@@ -149,13 +176,18 @@ export default function Tab02WarRoom({ ws }) {
   });
 
   const [selectedProject, setSelectedProject] = useState(() => {
-    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'MAKING MONEY IDEAS';
+    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'The Chief Madothi Fund';
   });
 
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [selectedAgentDropdown, setSelectedAgentDropdown] = useState('5-TURN ROUND-ROBIN CASCADE');
   const [inputBuffer, setInputBuffer] = useState('');
+
+  // Telemetry: Staged critiques arriving from Tab 09 Previews
+  const [incomingCritiques, setIncomingCritiques] = useState([]);
+  const [isCritiqueTrayOpen, setIsCritiqueTrayOpen] = useState(true);
+  const [activeArtifactTarget, setActiveArtifactTarget] = useState('index.html');
 
   const [streamLog, setStreamLog] = useState(() => {
     try {
@@ -172,7 +204,93 @@ export default function Tab02WarRoom({ ws }) {
   const [copiedDirective, setCopiedDirective] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   
-  const isAnyExecuting = Boolean(isCascading || isMultiAgentExecuting || isLLMExecuting);
+  const isAnyExecuting = Boolean(isCascading || isMultiAgentExecuting || isLLMExecuting || isCodeGenerating);
+
+  // Sync incoming critiques queue from Tab 09
+  const syncCritiquesQueue = () => {
+    try {
+      const stored = localStorage.getItem('WAR_ROOM_CRITIQUES');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setIncomingCritiques(Array.isArray(parsed) ? parsed : []);
+        if (parsed.length > 0 && parsed[0].target) {
+          setActiveArtifactTarget(parsed[0].target);
+        }
+      } else {
+        setIncomingCritiques([]);
+      }
+    } catch (e) {
+      console.error('Failed to parse WAR_ROOM_CRITIQUES telemetry:', e);
+    }
+  };
+
+  useEffect(() => {
+    syncCritiquesQueue();
+    const handleStorageChange = (e) => {
+      if (e.key === 'WAR_ROOM_CRITIQUES') {
+        syncCritiquesQueue();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    const interval = setInterval(syncCritiquesQueue, 2000);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleInjectCritique = (critiqueItem, index) => {
+    let revisionScaffold = `\n[RED-LINE DIRECTIVE // TAB 09 COCKPIT DISPATCH]\n`;
+    revisionScaffold += `TARGET ARTIFACT: ${critiqueItem.target || 'index.html'}\n`;
+    revisionScaffold += `PROJECT SCOPE: ${critiqueItem.project || selectedProject}\n`;
+    revisionScaffold += `EXECUTIVE DIRECTIVE:\n${critiqueItem.critique || '(No text provided - check attached design references)'}\n`;
+
+    if (critiqueItem.attachments && critiqueItem.attachments.length > 0) {
+      revisionScaffold += `\nATTACHED REFERENCE ASSETS (${critiqueItem.attachments.length}):\n`;
+      critiqueItem.attachments.forEach((att, idx) => {
+        revisionScaffold += `  - [REF-${idx + 1}]: ${att.name} (${att.size})\n`;
+      });
+      revisionScaffold += `DIRECTIVE FOR ROXY & SKYLA: Enforce exact visual hierarchy and color palleting from attached assets. Remove generic boilerplate.\n`;
+    }
+
+    if (critiqueItem.target) {
+      setActiveArtifactTarget(critiqueItem.target);
+    }
+
+    if (critiqueItem.project && !projects.includes(critiqueItem.project)) {
+      setProjects(prev => [...prev, critiqueItem.project]);
+      setSelectedProject(critiqueItem.project);
+      localStorage.setItem('MCNC_ACTIVE_PROJECT', critiqueItem.project);
+    } else if (critiqueItem.project) {
+      setSelectedProject(critiqueItem.project);
+      localStorage.setItem('MCNC_ACTIVE_PROJECT', critiqueItem.project);
+    }
+
+    setInputBuffer(prev => prev ? `${prev.trim()}\n\n${revisionScaffold}` : revisionScaffold.trim());
+
+    setWorkflowState('IDLE');
+    localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
+
+    setStreamLog(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        sender: 'ROXY // REVISION GATE',
+        text: `Red-line critique for [${critiqueItem.target || 'index.html'}] ingested from Tab 09. Prompt buffer updated with ${critiqueItem.attachments?.length || 0} reference assets. Workflow reset to IDLE awaiting new authorization loop.`,
+        type: 'user'
+      }
+    ]);
+
+    const updated = incomingCritiques.filter((_, i) => i !== index);
+    setIncomingCritiques(updated);
+    localStorage.setItem('WAR_ROOM_CRITIQUES', JSON.stringify(updated));
+  };
+
+  const handleDismissCritique = (index) => {
+    const updated = incomingCritiques.filter((_, i) => i !== index);
+    setIncomingCritiques(updated);
+    localStorage.setItem('WAR_ROOM_CRITIQUES', JSON.stringify(updated));
+  };
 
   // Sync to localStorage
   useEffect(() => {
@@ -180,8 +298,9 @@ export default function Tab02WarRoom({ ws }) {
       localStorage.setItem('MCNC_WARROOM_STREAM', JSON.stringify(streamLog));
       localStorage.setItem('MCNC_WARROOM_STATE', workflowState);
       localStorage.setItem('MCNC_SELECTED_LLM', selectedLLM);
+      localStorage.setItem('MCNC_WARROOM_PIPELINE_STAGE', pipelineStage.toString());
     } catch (e) {}
-  }, [streamLog, workflowState, selectedLLM]);
+  }, [streamLog, workflowState, selectedLLM, pipelineStage]);
 
   // Elapsed Timer Hook
   useEffect(() => {
@@ -366,6 +485,9 @@ export default function Tab02WarRoom({ ws }) {
       if (targetPrompt && targetPrompt.trim()) {
         setInputBuffer(targetPrompt.trim());
       }
+
+      setWorkflowState('IDLE');
+      localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
     };
 
     try {
@@ -420,7 +542,8 @@ export default function Tab02WarRoom({ ws }) {
       return;
     }
 
-    if (inputBuffer.includes("EXECUTE: STAGE 1 ZERO-SOLUTION FORENSIC DECONSTRUCTION")) {
+    if (inputBuffer.includes("EXECUTE: STAGE 1 ZERO-SOLUTION FORENSIC DECONSTRUCTION") || 
+        inputBuffer.includes("EXECUTE: STAGE 2 FULL SINGLE-FILE PRODUCTION DELIVERABLE")) {
       return;
     }
 
@@ -428,31 +551,82 @@ export default function Tab02WarRoom({ ws }) {
                             selectedProject.toUpperCase().includes('AFRICA');
 
     const projectPaletteConstraint = isAfricaProject
-      ? `   - UI/UX (Roxy / 02) strictly uses the Authentic Africa Palette & Timber Matrix:
+      ? `   - UI/UX (Roxy & Skyla) strictly uses the Authentic Africa Palette & Timber Matrix:
      * Madothi Charcoal (#1A0F0A), Madothi Espresso (#2B1A11)
      * Malawi Sunset (#E35503), African Ochre (#C7923E)
      * Canopy Forest (#2B4422), Canopy Sage (#547A4E)
      * Linen Canvas (#F5F0EA) reading surfaces (no neon colors, no raw white)
      * 10-Tier Wood & Timber Matrix (W-01 through W-10)
      * Physical asset mapping from C:\\Warlord_Inc\\...\\Africa Assets (Tranches 1-7)
+   - Humanitarian Mission Lock: Raising funds to pay school fees and feed vulnerable children directly (NOT building schools).
    - MQL/Trading (01) strictly uses DodgerBlue, OrangeRed, and Goldenrod lines only.`
       : `   - UI/UX (Roxy / 02) strictly uses High Finance tokens: Obsidian (#080a0c), Gold Core (#ffb800), Wire Border (#1f242d), Emerald (#10b981), Ruby (#ef4444).
    - MQL/Trading (01) strictly uses DodgerBlue, OrangeRed, and Goldenrod lines only.`;
 
-    const dynamicScaffold = STAGE1_TEMPLATE_HEADER
-      .replace("__PROJECT_NAME__", selectedProject)
-      .replace("__PALETTE_RULES__", projectPaletteConstraint);
+    if (pipelineStage === 2) {
+      // Stage 2 Production Scaffold Injection
+      const synthesizedPRD = streamLog
+        .filter(l => l.type === 'agent' && !l.text.startsWith('Executing ['))
+        .map(l => `### ${l.sender}\n${l.text}`)
+        .join('\n\n---\n\n') || 'Stage 1 deconstruction specifications validated in active session.';
 
-    const wrapped = dynamicScaffold + inputBuffer.trim();
-    setInputBuffer(wrapped);
+      let assetDirectives = 'Apply exact visual hierarchy, African Ochre and Malawi Sunset borders, and wood timber textures matching all attached reference images.';
+      if (incomingCritiques.length > 0 && incomingCritiques[0].attachments) {
+        assetDirectives += `\nReferenced Assets (${incomingCritiques[0].attachments.length}): ` + 
+          incomingCritiques[0].attachments.map(a => a.name).join(', ');
+      }
 
+      const stage2Scaffold = STAGE2_CODE_PROMPT_TEMPLATE
+        .replace("__PROJECT_NAME__", selectedProject)
+        .replace("__TARGET_ARTIFACT__", activeArtifactTarget)
+        .replace("__PALETTE_RULES__", projectPaletteConstraint)
+        .replace("__STAGE1_CONTEXT__", synthesizedPRD)
+        .replace("__ASSET_DIRECTIVES__", assetDirectives);
+
+      setInputBuffer(stage2Scaffold + inputBuffer.trim());
+
+      setStreamLog(prev => [
+        ...prev,
+        { 
+          id: Date.now(), 
+          sender: 'CHARLIE // CODING LEAD', 
+          text: `Stage 2 Full Code Production scaffold injected for [${selectedProject}] -> [${activeArtifactTarget}]. Ready for single-file artifact generation.`, 
+          type: 'system' 
+        }
+      ]);
+
+    } else {
+      // Stage 1 Deconstruction Scaffold Injection
+      const dynamicScaffold = STAGE1_TEMPLATE_HEADER
+        .replace("__PROJECT_NAME__", selectedProject)
+        .replace("__PALETTE_RULES__", projectPaletteConstraint);
+
+      const wrapped = dynamicScaffold + inputBuffer.trim();
+      setInputBuffer(wrapped);
+
+      setStreamLog(prev => [
+        ...prev,
+        { 
+          id: Date.now(), 
+          sender: 'CHARLIE // CODING LEAD', 
+          text: `Stage 1 Forensic Deconstruction scaffold injected into prompt buffer for [${selectedProject}] with ${isAfricaProject ? 'Africa Master' : 'High Finance'} token governance.`, 
+          type: 'system' 
+        }
+      ]);
+    }
+  };
+
+  // Explicit State Reset Hook - Resets to IDLE without losing input buffer
+  const handleResetWorkflowState = () => {
+    setWorkflowState('IDLE');
+    localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
     setStreamLog(prev => [
       ...prev,
-      { 
-        id: Date.now(), 
-        sender: 'CHARLIE // CODING LEAD', 
-        text: `Stage 1 Forensic Deconstruction scaffold injected into prompt buffer for [${selectedProject}] with ${isAfricaProject ? 'Africa Master' : 'High Finance'} token governance.`, 
-        type: 'system' 
+      {
+        id: Date.now(),
+        sender: 'MONTY // CHIEF OF STAFF',
+        text: 'Workflow state restored to IDLE. Direct manual authorization required for new dispatches.',
+        type: 'system'
       }
     ]);
   };
@@ -466,10 +640,12 @@ export default function Tab02WarRoom({ ws }) {
     setIsCascading(false); 
     setIsMultiAgentExecuting(false); 
     setIsLLMExecuting(false);
+    setIsCodeGenerating(false);
     setCascadeIndex(0); 
     setWorkflowState('IDLE'); 
     setInputBuffer(''); 
     setAssignedDirectors([]);
+    setPipelineStage(1);
     
     const freshReset = [
       { 
@@ -483,6 +659,7 @@ export default function Tab02WarRoom({ ws }) {
     try {
       localStorage.setItem('MCNC_WARROOM_STREAM', JSON.stringify(freshReset));
       localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
+      localStorage.setItem('MCNC_WARROOM_PIPELINE_STAGE', '1');
       localStorage.removeItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
       sessionStorage.removeItem('MCNC_WARROOM_STREAM');
     } catch (e) {}
@@ -495,8 +672,12 @@ export default function Tab02WarRoom({ ws }) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    setIsCascading(false); setIsMultiAgentExecuting(false); setIsLLMExecuting(false);
-    setCascadeIndex(0); setWorkflowState('IDLE');
+    setIsCascading(false); 
+    setIsMultiAgentExecuting(false); 
+    setIsLLMExecuting(false);
+    setIsCodeGenerating(false);
+    setCascadeIndex(0); 
+    setWorkflowState('IDLE');
 
     try {
       await fetch('http://127.0.0.1:8081/api/all-stop', {
@@ -511,7 +692,7 @@ export default function Tab02WarRoom({ ws }) {
       { 
         id: Date.now(), 
         sender: 'WARLORD // OVERRIDE', 
-        text: `[!] BATCH JOB TERMINATED. ACTIVE CASCADE ABORTED AT [${formatElapsed(elapsedSeconds)}]. SYSTEM RESTORED TO IDLE.`, 
+        text: `[!] BATCH JOB TERMINATED. ACTIVE RUN ABORTED AT [${formatElapsed(elapsedSeconds)}]. SYSTEM RESTORED TO IDLE.`, 
         type: 'error' 
       }
     ]);
@@ -626,10 +807,14 @@ You are acting as the executive lead for ${step.role}.
 Do NOT reply with single confirmations, greetings, or placeholders.
 Deliver a comprehensive, detailed operational brief covering your role.
 Provide clear technical requirements, execution specifications, and architectural parameters.
+NEGATIVE CONSTRAINTS:
+- Do not cite temperature formulas (T=0.20), top_p, or internal framework scripts.
+- Do not explain what Monty is or repeat system rules.
+- Do not use brackets around text like [Client] or [Insert].
 
 ${isJudgeTurn ? `
 MANDATORY FINAL DELIVERABLE:
-At the very end of your review, you MUST output a formal '### DISPATCH MANIFEST' allocating execution tasks to directors from the 16-Director Matrix and binding tools from the Warlord Registry (e.g., booking_sync, donor_crm, payment_gateway, seo_radar, github_deploy, ui_inspector, smtp_dispatcher, email_osint_probe).
+At the very end of your review, you MUST output a formal '### DISPATCH MANIFEST' allocating execution tasks to directors from the 16-Director Matrix and binding tools from the Warlord Registry (e.g., local_disk_writer, ui_inspector, asset_vault_reader, ast_patcher).
 
 Format strictly as:
 ### DISPATCH MANIFEST
@@ -680,18 +865,148 @@ Format strictly as:
     }
 
     setIsCascading(false);
+    
+    // PROGRESSION: ADVANCE TO STAGE 2
+    setPipelineStage(2);
+    localStorage.setItem('MCNC_WARROOM_PIPELINE_STAGE', '2');
+
     setStreamLog(prev => [
       ...prev,
       {
         id: Date.now(),
         sender: 'MONTY // CHIEF OF STAFF',
-        text: `${cascadeTitle} complete. Full PRD validated and held in active staging. Awaiting Authorization.`,
+        text: `Stage 1 Deconstruction Complete. PRD & Manifest synthesized. System advanced to [STAGE 2 // PHYSICAL ARTIFACT PRODUCTION]. Review specifications and click AUTHORIZE when ready.`,
         type: 'system'
       }
     ]);
 
     setWorkflowState('MONTY_APPROVED');
     abortControllerRef.current = null;
+  };
+
+  // Dedicated Stage 2 Code Generation Execution Loop with Strict Verification
+  const runStage2CodeDelivery = async () => {
+    setIsCodeGenerating(true);
+    setWorkflowState('EXECUTING');
+    abortControllerRef.current = new AbortController();
+
+    const timestamp = new Date().toLocaleTimeString();
+    setStreamLog(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        sender: 'CHARLIE // CODE ARCHITECT',
+        text: `[${timestamp}] INITIATING FULL CODE GENERATION FOR [${selectedProject}] -> [${activeArtifactTarget}]...`,
+        type: 'system'
+      }
+    ]);
+
+    const isAfrica = selectedProject.toUpperCase().includes('MADOTHI') || selectedProject.toUpperCase().includes('AFRICA');
+    const projectPaletteConstraint = isAfrica
+      ? `Madothi Charcoal (#1A0F0A), Madothi Espresso (#2B1A11), Malawi Sunset (#E35503), African Ochre (#C7923E), Canopy Forest (#2B4422), Canopy Sage (#547A4E), Linen Canvas (#F5F0EA). Enforce 10-tier timber textures and African pattern borders.`
+      : `Obsidian (#080a0c), Gold Core (#ffb800), Wire Border (#1f242d), Emerald (#10b981), Ruby (#ef4444).`;
+
+    const prdSummary = streamLog
+      .filter(l => l.type === 'agent' && !l.text.startsWith('Executing ['))
+      .map(l => l.text)
+      .join('\n\n')
+      .slice(0, 4000);
+
+    let activeDirective = inputBuffer.trim();
+    if (!activeDirective) {
+      activeDirective = `Generate 100% complete, fully responsive single-file index.html for The Chief Madothi Fund. Directly feed children & pay school fees directly (strictly NO building schools). Include hero section, donation tier cards, impact metrics, and footer.`;
+    }
+
+    const stage2SystemConstraint = `CRITICAL DIRECTIVE: You are an autonomous single-file code synthesizer.
+OUTPUT SPECIFICATION: Output ONLY the complete, ready-to-paste single-file HTML document.
+MANDATORY CONSTRAINTS:
+- Do NOT output conversational text, greetings, apologies, analysis, or explanations before or after.
+- Do NOT use markdown code blocks or fences.
+- Your entire output MUST start with <!DOCTYPE html> on the first character and end with </html> on the last character.
+- Embed all styles inline within <style> tags and all JavaScript interactions within <script> tags.
+- Zero ellipses (...), zero placeholders, zero code snippets.`;
+
+    const stage2Prompt = `${stage2SystemConstraint}
+
+PROJECT: ${selectedProject}
+TARGET ARTIFACT: ${activeArtifactTarget}
+PALETTE CONSTRAINTS: ${projectPaletteConstraint}
+
+APPROVED PRD CONTEXT:
+${prdSummary}
+
+EXECUTIVE DIRECTIVE & CRITIQUE:
+${activeDirective}`;
+
+    setInputBuffer('');
+
+    try {
+      // Pinned active endpoint for OpenRouter and NIM
+      const codeModel = selectedLLM === 'ELITE_CASCADE' 
+        ? 'anthropic/claude-3.5-sonnet-20241022' 
+        : 'meta-llama/llama-3.3-70b-instruct';
+
+      const payload = {
+        prompt: stage2Prompt,
+        model: codeModel,
+        project: selectedProject,
+        role: 'Full Code Generation Lead',
+        useOpenRouter: selectedLLM === 'ELITE_CASCADE',
+        useKaggle: selectedLLM === 'KAGGLE-T4'
+      };
+
+      const data = await dispatchAndWait(payload);
+      let generatedCode = data.reply || '';
+
+      // Strip accidental markdown fences if returned
+      if (generatedCode.includes('```html')) {
+        generatedCode = generatedCode.split('```html')[1].split('```')[0].trim();
+      } else if (generatedCode.includes('```')) {
+        generatedCode = generatedCode.split('```')[1].split('```')[0].trim();
+      }
+
+      // STRICT WARLORD VALIDATION GATE: REJECT CONVERSATIONAL COPOUTS OR SHORT SKELETONS
+      if (!generatedCode || generatedCode.includes('"error"') || generatedCode.includes('404') || !generatedCode.includes('<!DOCTYPE html') || generatedCode.length < 1500) {
+        throw new Error(`Inference engine failed or returned invalid HTML artifact (${generatedCode.length} bytes). Output trace: ${generatedCode.slice(0, 260)}`);
+      }
+
+      setStreamLog(prev => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: 'CHARLIE & SKYLA // ARTIFACT COMPLETE',
+          text: generatedCode,
+          type: 'agent'
+        },
+        {
+          id: Date.now() + 2,
+          sender: 'MONTY // GATEKEEPER',
+          text: `[✓] Single-file artifact for [${activeArtifactTarget}] verified and generated. Review the code above. Click AUTHORIZE to approve, then DISPATCH to provision to disk.`,
+          type: 'system'
+        }
+      ]);
+
+      setWorkflowState('MONTY_APPROVED');
+      localStorage.setItem('MCNC_WARROOM_STATE', 'MONTY_APPROVED');
+
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setStreamLog(prev => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: 'CHARLIE // EXECUTION FAULT',
+            text: `Artifact generation halted: ${err.message}`,
+            type: 'error'
+          }
+        ]);
+        setWorkflowState('IDLE');
+        localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
+      }
+    } finally {
+      setIsCodeGenerating(false);
+      abortControllerRef.current = null;
+    }
   };
 
   const runDynamicMatrixLoop = async (targets) => {
@@ -732,6 +1047,7 @@ Format strictly as:
         if (err.name === 'AbortError') return;
         setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM // ERROR', text: `Matrix failure on node ${baseName}: ${err.message}`, type: 'error' }]);
         setIsMultiAgentExecuting(false);
+        setWorkflowState('IDLE');
         return;
       }
     }
@@ -743,6 +1059,11 @@ Format strictly as:
 
   const handleAction = async (actionType) => {
     if (actionType === 'INITIATE LLM ANALYSIS') {
+      if (pipelineStage === 2) {
+        runStage2CodeDelivery();
+        return;
+      }
+
       setAnalysisMode('BOARDROOM'); 
       setWorkflowState('ANALYZING'); 
       setIsBoardroomOpen(true); 
@@ -787,6 +1108,7 @@ Format strictly as:
           setWorkflowState('MONTY_APPROVED');
         } catch (err) {
           if (err.name !== 'AbortError') setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM // ERROR', text: err.message, type: 'error' }]);
+          setWorkflowState('IDLE');
         } finally { 
           setIsLLMExecuting(false); 
           abortControllerRef.current = null;
@@ -824,6 +1146,7 @@ Format strictly as:
             setWorkflowState('MONTY_APPROVED');
           } catch (err) {
             if (err.name !== 'AbortError') setStreamLog(prev => [...prev, { id: Date.now(), sender: 'SYSTEM', text: err.message, type: 'error' }]);
+            setWorkflowState('IDLE');
           } finally { 
             setIsLLMExecuting(false); 
             abortControllerRef.current = null;
@@ -840,6 +1163,8 @@ Format strictly as:
     else if (actionType === 'REFINE') {
       setStreamLog(prev => [...prev, { id: Date.now(), sender: 'WARLORD // REFINE', text: `Injecting refinement constraints: ${inputBuffer}`, type: 'user' }]);
       setInputBuffer('');
+      setWorkflowState('IDLE');
+      localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
     }
 
     else if (actionType === 'ASSIGN') {
@@ -863,7 +1188,8 @@ Format strictly as:
       } catch (err) {}
 
       setWorkflowState('AUTHORIZED');
-      setStreamLog(prev => [...prev, { id: Date.now(), sender: 'WARLORD // GATE', text: `Action authorized for project [${selectedProject}]. Full PRD committed to Base 1 storage vault.`, type: 'system' }]);
+      localStorage.setItem('MCNC_WARROOM_STATE', 'AUTHORIZED');
+      setStreamLog(prev => [...prev, { id: Date.now(), sender: 'WARLORD // GATE', text: `Action authorized for project [${selectedProject}]. Full PRD committed to Base 1 storage vault. Dispatch enabled.`, type: 'system' }]);
     } 
     
     else if (actionType === 'MONTY DISPATCH') {
@@ -878,7 +1204,7 @@ Format strictly as:
         rawLines.forEach((line, idx) => {
           const taskName = line.match(/Task:\s*"?([^"|]+)"?/i)?.[1]?.trim() || `Execution Unit ${idx + 1}`;
           const director = line.match(/Director:\s*([^|]+)/i)?.[1]?.trim() || 'CHARLIE // CODE';
-          const toolId = line.match(/Tool:\s*([^|]+)/i)?.[1]?.trim() || 'github_deploy';
+          const toolId = line.match(/Tool:\s*([^|]+)/i)?.[1]?.trim() || 'local_disk_writer';
 
           parsedTasks.push({
             id: `TASK-${Date.now()}-${idx}`,
@@ -922,6 +1248,7 @@ Format strictly as:
       } catch (e) {}
 
       setWorkflowState('DISPATCHED');
+      localStorage.setItem('MCNC_WARROOM_STATE', 'DISPATCHED');
       setStreamLog(prev => [
         ...prev, 
         { 
@@ -970,9 +1297,46 @@ Format strictly as:
           </div>
         </div>
 
+        {/* PIPELINE STAGE LOCK MONITOR */}
+        <div className="border border-[#1f242d] rounded bg-[#101317]/70 p-2 mb-2 flex items-center justify-between font-mono">
+          <div className="flex items-center gap-1.5">
+            <Lock className={`w-3.5 h-3.5 ${pipelineStage === 2 ? 'text-[#10b981]' : 'text-[#ffb800]'}`} />
+            <span className="text-[10px] text-[#9ca3af] font-bold">PIPELINE STAGE:</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                setPipelineStage(1);
+                localStorage.setItem('MCNC_WARROOM_PIPELINE_STAGE', '1');
+              }}
+              className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer border ${
+                pipelineStage === 1 
+                  ? 'bg-[#ffb800]/20 text-[#ffb800] border-[#ffb800]' 
+                  : 'bg-[#14171c] text-[#6b7280] border-[#232832]'
+              }`}
+            >
+              STAGE 1: PRD
+            </button>
+            <ArrowRight className="w-2.5 h-2.5 text-[#5c6b7f]" />
+            <button
+              onClick={() => {
+                setPipelineStage(2);
+                localStorage.setItem('MCNC_WARROOM_PIPELINE_STAGE', '2');
+              }}
+              className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer border ${
+                pipelineStage === 2 
+                  ? 'bg-[#10b981]/20 text-[#10b981] border-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.3)]' 
+                  : 'bg-[#14171c] text-[#6b7280] border-[#232832]'
+              }`}
+            >
+              STAGE 2: HTML
+            </button>
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
           
-          {/* BOARDROOM CASCADE: 3-WAY DYNAMIC PLATFORM + SUB-MODELS DECK */}
+          {/* BOARDROOM CASCADE */}
           <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden">
             <button onClick={() => { setIsBoardroomOpen(!isBoardroomOpen); setAnalysisMode('BOARDROOM'); }} className="w-full flex items-center justify-between px-3 py-2 bg-[#14171c] hover:bg-[#1a1f26] text-[#ffb800] font-bold text-xs transition-colors cursor-pointer border-b border-[#1f242d]">
               <span className="flex items-center gap-1.5">
@@ -1089,9 +1453,9 @@ Format strictly as:
 
                 {/* CASCADE STATUS INDICATOR */}
                 <div className="pt-1.5 border-t border-[#1f242d] flex items-center justify-between text-[10px] px-1">
-                  <span className="text-[#5c6b7f]">CHAIN:</span>
-                  <span className={`font-bold font-mono ${isCascadeMode ? 'text-[#10b981]' : 'text-[#38bdf8]'}`}>
-                    {isCascadeMode ? `${selectedSubModels.length}-TURN CASCADE` : 'SOLO MODEL DIRECT'}
+                  <span className="text-[#5c6b7f]">EXECUTION MODE:</span>
+                  <span className={`font-bold font-mono ${pipelineStage === 2 ? 'text-[#10b981]' : isCascadeMode ? 'text-[#ffb800]' : 'text-[#38bdf8]'}`}>
+                    {pipelineStage === 2 ? 'STAGE 2 FULL CODE BUILD' : isCascadeMode ? `${selectedSubModels.length}-TURN CASCADE` : 'SOLO MODEL DIRECT'}
                   </span>
                 </div>
 
@@ -1177,15 +1541,13 @@ Format strictly as:
       <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden relative">
         <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono z-10 relative">
           <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2 uppercase tracking-widest font-bold">
-            THE WAR ROOM // LIVE COMMS & PRD PIPELINE <span className="text-[#ffb800]">[{selectedProject}]</span>
+            THE WAR ROOM // LIVE COMMS &amp; ARTIFACT PIPELINE <span className="text-[#ffb800]">[{selectedProject}]</span>
             <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${
-              selectedLLM === 'KAGGLE-T4' 
-                ? 'text-[#00d2ff] bg-[#00d2ff]/10 border-[#00d2ff]/40' 
-                : selectedLLM === 'LOCAL_CLUSTERS'
-                  ? 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/40'
-                  : 'text-[#ffb800] bg-[#ffb800]/10 border-[#ffb800]/40'
+              pipelineStage === 2 
+                ? 'text-[#10b981] bg-[#10b981]/10 border-[#10b981]/40'
+                : 'text-[#ffb800] bg-[#ffb800]/10 border-[#ffb800]/40'
             }`}>
-              [ENGINE: {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE DUAL-T4 32GB' : selectedLLM === 'LOCAL_CLUSTERS' ? 'LOCAL / FREE CLUSTERS' : 'OPENROUTER CLOUD'} // {selectedSubModels.length} ACTIVE]
+              [STAGE: {pipelineStage === 2 ? 'STAGE 2 // ARTIFACT CODE DELIVERY' : 'STAGE 1 // DECONSTRUCTION'}]
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -1201,6 +1563,101 @@ Format strictly as:
             )}
           </div>
         </div>
+
+        {/* INCOMING RED-LINE CRITIQUE TRAY (DISPATCHED FROM TAB 09 PREVIEWS) */}
+        {incomingCritiques.length > 0 && (
+          <div className="bg-[#140b09] border-b border-[#ef4444]/60 p-2 font-mono z-10 transition-all">
+            <div className="flex items-center justify-between pb-1.5 border-b border-[#ef4444]/20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-[#ef4444]" />
+                <span className="text-[#ef4444] font-bold text-[11px] tracking-wider uppercase">
+                  TAB 09 DISPATCH QUEUE: {incomingCritiques.length} STAGED CRITIQUE(S)
+                </span>
+                <span className="text-[10px] text-[#ffb800] bg-[#221510] px-1.5 py-0.5 rounded border border-[#C7923E]/30">
+                  Target: {incomingCritiques[0].target || 'index.html'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCritiqueTrayOpen(!isCritiqueTrayOpen)}
+                  className="text-[10px] text-[#9ca3af] hover:text-white px-2 py-0.5 rounded border border-[#232832] cursor-pointer"
+                >
+                  {isCritiqueTrayOpen ? 'COLLAPSE' : 'EXPAND'}
+                </button>
+              </div>
+            </div>
+
+            {isCritiqueTrayOpen && (
+              <div className="mt-2 space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                {incomingCritiques.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2 rounded bg-[#1e100c] border border-[#ef4444]/30 flex flex-col gap-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#ef4444] font-bold text-[10px]">#{idx + 1}</span>
+                        <span className="text-[#DAA520] font-bold text-[11px]">{item.target}</span>
+                        <span className="text-[#9ca3af] text-[10px]">[{item.project}]</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleInjectCritique(item, idx)}
+                          className="px-2.5 py-1 bg-[#7f1d1d] hover:bg-[#991b1b] text-white border border-[#ef4444] rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <Sparkles className="w-3 h-3 text-[#ffb800]" />
+                          <span>LOAD INTO DIRECTIVE</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDismissCritique(idx)}
+                          className="p-1 text-[#9ca3af] hover:text-[#ef4444] cursor-pointer"
+                          title="Dismiss"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-[#e5e7eb] whitespace-pre-wrap line-clamp-2 pl-1 border-l-2 border-[#ef4444]/50">
+                      {item.critique || '(No spoken critique — reference images attached)'}
+                    </div>
+
+                    {/* ATTACHED DESIGN EXAMPLES THUMBNAILS TRAY */}
+                    {item.attachments && item.attachments.length > 0 && (
+                      <div className="flex items-center gap-2 pt-1 overflow-x-auto custom-scrollbar">
+                        <span className="text-[9px] text-[#DAA520] font-bold uppercase tracking-wider flex-shrink-0">
+                          📎 EXAMPLES ({item.attachments.length}):
+                        </span>
+                        {item.attachments.map((file, fileIdx) => (
+                          <div
+                            key={fileIdx}
+                            className="flex items-center gap-1.5 bg-[#0a0706] border border-[#C7923E]/40 px-2 py-1 rounded flex-shrink-0"
+                          >
+                            {file.type && file.type.startsWith('image/') ? (
+                              <img
+                                src={file.dataUrl}
+                                alt={file.name}
+                                className="w-6 h-6 object-cover rounded"
+                              />
+                            ) : (
+                              <FileText className="w-4 h-4 text-[#C7923E]" />
+                            )}
+                            <span className="text-[9px] text-[#F5F0EA] font-mono max-w-[120px] truncate">
+                              {file.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* TERMINAL LOG FEED: SELECT-TEXT PERMITTED */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
@@ -1222,7 +1679,7 @@ Format strictly as:
           <div ref={streamBottomRef} />
         </div>
 
-        {/* FULL VIEWPORT ORBITAL HUD OVERLAY (IDENTICAL PARITY TO TAB 01 EXEC & TAB 12) */}
+        {/* FULL VIEWPORT ORBITAL HUD OVERLAY */}
         {isAnyExecuting && (
           <div 
             style={{
@@ -1308,7 +1765,7 @@ Format strictly as:
                 textShadow: '0 0 14px rgba(255, 184, 0, 0.5)'
               }}
             >
-              {isCascading ? `EXECUTING TURN ${cascadeIndex + 1} OF 5 CASCADE...` : 'EXECUTING WAR ROOM INFERENCE RUN...'}
+              {isCodeGenerating ? 'GENERATING PHYSICAL HTML ARTIFACT ON DISK...' : isCascading ? `EXECUTING TURN ${cascadeIndex + 1} OF 5 CASCADE...` : 'EXECUTING WAR ROOM INFERENCE RUN...'}
             </div>
 
             <div 
@@ -1333,7 +1790,7 @@ Format strictly as:
                   boxShadow: '0 0 10px rgba(56, 189, 248, 0.25)'
                 }}
               >
-                {selectedLLM === 'KAGGLE-T4' ? 'KAGGLE DUAL-T4' : selectedLLM === 'LOCAL_CLUSTERS' ? 'LOCAL / FREE CLUSTERS' : 'OPENROUTER ELITE'}
+                {pipelineStage === 2 ? 'CHARLIE & SKYLA CODE BRIDGE' : selectedLLM === 'KAGGLE-T4' ? 'KAGGLE DUAL-T4' : selectedLLM === 'LOCAL_CLUSTERS' ? 'LOCAL / FREE CLUSTERS' : 'OPENROUTER ELITE'}
               </span>
               <span style={{ color: '#334155' }}>|</span>
               <span style={{ color: '#10b981' }}>PROCESS IS LOCKED &amp; RUNNING</span>
@@ -1358,18 +1815,6 @@ Format strictly as:
             >
               TERMINATE BATCH JOB
             </button>
-
-            <div 
-              style={{
-                fontSize: '9px',
-                color: '#64748b',
-                marginTop: '14px',
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase'
-              }}
-            >
-              Process continues in background if navigating away
-            </div>
           </div>
         )}
 
@@ -1392,29 +1837,45 @@ Format strictly as:
               value={inputBuffer} 
               onChange={(e) => setInputBuffer(e.target.value)}
               disabled={isAnyExecuting}
-              placeholder={isAnyExecuting ? `Sequence executing... [Elapsed: ${formatElapsed(elapsedSeconds)}]` : isListening ? "Streaming voice via Chrome... speak naturally..." : `Enter core directive for [${selectedProject}] via [${selectedLLM}]...`}
+              placeholder={isAnyExecuting ? `Sequence executing... [Elapsed: ${formatElapsed(elapsedSeconds)}]` : isListening ? "Streaming voice via Chrome... speak naturally..." : pipelineStage === 2 ? `[STAGE 2 ACTIVE] Enter code revision directive for [${activeArtifactTarget}] or click RUN ARTIFACT BUILD...` : `Enter Stage 1 directive for [${selectedProject}]...`}
               rows={3}
-              className={`w-full bg-[#0d0f12] text-[#e2e8f0] border rounded p-2.5 text-xs font-mono focus:outline-none resize-none select-text transition-colors ${isAnyExecuting ? 'opacity-60 border-[#ffb800]/40 bg-[#080a0c] cursor-not-allowed' : isListening ? 'border-[#ffb800] ring-1 ring-[#ffb800]' : 'border-[#1f242d] focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800]'}`}
+              className={`w-full bg-[#0d0f12] text-[#e2e8f0] border rounded p-2.5 text-xs font-mono focus:outline-none resize-none select-text transition-colors ${isAnyExecuting ? 'opacity-60 border-[#ffb800]/40 bg-[#080a0c] cursor-not-allowed' : isListening ? 'border-[#ffb800] ring-1 ring-[#ffb800]' : pipelineStage === 2 ? 'border-[#10b981]/50 focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]' : 'border-[#1f242d] focus:border-[#ffb800] focus:ring-1 focus:ring-[#ffb800]'}`}
             />
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono">
             <div className="flex items-center gap-1.5 flex-wrap">
-              {/* INITIATE LLM */}
-              <button 
-                onClick={() => handleAction('INITIATE LLM ANALYSIS')} 
-                disabled={isAnyExecuting} 
-                className={`px-3.5 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 border cursor-pointer ${
-                  isAnyExecuting 
-                    ? 'bg-[#14171c]/40 text-[#5c6b7f] border-[#232832] cursor-not-allowed' 
-                    : isLLMExecuting || isCascading
-                      ? 'bg-[#ffb800] text-black border-[#ffb800] shadow-[0_0_12px_rgba(255,184,0,0.5)]'
-                      : 'bg-[#14171c]/40 hover:bg-[#ffb800] text-[#8fa0b5] hover:text-black border-[#232832] hover:border-[#ffb800] hover:shadow-[0_0_12px_rgba(255,184,0,0.45)]'
-                }`}
-              >
-                {isLLMExecuting || isCascading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> : null}
-                <span>{isLLMExecuting || isCascading ? `ACTIVE [${formatElapsed(elapsedSeconds)}]` : 'INITIATE LLM'}</span>
-              </button>
+              
+              {/* PRIMARY EXECUTION TRIGGER (STAGE 1 VS STAGE 2 DYNAMIC ACTION) */}
+              {pipelineStage === 2 ? (
+                <button 
+                  onClick={runStage2CodeDelivery} 
+                  disabled={isAnyExecuting} 
+                  className={`px-4 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 border cursor-pointer ${
+                    isCodeGenerating
+                      ? 'bg-[#10b981] text-black border-[#10b981] shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                      : 'bg-[#10b981]/20 hover:bg-[#10b981] text-[#10b981] hover:text-black border-[#10b981]/50 hover:border-[#10b981] hover:shadow-[0_0_12px_rgba(16,185,129,0.45)]'
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                >
+                  {isCodeGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> : <Code className="w-3.5 h-3.5" />}
+                  <span>{isCodeGenerating ? `BUILDING HTML [${formatElapsed(elapsedSeconds)}]` : 'RUN ARTIFACT BUILD (STAGE 2)'}</span>
+                </button>
+              ) : (
+                <button 
+                  onClick={() => handleAction('INITIATE LLM ANALYSIS')} 
+                  disabled={isAnyExecuting} 
+                  className={`px-3.5 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 border cursor-pointer ${
+                    isAnyExecuting 
+                      ? 'bg-[#14171c]/40 text-[#5c6b7f] border-[#232832] cursor-not-allowed' 
+                      : isLLMExecuting || isCascading
+                        ? 'bg-[#ffb800] text-black border-[#ffb800] shadow-[0_0_12px_rgba(255,184,0,0.5)]'
+                        : 'bg-[#14171c]/40 hover:bg-[#ffb800] text-[#8fa0b5] hover:text-black border-[#232832] hover:border-[#ffb800] hover:shadow-[0_0_12px_rgba(255,184,0,0.45)]'
+                  }`}
+                >
+                  {isLLMExecuting || isCascading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> : null}
+                  <span>{isLLMExecuting || isCascading ? `ACTIVE [${formatElapsed(elapsedSeconds)}]` : 'INITIATE LLM'}</span>
+                </button>
+              )}
               
               {/* INITIATE DIR */}
               <button 
@@ -1434,14 +1895,48 @@ Format strictly as:
               
               <button onClick={() => handleAction('REFINE')} disabled={isAnyExecuting} className="px-3 py-1.5 bg-[#14171c] text-[#a0aec0] border border-[#232832] font-semibold rounded text-[11px] hover:bg-[#1c2129] hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">REFINE</button>
               
-              <button onClick={() => handleAction('AUTHORIZE ACTION')} disabled={isAnyExecuting || workflowState !== 'MONTY_APPROVED'} className={`px-3 py-1.5 font-semibold rounded text-[11px] transition-all flex items-center gap-1.5 ${workflowState === 'MONTY_APPROVED' || workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/40 shadow-[0_0_8px_rgba(16,185,129,0.2)] cursor-pointer' : 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'}`}>
+              {/* DYNAMIC AUTHORIZE BUTTON */}
+              <button 
+                onClick={() => handleAction('AUTHORIZE ACTION')} 
+                disabled={isAnyExecuting || workflowState !== 'MONTY_APPROVED'} 
+                className={`px-3.5 py-1.5 font-semibold rounded text-[11px] transition-all flex items-center gap-1.5 ${
+                  workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' 
+                    ? 'bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/40 shadow-[0_0_8px_rgba(16,185,129,0.2)] cursor-default' 
+                    : workflowState === 'MONTY_APPROVED'
+                      ? 'bg-[#ffb800]/20 hover:bg-[#ffb800] text-[#ffb800] hover:text-black border border-[#ffb800] cursor-pointer shadow-[0_0_8px_rgba(255,184,0,0.3)] animate-pulse'
+                      : 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'
+                }`}
+              >
                 {workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? <Check className="w-3.5 h-3.5" /> : null}
                 {workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'AUTHORIZED' : 'AUTHORIZE'}
               </button>
               
-              <button onClick={() => handleAction('MONTY DISPATCH')} disabled={isAnyExecuting || workflowState !== 'AUTHORIZED'} className={`px-3 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 ${workflowState === 'AUTHORIZED' || workflowState === 'DISPATCHED' ? 'bg-[#d97706]/20 text-[#fef08a] border border-[#d97706] shadow-[0_0_12px_rgba(217,119,6,0.3)] cursor-pointer' : 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'}`}>
+              {/* DISPATCH BUTTON */}
+              <button 
+                onClick={() => handleAction('MONTY DISPATCH')} 
+                disabled={isAnyExecuting || workflowState !== 'AUTHORIZED'} 
+                className={`px-3.5 py-1.5 font-bold rounded text-[11px] transition-all flex items-center gap-1.5 ${
+                  workflowState === 'AUTHORIZED' 
+                    ? 'bg-[#d97706]/20 hover:bg-[#d97706] text-[#fef08a] hover:text-black border border-[#d97706] shadow-[0_0_12px_rgba(217,119,6,0.3)] cursor-pointer' 
+                    : workflowState === 'DISPATCHED'
+                      ? 'bg-[#10b981]/20 text-[#10b981] border border-[#10b981] cursor-default'
+                      : 'bg-[#14171c] text-[#5c6b7f] border border-[#232832] cursor-not-allowed'
+                }`}
+              >
                 {workflowState === 'DISPATCHED' ? <Check className="w-3.5 h-3.5" /> : null}
                 {workflowState === 'DISPATCHED' ? 'DISPATCHED' : 'DISPATCH'}
+              </button>
+
+              {/* MANUAL STATE RESET BUTTON */}
+              <button
+                type="button"
+                onClick={handleResetWorkflowState}
+                disabled={isAnyExecuting || workflowState === 'IDLE'}
+                className="px-2.5 py-1.5 bg-[#14171c] hover:bg-[#1f242d] text-[#8fa0b5] hover:text-white border border-[#232832] rounded text-[11px] flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Reset authorization state back to default IDLE without losing prompt text"
+              >
+                <RotateCcw className="w-3 h-3 text-[#ffb800]" />
+                <span>RESET STATE</span>
               </button>
               
               {/* CLS (PERMANENTLY UNLOCKED) */}
@@ -1466,7 +1961,7 @@ Format strictly as:
                 className="px-3 py-1.5 bg-[#080a0c] hover:bg-[#ffb800] text-[#ffb800] hover:text-black border border-[#ffb800] font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_6px_rgba(255,184,0,0.15)] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>GENERATE DIRECTIVE</span>
+                <span>{pipelineStage === 2 ? 'STAGE 2 SCAFFOLD' : 'STAGE 1 SCAFFOLD'}</span>
               </button>
 
               {/* COPY DIRECTIVE BUTTON */}
@@ -1482,7 +1977,7 @@ Format strictly as:
                 title="Copy entire directive prompt to clipboard"
               >
                 {copiedDirective ? <Check className="w-3.5 h-3.5 text-[#10b981]" /> : <Copy className="w-3.5 h-3.5 text-[#ffb800]" />}
-                <span>{copiedDirective ? 'DIRECTIVE COPIED' : 'COPY DIRECTIVE'}</span>
+                <span>{copiedDirective ? 'COPIED' : 'COPY DIRECTIVE'}</span>
               </button>
             </div>
 

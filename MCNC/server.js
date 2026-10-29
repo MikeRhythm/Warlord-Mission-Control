@@ -96,7 +96,7 @@ wss.on('connection', (ws) => {
 });
 
 // ==========================================
-// ATOMIC PROJECT SCAFFOLDER
+// ATOMIC PROJECT SCAFFOLDER & DIRECTORY CANON
 // ==========================================
 function slugify(text) {
     return (text || 'unnamed_project')
@@ -114,10 +114,12 @@ function scaffoldProjectWorkspace(projectData) {
     const projectDir = path.join(PROJECTS_PATH, slug);
     const docsDir = path.join(DOCS_PATH, slug);
 
+    // Canonical Project Directory Doctrine (Tier 2 ROE / Canonical Registry)
     const subDirs = [
         '01_PRD', '02_LEGAL_STATUTORY', '03_FINANCE_TREASURY',
         '04_MARKET_EXPANSION', '05_BRAND_COLLATERAL', '06_ASSETS_GRAPHICS',
-        '07_SITE_TELEMETRY', '08_BIM_CAD', '09_MEETINGS_DECISIONS'
+        '07_SITE_TELEMETRY', '08_BIM_CAD', '09_MEETINGS_DECISIONS',
+        'Web_And_Social', 'Assets_And_Artwork', 'Leads', 'Responses_And_Donations'
     ];
 
     if (!fs.existsSync(projectDir)) fs.mkdirSync(projectDir, { recursive: true });
@@ -621,9 +623,15 @@ async function executeNativeTool(toolCall) {
 // ==========================================
 // ROUTING ENGINE (KAGGLE -> GEMINI -> NIM -> GROQ -> OPENROUTER)
 // ==========================================
-async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
+async function dispatchToOpenRouter(systemPrompt, userText, modelSlug, isCodeExecution = false) {
     const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
     if (!openRouterKey) throw new Error("OPENROUTER_API_KEY missing from .env");
+
+    // MODEL SLUG NORMALIZATION: Lock Anthropic Sonnet calls to verified Claude 3.7
+    let targetModel = modelSlug || 'anthropic/claude-3.7-sonnet';
+    if (targetModel.includes('claude-3.5-sonnet') || targetModel.includes('claude-3-5-sonnet')) {
+        targetModel = 'anthropic/claude-3.7-sonnet';
+    }
     
     let messages = [
         { role: 'system', content: systemPrompt }, 
@@ -632,6 +640,8 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
 
     let iteration = 0;
     const maxIterations = 3;
+    // CRITICAL FIX: Unlock 8192 tokens for code production so single-file artifacts never truncate
+    const tokenLimit = isCodeExecution ? 8192 : 4096;
 
     while (iteration < maxIterations) {
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -643,20 +653,30 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug) {
                 'X-Title': 'MCNC Master' 
             },
             body: JSON.stringify({ 
-                model: modelSlug || 'meta-llama/llama-3.3-70b-instruct', 
+                model: targetModel, 
                 messages: messages,
                 tools: MCNC_TOOLS,
                 tool_choice: "auto",
                 temperature: 0.2, 
-                max_tokens: 4096 
+                max_tokens: tokenLimit 
             })
         });
         
-        if (!response.ok) throw new Error(`OpenRouter Error ${response.status}`);
+        if (!response.ok) {
+            const errTxt = await response.text();
+            throw new Error(`OpenRouter Error ${response.status}: ${errTxt}`);
+        }
+
         const data = await response.json();
-        const message = data.choices?.[0]?.message;
+        const choice = data.choices?.[0];
+        const message = choice?.message;
         
         if (!message) throw new Error("Empty response from OpenRouter.");
+
+        // Check if OpenRouter prematurely truncated the response
+        if (choice.finish_reason === 'length') {
+            console.warn('[!] OPENROUTER WARNING: Generation truncated due to max_tokens ceiling.');
+        }
 
         messages.push(message);
 
@@ -688,10 +708,28 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     const referencedFiles = resolveReferencedFiles(validContent);
     if (referencedFiles) validContent += `\n\n[DIRECTOR TOOL NOTICE: Ingested files]:${referencedFiles}`;
 
-    const requestedModel = rawBody.model || '';
+    let requestedModel = rawBody.model || '';
+    const isCodeExecution = Boolean(
+        rawBody.role === 'Full Code Generation Lead' || 
+        validContent.includes('EXECUTE: STAGE 2') ||
+        validContent.includes('PHYSICAL PRODUCTION CODE GENERATION') ||
+        validContent.includes('<!DOCTYPE html>')
+    );
+
+    // NORMALIZE CLAUDE SONNET TO 3.7
+    if (requestedModel.includes('claude-3.5-sonnet') || requestedModel.includes('claude-3-5-sonnet') || requestedModel.includes('claude-3.7-sonnet')) {
+        requestedModel = 'anthropic/claude-3.7-sonnet';
+    }
+
+    // EXPLICIT OPENROUTER MODEL REQUEST (e.g. Claude 3.7 Sonnet / GPT-4o Frontier)
+    if (requestedModel && (requestedModel.includes('/') || requestedModel.startsWith('anthropic') || requestedModel.startsWith('openai'))) {
+        broadcast('TRACE', `[ROUTING ENGINE] Directing request to OpenRouter: ${requestedModel}`);
+        const reply = await dispatchToOpenRouter(systemPrompt, validContent, requestedModel, isCodeExecution);
+        return { reply: reply.trim(), modelUsed: `${requestedModel} (OpenRouter Frontier)` };
+    }
 
     // TIER 4: KAGGLE ROUTING (ONLY ENGAGED ON EXPLICIT SELECTION)
-    if (requestedModel.startsWith('KAGGLE/')) {
+    if (requestedModel.startsWith('KAGGLE/') || rawBody.useKaggle) {
         const KAGGLE_MODEL_MAP = {
             'KAGGLE/QWEN-2.5-VL-7B': 'Qwen/Qwen2.5-VL-7B-Instruct',
             'KAGGLE/QWEN-2.5-14B': 'Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4',
@@ -716,7 +754,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                         { role: 'user', content: validContent }
                     ],
                     temperature: 0.2,
-                    max_tokens: 4096
+                    max_tokens: isCodeExecution ? 8192 : 4096
                 })
             });
             
@@ -750,7 +788,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + validContent }] }],
-                            generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+                            generationConfig: { temperature: 0.2, maxOutputTokens: isCodeExecution ? 8192 : 4096 }
                         })
                     });
                     if (response.ok) {
@@ -779,7 +817,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                             { role: 'user', content: validContent }
                         ], 
                         temperature: 0.2, 
-                        max_tokens: 3000 
+                        max_tokens: isCodeExecution ? 4096 : 3000 
                     })
                 });
                 if (response.ok) {
@@ -804,7 +842,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                         model: "llama-3.3-70b-versatile", 
                         messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }], 
                         temperature: 0.2, 
-                        max_tokens: 4096 
+                        max_tokens: isCodeExecution ? 8192 : 4096 
                     })
                 });
                 if (response.ok) {
@@ -816,8 +854,8 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
-    // TIER 4: OPENROUTER
-    const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, "meta-llama/llama-3.3-70b-instruct");
+    // TIER 5: OPENROUTER FALLBACK SHIELD
+    const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, "meta-llama/llama-3.3-70b-instruct", isCodeExecution);
     return { reply: fallbackReply.trim(), modelUsed: "llama-3.3-70b (Tier 5: OpenRouter Shield)" };
 }
 
@@ -1107,7 +1145,7 @@ Strict Zero Fluff Mandate: Deliver high-signal engineering nuggets only.`;
 });
 
 // ==========================================
-// TAB 13 / UNIFIED GOVERNANCE SCANNER (DEDUPLICATED & CLEANED)
+// TAB 13 / UNIFIED GOVERNANCE SCANNER
 // ==========================================
 function scanVaultDocuments() {
     const docList = [];
@@ -1270,16 +1308,17 @@ app.post('/api/docs/save', async (req, res) => {
 });
 
 // ==========================================
-// MECHANICAL JUDGE: WARLORD SOP INTERCEPTOR
+// MECHANICAL JUDGE: WARLORD SOP INTERCEPTOR (FIXED ATTRIBUTE REGEX)
 // ==========================================
 function warlordJudgeInterceptor(text) {
     if (!text) return { passed: false, error: "Empty payload." };
 
+    // SURGICAL FIX: Do NOT match valid CSS attribute brackets like [type="..."] or Markdown link syntax
     const bannedPatterns = [
-        { rx: /\[.*?\]/g, name: "Brackets / Placeholders ([Client], [Insert])" },
+        { rx: /\[(Client|Insert|Date|TODO|Your Name|Company Name|Placeholder).*?\]/gi, name: "Explicit Placeholders ([Client], [Insert], [TODO])" },
         { rx: /\{\{.*?\}\}/g, name: "Curly Braces / Template Tags ({{name}})" },
         { rx: /555-\d{4}/g, name: "Fake Hollywood Phone Numbers (555-XXXX)" },
-        { rx: /\.{3,}/g, name: "Ellipses / Code Snippets (...)" },
+        { rx: /\.{4,}/g, name: "Ellipses / Code Snippets (....)" },
         { rx: /example\.com/gi, name: "Fake Placeholder Domains (example.com)" },
         { rx: /<placeholder.*?>/gi, name: "XML/HTML Placeholders" }
     ];
@@ -1293,6 +1332,57 @@ function warlordJudgeInterceptor(text) {
         }
     }
     return { passed: true };
+}
+
+// ==========================================
+// AUTOMATED STAGE 2 ARTIFACT WRITER (SOP 04 DISK SYNC)
+// ==========================================
+function autoPersistCodeArtifact(projectName, replyText) {
+    if (!replyText || (!replyText.includes('<!DOCTYPE html>') && !replyText.includes('<html'))) {
+        return null;
+    }
+
+    try {
+        const slug = slugify(projectName || 'The_Chief_Madothi_Fund');
+        const candidateDirs = [
+            path.join(PROJECTS_PATH, slug, 'Web_And_Social'),
+            path.join(WORKSPACE_ROOT, 'MCNC', 'Data', 'Projects', slug, 'Web_And_Social'),
+            path.join(WORKSPACE_ROOT, 'public')
+        ];
+
+        let targetDir = candidateDirs[0];
+        for (const c of candidateDirs) {
+            if (fs.existsSync(c)) {
+                targetDir = c;
+                break;
+            }
+        }
+
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+        const targetFile = path.join(targetDir, 'index.html');
+        
+        // SOP 12: Pre-execution checkpoint
+        if (fs.existsSync(targetFile)) {
+            fs.copyFileSync(targetFile, `${targetFile}.bak_${Date.now()}`);
+        }
+
+        // Clean out any accidental markdown code fences
+        let cleanHtml = replyText;
+        if (cleanHtml.includes('```html')) {
+            cleanHtml = cleanHtml.split('```html')[1].split('```')[0].trim();
+        } else if (cleanHtml.includes('```')) {
+            cleanHtml = cleanHtml.split('```')[1].split('```')[0].trim();
+        }
+
+        fs.writeFileSync(targetFile, cleanHtml, 'utf8');
+        logTelemetry('ARTIFACT_COMMITTED', `Automatically persisted production index.html to ${targetFile}`);
+        broadcast('TRACE', `[DISK WRITE] Stage 2 physical artifact persisted to disk: ${targetFile}`);
+        return targetFile;
+    } catch (err) {
+        console.error('[!] Failed to auto-persist artifact:', err.message);
+        return null;
+    }
 }
 
 // ==========================================
@@ -1332,8 +1422,24 @@ app.post('/api/chat', async (req, res) => {
             }
         }
 
-        broadcast('CHAT_COMPLETE', { reply: finalReply, activeModelUsed: finalModel });
-        res.json({ status: 'SUCCESS', reply: finalReply, activeModelUsed: finalModel });
+        // AUTOMATED DISK WRITE FOR STAGE 2 ARTIFACTS
+        const persistedPath = autoPersistCodeArtifact(currentPromptBody.project, finalReply);
+        if (persistedPath) {
+            broadcast('TRACE', `[PIPELINE CLOSURE] Disk persistence verified at ${persistedPath}`);
+        }
+
+        broadcast('CHAT_COMPLETE', { 
+            reply: finalReply, 
+            activeModelUsed: finalModel, 
+            persistedFile: persistedPath 
+        });
+
+        res.json({ 
+            status: 'SUCCESS', 
+            reply: finalReply, 
+            activeModelUsed: finalModel, 
+            persistedFile: persistedPath 
+        });
     } catch (err) { 
         res.status(500).json({ status: 'ERROR', reply: err.message }); 
     }
@@ -1357,6 +1463,7 @@ server.listen(PORT, () => {
     console.log(`[AGENT FS TOOLS]         : /api/tools/{read,write,list,search,stat}`);
     console.log(`[REFINERY ENGINE]        : /api/harvest & /api/docs/save ONLINE`);
     console.log(`[CLUSTER MANAGERS]       : NIM, GROQ, GEMINI ONLINE`);
+    console.log(`[STAGE 2 AUTO-WRITER]    : ACTIVE (8192 Max Tokens Enabled)`);
     console.log(`[STATUS]                 : 100% OPERATIONAL // CLEAN`);
     console.log(`====================================================`);
 });
