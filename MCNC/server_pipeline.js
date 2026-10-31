@@ -82,7 +82,13 @@ app.all('/api/heartbeat', (req, res) => {
     }
   });
 
-  return res.json({ status: 'TRIGGERED', timestamp: new Date().toISOString() });
+  return res.json({ 
+    status: 'ACTIVE', 
+    bridge: 'ONLINE', 
+    framework: 'REACT VITE', 
+    port: PORT, 
+    timestamp: new Date().toISOString() 
+  });
 });
 
 // ----------------------------------------------------------------------------
@@ -233,7 +239,6 @@ app.post('/api/chats/archive', (req, res) => {
 
 // ----------------------------------------------------------------------------
 // 4. TAB 12: TAXONOMY & AUTO-SUGGESTION
-// BUG FIX: Accurate Compound Routing for specific MCNC specs
 // ----------------------------------------------------------------------------
 
 const handleTaxonomySuggestion = (req, res) => {
@@ -241,11 +246,9 @@ const handleTaxonomySuggestion = (req, res) => {
     const { content, existingTaxonomy } = req.body || {};
     const text = (content || '').toLowerCase();
 
-    // Default Fallback
     let domain = 'Cutting Edge AI';
     let subNiche = 'Hermes';
 
-    // High Priority Architecture Overrides
     if (text.includes('mql') && text.includes('node')) {
       domain = 'System Architecture & Code';
       subNiche = 'MQL5 / Node.js Bridges';
@@ -259,22 +262,18 @@ const handleTaxonomySuggestion = (req, res) => {
       domain = 'System Architecture & Code';
       subNiche = 'Reverse Engineering & Decompilation';
     } 
-    // Infrastructure
     else if (text.includes('dell') || text.includes('poweredge') || text.includes('server setup') || text.includes('base 1 server')) {
       domain = 'Hardware & Infrastructure';
       subNiche = 'Base 1 Server Setup';
     }
-    // Markets & Currency
     else if (text.includes('eurusd') || text.includes('london/ny') || text.includes('gbpusd') || text.includes('cross-asset')) {
       domain = 'Market & Currency Pairs';
       subNiche = text.includes('eurusd') ? 'EURUSD Volatility & London/NY Overlap' : 'Cross-Asset Momentum';
     }
-    // Tactical
     else if (text.includes('caprivi') || text.includes('zanzibar') || text.includes('riverine') || text.includes('madothi')) {
       domain = 'Tactical & Historical Archives';
       subNiche = text.includes('madothi') ? 'Donor Outreach & Landing Pages' : 'Caprivi Patrol Memoirs';
     }
-    // Standard Fallbacks
     else if (text.includes('trading') || text.includes('arbitrage') || text.includes('forex') || text.includes('mql')) {
       domain = 'Market & Currency Pairs';
       subNiche = 'Cross-Asset Momentum';
@@ -283,7 +282,6 @@ const handleTaxonomySuggestion = (req, res) => {
       subNiche = text.includes('ollama') ? 'Ollama Runtimes' : 'Hermes';
     }
 
-    // Verify against existing taxonomy keys if provided
     if (existingTaxonomy && existingTaxonomy[domain]) {
       const availableSpecs = existingTaxonomy[domain];
       if (!availableSpecs.includes(subNiche) && availableSpecs.length > 0) {
@@ -484,7 +482,7 @@ app.post('/api/router/classify', (req, res) => {
       text.includes('ast patching')
     ) {
       return res.json({
-        recommendedModel: 'anthropic/claude-3.5-sonnet',
+        recommendedModel: 'anthropic/claude-3.5-sonnet-20241022',
         tierId: 'tier3',
         rationale: 'HIGH-PRECISION CODE & UI SYNTHESIS // ROUTED TO CLAUDE 3.5 SONNET (ELITE)'
       });

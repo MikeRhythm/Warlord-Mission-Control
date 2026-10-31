@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // ============================================================================
 // MCNC TAB 01 EXEC // PERSISTENT MULTI-CHAT & DOMAIN-AWARE COCKPIT
@@ -30,7 +30,7 @@ const RAW_MODEL_TIERS = [
     id: 'tier3',
     tier: 'TIER 3: OPENROUTER (ELITE)',
     models: [
-      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude Sonnet 3.5', badge: 'ELITE', scores: { general: 96, code: 98, mql: 99, graphics: 94, content: 95, quant: 92 } },
+      { id: 'anthropic/claude-3.5-sonnet-20241022', name: 'Claude Sonnet 3.5', badge: 'ELITE', scores: { general: 96, code: 98, mql: 99, graphics: 94, content: 95, quant: 92 } },
       { id: 'openai/gpt-4o', name: 'GPT-4o Omni', badge: 'ELITE', scores: { general: 95, code: 92, mql: 85, graphics: 96, content: 94, quant: 90 } },
       { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', badge: 'REASONING', scores: { general: 90, code: 96, mql: 95, graphics: 20, content: 80, quant: 99 } }
     ]
@@ -549,7 +549,7 @@ export default function Tab01Exec({ ws }) {
         tier = 'tier3';
         rationale = 'REASONING ARCHITECTURE // DEEPSEEK R1';
       } else if (text.includes('landing page') || text.includes('html') || text.includes('code') || text.includes('react')) {
-        targetModel = 'anthropic/claude-3.5-sonnet';
+        targetModel = 'anthropic/claude-3.5-sonnet-20241022';
         tier = 'tier3';
         rationale = 'FRONTEND SYNTHESIS // CLAUDE 3.5 SONNET';
       } else if (text.includes('copy') || text.includes('marketing') || text.includes('story')) {
@@ -862,7 +862,7 @@ export default function Tab01Exec({ ws }) {
                       </span>
                     )}
                   </div>
-                  <span className="text-gray-500 text-[9px] font-bold">{isCollapsed ? '+' : '−'}</span>
+                  <span className="text-gray-500 text-[9px] font-bold">{isCollapsed ? '+' : '-'}</span>
                 </button>
 
                 {!isCollapsed && (
@@ -884,7 +884,7 @@ export default function Tab01Exec({ ws }) {
                         >
                           <div className="flex items-center gap-1.5 truncate pr-1">
                             {isTopRank && (
-                              <span className="text-[#DAA520] text-[8px] font-bold">★</span>
+                              <span className="text-[#DAA520] text-[8px] font-bold">?</span>
                             )}
                             <span className="truncate">{m.name}</span>
                           </div>
@@ -1145,7 +1145,7 @@ export default function Tab01Exec({ ws }) {
                   color: '#ffb800'
                 }}
               >
-                <span style={{ fontSize: '18px', lineHeight: 1, textShadow: '0 0 8px #ffb800' }}>✦</span>
+                <span style={{ fontSize: '18px', lineHeight: 1, textShadow: '0 0 8px #ffb800' }}>?</span>
                 <span style={{ fontSize: '10px', fontWeight: 800, color: '#38bdf8', marginTop: '2px', letterSpacing: '-0.5px' }}>
                   {elapsedSeconds}s
                 </span>
@@ -1241,7 +1241,7 @@ export default function Tab01Exec({ ws }) {
         <div className="border-t border-[#1f242d] bg-[#0b0e14] p-2.5 flex flex-col gap-2 shrink-0">
           {routingRationale && (
             <div className="bg-[#07131e] border border-[#38bdf8] text-[#38bdf8] px-2.5 py-1 rounded text-[9px] font-bold flex items-center justify-between shadow-[0_0_12px_rgba(56,189,248,0.3)]">
-              <span>◈ {routingRationale}</span>
+              <span>? {routingRationale}</span>
               <span className="text-[#C5BD9F] text-[8px] font-normal">AUTO-ROUTER LOCKED</span>
             </div>
           )}

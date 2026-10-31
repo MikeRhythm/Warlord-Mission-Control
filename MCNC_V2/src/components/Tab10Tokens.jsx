@@ -62,7 +62,7 @@ const INITIAL_PROVIDERS = [
     statusTag: 'LIVE',
     tagColor: 'text-[#ffb800] border-[#ffb800]/50 bg-[#ffb800]/10',
     tierLabel: 'BALANCE:',
-    tierValue: '$2.92',
+    tierValue: '$12.52',
     tierColor: 'text-[#10b981]',
     burn: '$2.08',
     engine: 'Claude 3.5 / GPT-4 Frontier',
@@ -74,6 +74,7 @@ const INITIAL_PROVIDERS = [
 export default function Tab10Tokens({ ws }) {
   const [telemetryLogs, setTelemetryLogs] = useState([]);
   const [burnRate, setBurnRate] = useState(2.08);
+  const [openRouterBal, setOpenRouterBal] = useState(12.52);
   const hardCap = 50.00;
   
   const NIM_STARTING_CREDITS = 1000;
@@ -98,6 +99,20 @@ export default function Tab10Tokens({ ws }) {
   
   const [showTunnelInput, setShowTunnelInput] = useState(false);
   const [tunnelUrlInput, setTunnelUrlInput] = useState('');
+
+  const syncOpenRouterBalance = async () => {
+    try {
+      const res = await fetch('http://localhost:8081/api/openrouter/balance');
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.balance === 'number') {
+          setOpenRouterBal(data.balance);
+        }
+      }
+    } catch (e) {
+      console.warn('[OPENROUTER EVENT SYNC SKIPPED]:', e.message);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('MCNC_NIM_CREDITS', nimCredits.toString());
@@ -148,6 +163,7 @@ export default function Tab10Tokens({ ws }) {
 
   useEffect(() => {
     checkStatus();
+    syncOpenRouterBalance();
 
     const handleCustomSync = (e) => {
       if (e.detail?.status) {
@@ -157,10 +173,16 @@ export default function Tab10Tokens({ ws }) {
       }
     };
 
+    const handleOpenRouterExecutionComplete = () => {
+      syncOpenRouterBalance();
+    };
+
     window.addEventListener('kaggle-status-changed', handleCustomSync);
+    window.addEventListener('openrouter-execution-complete', handleOpenRouterExecutionComplete);
 
     return () => {
       window.removeEventListener('kaggle-status-changed', handleCustomSync);
+      window.removeEventListener('openrouter-execution-complete', handleOpenRouterExecutionComplete);
     };
   }, []);
 
@@ -258,7 +280,7 @@ export default function Tab10Tokens({ ws }) {
             </div>
             <div className="flex-1 bg-[#14171c] border border-[#1f242d] rounded px-3 py-1.5 flex flex-col items-center justify-center">
               <span className="text-[9px] text-[#5c6b7f] uppercase font-bold tracking-wider mb-0.5">OpenRouter Bal</span>
-              <span className="text-[#10b981] font-bold text-sm">$2.92</span>
+              <span className="text-[#10b981] font-bold text-sm">${openRouterBal.toFixed(2)}</span>
             </div>
             <div className="flex-1 bg-[#14171c] border border-[#1f242d] rounded px-3 py-1.5 flex flex-col items-center justify-center">
               <span className="text-[9px] text-[#5c6b7f] uppercase font-bold tracking-wider mb-0.5">30-Day Burn</span>
@@ -279,6 +301,7 @@ export default function Tab10Tokens({ ws }) {
         {INITIAL_PROVIDERS.map((provider) => {
           const isKaggle = provider.id === 'kaggle';
           const isNim = provider.id === 'nim';
+          const isOpenRouter = provider.id === 'openrouter';
 
           return (
             <div key={provider.id} className="flex flex-col bg-gradient-to-b from-[#101317] to-[#0a0c0e] border border-[#1f242d] rounded p-3 relative overflow-hidden group hover:border-[#8C3A27]/50 transition-colors">
@@ -339,7 +362,7 @@ export default function Tab10Tokens({ ws }) {
               <div className="flex justify-between items-end mb-3 mt-1">
                 <span className="text-[10px] text-[#5c6b7f] uppercase font-bold tracking-wide">{provider.tierLabel}</span>
                 <span className={`text-base font-bold ${isKaggle ? (isOnline ? 'text-[#10b981]' : 'text-[#8fa0b5]') : provider.tierColor}`}>
-                  {isKaggle ? (isOnline ? `32GB (${tunnelLatency})` : 'STANDBY') : provider.tierValue}
+                  {isKaggle ? (isOnline ? `32GB (${tunnelLatency})` : 'STANDBY') : isOpenRouter ? `$${openRouterBal.toFixed(2)}` : provider.tierValue}
                 </span>
               </div>
 

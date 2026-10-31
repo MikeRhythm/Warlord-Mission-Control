@@ -5,28 +5,89 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Chief Madothi Fund</title>
     <style>
-        /* Add styles here */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F5F0EA; /* Linen Canvas */
+        }
+        
+        header {
+            background-color: #1A0F0A; /* Madothi Charcoal */
+            color: #FFFFFF;
+            padding: 1em;
+            text-align: center;
+        }
+        
+        .hero-section {
+            background-image: linear-gradient(to bottom, #E35503, #C7923E); /* Malawi Sunset to African Ochre */
+            padding: 5em;
+            text-align: center;
+            color: #FFFFFF;
+        }
+        
+        .donation-tiers {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .donation-tier {
+            background-color: #2B1A11; /* Madothi Espresso */
+            color: #FFFFFF;
+            padding: 1em;
+            margin: 1em;
+            border: 1px solid #2B4422; /* Canopy Forest */
+            border-radius: 10px;
+            width: calc(33.33% - 2em);
+        }
+        
+        .impact-metrics {
+            background-color: #547A4E; /* Canopy Sage */
+            color: #FFFFFF;
+            padding: 1em;
+            margin: 1em;
+            border: 1px solid #2B4422; /* Canopy Forest */
+            border-radius: 10px;
+        }
+        
+        footer {
+            background-color: #1A0F0A; /* Madothi Charcoal */
+            color: #FFFFFF;
+            padding: 1em;
+            text-align: center;
+            clear: both;
+        }
     </style>
 </head>
 <body>
-    <!-- Add page content here -->
     <header>
-        <!-- Sticky Header / Navigation -->
+        <h1>The Chief Madothi Fund</h1>
     </header>
-    <section>
-        <!-- Impact Hero Section -->
+    <section class="hero-section">
+        <h2>Help Us Make a Difference</h2>
+        <p>We feed children and pay school fees directly, ensuring that every child has access to education and nutrition.</p>
     </section>
-    <section>
-        <!-- Mission Verification & Transparency -->
+    <section class="donation-tiers">
+        <div class="donation-tier">
+            <h3>Tier 1: $10</h3>
+            <p>Feeds a child for a day</p>
+        </div>
+        <div class="donation-tier">
+            <h3>Tier 2: $50</h3>
+            <p>Pays school fees for a month</p>
+        </div>
+        <div class="donation-tier">
+            <h3>Tier 3: $100</h3>
+            <p>Feeds a child for a month and pays school fees</p>
+        </div>
     </section>
-    <section>
-        <!-- Donation Tiers Matrix -->
-    </section>
-    <section>
-        <!-- Live Impact Metrics -->
+    <section class="impact-metrics">
+        <h2>Our Impact</h2>
+        <p>We have fed 1000 children and paid school fees for 500 children so far.</p>
     </section>
     <footer>
-        <!-- Direct Outreach & Ledger Footer -->
+        <p>&copy; 2024 The Chief Madothi Fund</p>
     </footer>
     <script>
         // Add JavaScript code here

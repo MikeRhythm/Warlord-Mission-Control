@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles, FileText, Server, AlertTriangle, Eye, Trash2, Code, ArrowRight, Lock, RotateCcw
 } from 'lucide-react';
@@ -981,7 +981,7 @@ ${activeDirective}`;
         {
           id: Date.now() + 2,
           sender: 'MONTY // GATEKEEPER',
-          text: `[✓] Single-file artifact for [${activeArtifactTarget}] verified and generated. Review the code above. Click AUTHORIZE to approve, then DISPATCH to provision to disk.`,
+          text: `[?] Single-file artifact for [${activeArtifactTarget}] verified and generated. Review the code above. Click AUTHORIZE to approve, then DISPATCH to provision to disk.`,
           type: 'system'
         }
       ]);
@@ -1622,14 +1622,14 @@ ${activeDirective}`;
                     </div>
 
                     <div className="text-[11px] text-[#e5e7eb] whitespace-pre-wrap line-clamp-2 pl-1 border-l-2 border-[#ef4444]/50">
-                      {item.critique || '(No spoken critique — reference images attached)'}
+                      {item.critique || '(No spoken critique � reference images attached)'}
                     </div>
 
                     {/* ATTACHED DESIGN EXAMPLES THUMBNAILS TRAY */}
                     {item.attachments && item.attachments.length > 0 && (
                       <div className="flex items-center gap-2 pt-1 overflow-x-auto custom-scrollbar">
                         <span className="text-[9px] text-[#DAA520] font-bold uppercase tracking-wider flex-shrink-0">
-                          📎 EXAMPLES ({item.attachments.length}):
+                          ?? EXAMPLES ({item.attachments.length}):
                         </span>
                         {item.attachments.map((file, fileIdx) => (
                           <div
@@ -1747,7 +1747,7 @@ ${activeDirective}`;
                   color: '#ffb800'
                 }}
               >
-                <span style={{ fontSize: '18px', lineHeight: 1, textShadow: '0 0 8px #ffb800' }}>✦</span>
+                <span style={{ fontSize: '18px', lineHeight: 1, textShadow: '0 0 8px #ffb800' }}>?</span>
                 <span style={{ fontSize: '10px', fontWeight: 800, color: '#38bdf8', marginTop: '2px', letterSpacing: '-0.5px' }}>
                   {formatElapsed(elapsedSeconds)}
                 </span>

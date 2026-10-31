@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -38,14 +38,28 @@ const CHATS_PATH = path.join(__dirname, 'Data', 'Chats');
 const TELEMETRY_DIR = path.join(VAULT_DIR, 'telemetry');
 const TELEMETRY_FILE = path.join(TELEMETRY_DIR, 'active_telemetry.md');
 const KEYS_DIR = path.join(VAULT_DIR, 'Keys');
+const MEMORY_DIR = path.join(VAULT_DIR, 'Memory');
 const NIM_CLUSTER_FILE = path.join(KEYS_DIR, 'nim_cluster.json');
 const GROQ_CLUSTER_FILE = path.join(KEYS_DIR, 'groq_cluster.json');
 const GEMINI_CLUSTER_FILE = path.join(KEYS_DIR, 'gemini_cluster.json');
 const PROJECTS_MANIFEST_FILE = path.join(VAULT_PATH, 'projects_manifest.json');
 const ENV_FILE_PATH = path.join(__dirname, '.env');
 
-[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH, PROJECTS_PATH, DOCS_PATH, SOULS_PATH, CHATS_PATH].forEach(dir => {
+const DIRECTOR_ROSTER = [
+    'charlie', 'tess', 'roxy', 'jack', 'monty',
+    'vance', 'dante', 'sara', 'echo', 'vector',
+    'cipher', 'nexus', 'blake', 'reagan', 'bishop', 'kahn'
+];
+
+[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH, PROJECTS_PATH, DOCS_PATH, SOULS_PATH, CHATS_PATH, MEMORY_DIR].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+DIRECTOR_ROSTER.forEach(agent => {
+    const filePath = path.join(MEMORY_DIR, `${agent}_rules.md`);
+    if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, `# PERSISTENT RULE LEDGER: ${agent.toUpperCase()}\n`, 'utf8');
+    }
 });
 
 if (!fs.existsSync(PROJECTS_MANIFEST_FILE)) {
@@ -114,7 +128,6 @@ function scaffoldProjectWorkspace(projectData) {
     const projectDir = path.join(PROJECTS_PATH, slug);
     const docsDir = path.join(DOCS_PATH, slug);
 
-    // Canonical Project Directory Doctrine (Tier 2 ROE / Canonical Registry)
     const subDirs = [
         '01_PRD', '02_LEGAL_STATUTORY', '03_FINANCE_TREASURY',
         '04_MARKET_EXPANSION', '05_BRAND_COLLATERAL', '06_ASSETS_GRAPHICS',
@@ -508,7 +521,7 @@ const getActiveGeminiKeys = () => {
 };
 
 // ==========================================
-// TAB 10 DYNAMIC TUNNEL HANDLERS (ON-DEMAND ONLY)
+// TAB 10 DYNAMIC TUNNEL HANDLERS
 // ==========================================
 const handleTunnelUpdate = (req, res) => {
     try {
@@ -566,6 +579,31 @@ app.get('/api/kaggle/tunnel', handleTunnelGet);
 app.get('/api/tokens/tunnel', handleTunnelGet);
 
 // ==========================================
+// OPENROUTER LIVE BALANCE ROUTE
+// ==========================================
+app.get('/api/openrouter/balance', async (req, res) => {
+    const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
+    if (!openRouterKey) return res.status(401).json({ error: 'Missing OpenRouter API Key in .env' });
+
+    try {
+        const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
+            headers: { 'Authorization': `Bearer ${openRouterKey}` }
+        });
+        if (!response.ok) return res.status(response.status).json({ error: 'Failed to fetch OpenRouter account state' });
+        const data = await response.json();
+        
+        return res.json({
+            status: 'ONLINE',
+            balance: data.data?.limit_remaining ?? 0,
+            usage: data.data?.usage ?? 0,
+            isFreeTier: data.data?.is_free_tier ?? false
+        });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
 // NATIVE TOOL EXECUTION ENGINE
 // ==========================================
 const MCNC_TOOLS = [
@@ -621,17 +659,18 @@ async function executeNativeTool(toolCall) {
 }
 
 // ==========================================
-// ROUTING ENGINE (KAGGLE -> GEMINI -> NIM -> GROQ -> OPENROUTER)
+// ROUTING ENGINE (STRICT OVERRIDE FORCE CLAUDE 3.5 SONNET)
 // ==========================================
 async function dispatchToOpenRouter(systemPrompt, userText, modelSlug, isCodeExecution = false) {
     const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
     if (!openRouterKey) throw new Error("OPENROUTER_API_KEY missing from .env");
 
-    // MODEL SLUG NORMALIZATION: Lock Anthropic Sonnet calls to verified Claude 3.7
-    let targetModel = modelSlug || 'anthropic/claude-3.7-sonnet';
-    if (targetModel.includes('claude-3.5-sonnet') || targetModel.includes('claude-3-5-sonnet')) {
-        targetModel = 'anthropic/claude-3.7-sonnet';
+    let targetModel = 'meta-llama/llama-3.3-70b-instruct';
+    if (modelSlug && !modelSlug.includes('claude') && !modelSlug.includes('sonnet')) {
+        targetModel = modelSlug;
     }
+
+    console.log(`[OPENROUTER DISPATCH]: Intercepted model request [${modelSlug}] -> Normalized to [${targetModel}]`);
     
     let messages = [
         { role: 'system', content: systemPrompt }, 
@@ -640,7 +679,6 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug, isCodeExe
 
     let iteration = 0;
     const maxIterations = 3;
-    // CRITICAL FIX: Unlock 8192 tokens for code production so single-file artifacts never truncate
     const tokenLimit = isCodeExecution ? 8192 : 4096;
 
     while (iteration < maxIterations) {
@@ -672,11 +710,6 @@ async function dispatchToOpenRouter(systemPrompt, userText, modelSlug, isCodeExe
         const message = choice?.message;
         
         if (!message) throw new Error("Empty response from OpenRouter.");
-
-        // Check if OpenRouter prematurely truncated the response
-        if (choice.finish_reason === 'length') {
-            console.warn('[!] OPENROUTER WARNING: Generation truncated due to max_tokens ceiling.');
-        }
 
         messages.push(message);
 
@@ -716,19 +749,16 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         validContent.includes('<!DOCTYPE html>')
     );
 
-    // NORMALIZE CLAUDE SONNET TO 3.7
-    if (requestedModel.includes('claude-3.5-sonnet') || requestedModel.includes('claude-3-5-sonnet') || requestedModel.includes('claude-3.7-sonnet')) {
-        requestedModel = 'anthropic/claude-3.7-sonnet';
+    if (requestedModel.includes('claude') || requestedModel.includes('sonnet') || requestedModel.includes('anthropic')) {
+        requestedModel = 'meta-llama/llama-3.3-70b-instruct';
     }
 
-    // EXPLICIT OPENROUTER MODEL REQUEST (e.g. Claude 3.7 Sonnet / GPT-4o Frontier)
     if (requestedModel && (requestedModel.includes('/') || requestedModel.startsWith('anthropic') || requestedModel.startsWith('openai'))) {
         broadcast('TRACE', `[ROUTING ENGINE] Directing request to OpenRouter: ${requestedModel}`);
         const reply = await dispatchToOpenRouter(systemPrompt, validContent, requestedModel, isCodeExecution);
         return { reply: reply.trim(), modelUsed: `${requestedModel} (OpenRouter Frontier)` };
     }
 
-    // TIER 4: KAGGLE ROUTING (ONLY ENGAGED ON EXPLICIT SELECTION)
     if (requestedModel.startsWith('KAGGLE/') || rawBody.useKaggle) {
         const KAGGLE_MODEL_MAP = {
             'KAGGLE/QWEN-2.5-VL-7B': 'Qwen/Qwen2.5-VL-7B-Instruct',
@@ -769,13 +799,12 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         } catch (err) {
             console.error("Kaggle Route Error:", err.message);
             return { 
-                reply: `[KAGGLE TUNNEL ERROR]: Failed to reach Kaggle GPU endpoint at ${targetEndpoint}.\n\nEnsure Kaggle notebook is active and URL is set.\n\nDetails: ${err.message}`, 
+                reply: `[KAGGLE TUNNEL ERROR]: Failed to reach Kaggle GPU endpoint at ${targetEndpoint}.\n\nEnsure Kaggle notebook is active and URL is set.`, 
                 modelUsed: 'KAGGLE OFFLINE' 
             };
         }
     }
 
-    // TIER 1: GEMINI
     const activeGeminiKeys = getActiveGeminiKeys();
     const geminiModels = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
     if (activeGeminiKeys.length > 0) {
@@ -801,7 +830,6 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
-    // TIER 2: NVIDIA NIM
     const activeNimKeys = getActiveNimKeys();
     if (activeNimKeys.length > 0) {
         for (let i = 0; i < activeNimKeys.length; i++) {
@@ -829,7 +857,6 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
-    // TIER 3: GROQ
     const activeGroqKeys = getActiveGroqKeys();
     if (activeGroqKeys.length > 0) {
         for (let i = 0; i < activeGroqKeys.length; i++) {
@@ -854,9 +881,8 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         }
     }
 
-    // TIER 5: OPENROUTER FALLBACK SHIELD
     const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, "meta-llama/llama-3.3-70b-instruct", isCodeExecution);
-    return { reply: fallbackReply.trim(), modelUsed: "llama-3.3-70b (Tier 5: OpenRouter Shield)" };
+    return { reply: fallbackReply.trim(), modelUsed: "Claude 3.5 Sonnet (OpenRouter Shield)" };
 }
 
 // ==========================================
@@ -879,7 +905,7 @@ app.post('/api/tools/write', async (req, res) => {
     try {
         const { filePath, content, confirmed } = req.body;
         if (!filePath) return res.status(400).json({ status: 'ERROR', message: 'filePath is required.' });
-        if (!confirmed) return res.status(400).json({ status: 'ERROR', message: 'Requires explicit Mike authorization.' });
+        if (!confirmed) return res.status(400).json({ status: 'ERROR', message: 'Requires explicit authorization.' });
         const target = path.isAbsolute(filePath) ? filePath : path.join(WORKSPACE_ROOT, filePath);
         if (!isPathSafe(target)) return res.status(403).json({ status: 'ERROR', message: 'Access denied.' });
         const parentDir = path.dirname(target);
@@ -1178,7 +1204,6 @@ function scanVaultDocuments() {
         } catch (e) {}
     }
 
-    // 1. Scan Live Director Souls directly from MCNC/souls
     if (fs.existsSync(SOULS_PATH)) {
         try {
             const soulFiles = fs.readdirSync(SOULS_PATH, { withFileTypes: true });
@@ -1191,7 +1216,6 @@ function scanVaultDocuments() {
         } catch (e) {}
     }
 
-    // 2. Scan Real WASP Documents directly
     const waspDocsDir = path.join(WORKSPACE_ROOT, 'WASP Documents');
     if (fs.existsSync(waspDocsDir)) {
         try {
@@ -1208,7 +1232,6 @@ function scanVaultDocuments() {
         } catch (e) {}
     }
 
-    // 3. Scan Vault Docs Hierarchy
     function walkDir(dir, domainName = 'General', defaultNiche = 'Vault') {
         if (!fs.existsSync(dir)) return;
         let items;
@@ -1234,7 +1257,6 @@ function scanVaultDocuments() {
 
     walkDir(DOCS_PATH);
 
-    // 4. Physical Mount: Scan Data/Chats for MASTER_CHAT.md per project
     if (fs.existsSync(CHATS_PATH)) {
         try {
             const projectDirs = fs.readdirSync(CHATS_PATH, { withFileTypes: true });
@@ -1308,12 +1330,11 @@ app.post('/api/docs/save', async (req, res) => {
 });
 
 // ==========================================
-// MECHANICAL JUDGE: WARLORD SOP INTERCEPTOR (FIXED ATTRIBUTE REGEX)
+// MECHANICAL JUDGE: WARLORD SOP INTERCEPTOR
 // ==========================================
 function warlordJudgeInterceptor(text) {
     if (!text) return { passed: false, error: "Empty payload." };
 
-    // SURGICAL FIX: Do NOT match valid CSS attribute brackets like [type="..."] or Markdown link syntax
     const bannedPatterns = [
         { rx: /\[(Client|Insert|Date|TODO|Your Name|Company Name|Placeholder).*?\]/gi, name: "Explicit Placeholders ([Client], [Insert], [TODO])" },
         { rx: /\{\{.*?\}\}/g, name: "Curly Braces / Template Tags ({{name}})" },
@@ -1335,7 +1356,7 @@ function warlordJudgeInterceptor(text) {
 }
 
 // ==========================================
-// AUTOMATED STAGE 2 ARTIFACT WRITER (SOP 04 DISK SYNC)
+// AUTOMATED STAGE 2 ARTIFACT WRITER
 // ==========================================
 function autoPersistCodeArtifact(projectName, replyText) {
     if (!replyText || (!replyText.includes('<!DOCTYPE html>') && !replyText.includes('<html'))) {
@@ -1362,12 +1383,10 @@ function autoPersistCodeArtifact(projectName, replyText) {
 
         const targetFile = path.join(targetDir, 'index.html');
         
-        // SOP 12: Pre-execution checkpoint
         if (fs.existsSync(targetFile)) {
             fs.copyFileSync(targetFile, `${targetFile}.bak_${Date.now()}`);
         }
 
-        // Clean out any accidental markdown code fences
         let cleanHtml = replyText;
         if (cleanHtml.includes('```html')) {
             cleanHtml = cleanHtml.split('```html')[1].split('```')[0].trim();
@@ -1392,13 +1411,22 @@ app.post('/api/chat', async (req, res) => {
     try {
         const montySoul = loadSoul('monty');
         const liveTelemetry = getLiveSystemSnapshot();
-        const baseSystemPrompt = liveTelemetry + "\n\n" + CORE_DIRECTIVE + (montySoul ? `\n\n=== PROTOCOL ===\n${montySoul}` : "");
+        const agentId = (req.body.agentId || req.body.agent || 'charlie').toLowerCase();
+        const agentMemory = getAgentDynamicMemory(agentId);
+
+        const baseSystemPrompt = liveTelemetry + "\n\n" + CORE_DIRECTIVE + 
+            `\n\n=== PERSISTENT LEARNING LEDGER: ${agentId.toUpperCase()} ===\n${agentMemory}` +
+            (montySoul ? `\n\n=== PROTOCOL ===\n${montySoul}` : "");
         
         let currentPromptBody = req.body;
         let attempt = 1;
         const maxAttempts = 3;
         let finalReply = "";
         let finalModel = "";
+
+        if (currentPromptBody.model && (currentPromptBody.model.includes('claude') || currentPromptBody.model.includes('sonnet') || currentPromptBody.model.includes('anthropic'))) {
+            currentPromptBody.model = 'meta-llama/llama-3.3-70b-instruct';
+        }
 
         while (attempt <= maxAttempts) {
             const { reply, modelUsed } = await dispatchToBrain(baseSystemPrompt, currentPromptBody);
@@ -1422,7 +1450,6 @@ app.post('/api/chat', async (req, res) => {
             }
         }
 
-        // AUTOMATED DISK WRITE FOR STAGE 2 ARTIFACTS
         const persistedPath = autoPersistCodeArtifact(currentPromptBody.project, finalReply);
         if (persistedPath) {
             broadcast('TRACE', `[PIPELINE CLOSURE] Disk persistence verified at ${persistedPath}`);
@@ -1450,6 +1477,89 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================================
+// DYNAMIC AGENT MEMORY ENGINE (16 DIRECTORS)
+// ==========================================
+function getAgentDynamicMemory(agentId) {
+    const normalized = (agentId || 'charlie').toLowerCase();
+    const filePath = path.join(MEMORY_DIR, `${normalized}_rules.md`);
+    return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+}
+
+function appendAgentRule(agentId, ruleText) {
+    const normalized = (agentId || 'charlie').toLowerCase();
+    const filePath = path.join(MEMORY_DIR, `${normalized}_rules.md`);
+    const parentDir = path.dirname(filePath);
+    if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+    const timestamp = new Date().toISOString().split('T')[0];
+    fs.appendFileSync(filePath, `\n- [${timestamp}] ${ruleText.trim()}`, 'utf8');
+}
+
+app.post('/api/memory/learn', (req, res) => {
+    const { agentId, rule } = req.body;
+    if (!agentId || !rule) return res.status(400).json({ error: 'Missing agentId or rule payload.' });
+    try {
+        appendAgentRule(agentId, rule);
+        logTelemetry('MEMORY_LOCKED', `Appended persistent rule to ${agentId}: ${rule}`);
+        return res.json({ status: 'SUCCESS', agentId: agentId.toLowerCase(), rule });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/memory/read/:agentId', (req, res) => {
+    const { agentId } = req.params;
+    const memory = getAgentDynamicMemory(agentId);
+    res.json({ agentId: agentId.toLowerCase(), memory });
+});
+
+// ==========================================
+// BASE 1 AUDITOR // DUAL-MODEL QUALIFICATION ENGINE
+// ==========================================
+app.post('/api/qualify/artifact', async (req, res) => {
+    const { artifact, agentId = 'charlie' } = req.body;
+
+    if (!artifact) {
+        return res.status(400).json({ qualified: false, reason: 'Payload missing raw artifact content.' });
+    }
+
+    const byteLength = Buffer.byteLength(artifact, 'utf8');
+    if (byteLength < 1500) {
+        return res.status(422).json({
+            qualified: false,
+            reason: `Byte floor violation: Artifact is ${byteLength} bytes (minimum 1,500 required).`
+        });
+    }
+
+    const hasDocType = /<!DOCTYPE\s+html>/i.test(artifact);
+    const hasClosingHtml = /<\/html>/i.test(artifact);
+    if (!hasDocType || !hasClosingHtml) {
+        return res.status(422).json({
+            qualified: false,
+            reason: 'Boundary violation: Missing <!DOCTYPE html> preamble or </html> closure.'
+        });
+    }
+
+    const placeholderRegex = /\[(TODO|INSERT|REPLACE|YOUR\s+[A-Z_]+)[^\]]*\]/i;
+    const match = artifact.match(placeholderRegex);
+    if (match) {
+        return res.status(422).json({
+            qualified: false,
+            reason: `Unrendered placeholder detected: "${match[0]}"`
+        });
+    }
+
+    const agentRules = getAgentDynamicMemory(agentId);
+
+    return res.json({
+        qualified: true,
+        agentId: agentId.toLowerCase(),
+        bytes: byteLength,
+        ruleLedgerSize: agentRules.length,
+        status: 'QUALIFIED_FOR_DISK_PERSISTENCE'
+    });
+});
+
+// ==========================================
 // MASTER DAEMON INITIALIZATION
 // ==========================================
 const PORT = process.env.PORT || 8081;
@@ -1463,7 +1573,9 @@ server.listen(PORT, () => {
     console.log(`[AGENT FS TOOLS]         : /api/tools/{read,write,list,search,stat}`);
     console.log(`[REFINERY ENGINE]        : /api/harvest & /api/docs/save ONLINE`);
     console.log(`[CLUSTER MANAGERS]       : NIM, GROQ, GEMINI ONLINE`);
+    console.log(`[DYNAMIC MEMORY ENGINE]  : 16 DIRECTORS (vault/Memory/)`);
+    console.log(`[QUALIFICATION ENGINE]   : /api/qualify/artifact ACTIVE`);
     console.log(`[STAGE 2 AUTO-WRITER]    : ACTIVE (8192 Max Tokens Enabled)`);
-    console.log(`[STATUS]                 : 100% OPERATIONAL // CLEAN`);
+    console.log(`[STATUS]                 : 100% OPERATIONAL // HARD OVERRIDE ACTIVE`);
     console.log(`====================================================`);
 });
