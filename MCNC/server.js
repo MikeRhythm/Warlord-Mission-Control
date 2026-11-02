@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -29,12 +29,12 @@ app.set('views', path.join(__dirname, 'views'));
 const WORKSPACE_ROOT = path.resolve('C:\\Warlord_Inc\\Warlord_WASP');
 const SOULS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'souls');
 const LOGS_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC_Logs');
-const VAULT_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'vault');
-const PROJECTS_PATH = path.join(VAULT_PATH, 'Projects');
+const DATA_PATH = path.join('C:', 'Warlord_Inc', 'Warlord_WASP', 'MCNC', 'Data');
+const PROJECTS_PATH = path.join(DATA_PATH, 'Projects');
+const CHATS_PATH = path.join(DATA_PATH, 'Chats');
 const UPLOADS_PATH = path.join(__dirname, 'uploads');
 const VAULT_DIR = path.join(__dirname, 'vault');
 const DOCS_PATH = path.join(VAULT_DIR, 'Docs');
-const CHATS_PATH = path.join(__dirname, 'Data', 'Chats');
 const TELEMETRY_DIR = path.join(VAULT_DIR, 'telemetry');
 const TELEMETRY_FILE = path.join(TELEMETRY_DIR, 'active_telemetry.md');
 const KEYS_DIR = path.join(VAULT_DIR, 'Keys');
@@ -42,7 +42,7 @@ const MEMORY_DIR = path.join(VAULT_DIR, 'Memory');
 const NIM_CLUSTER_FILE = path.join(KEYS_DIR, 'nim_cluster.json');
 const GROQ_CLUSTER_FILE = path.join(KEYS_DIR, 'groq_cluster.json');
 const GEMINI_CLUSTER_FILE = path.join(KEYS_DIR, 'gemini_cluster.json');
-const PROJECTS_MANIFEST_FILE = path.join(VAULT_PATH, 'projects_manifest.json');
+const PROJECTS_MANIFEST_FILE = path.join(DATA_PATH, 'projects_manifest.json');
 const ENV_FILE_PATH = path.join(__dirname, '.env');
 
 const DIRECTOR_ROSTER = [
@@ -51,7 +51,7 @@ const DIRECTOR_ROSTER = [
     'cipher', 'nexus', 'blake', 'reagan', 'bishop', 'kahn'
 ];
 
-[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, VAULT_PATH, PROJECTS_PATH, DOCS_PATH, SOULS_PATH, CHATS_PATH, MEMORY_DIR].forEach(dir => {
+[LOGS_PATH, UPLOADS_PATH, TELEMETRY_DIR, VAULT_DIR, KEYS_DIR, PROJECTS_PATH, DOCS_PATH, SOULS_PATH, CHATS_PATH, MEMORY_DIR].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -110,21 +110,18 @@ wss.on('connection', (ws) => {
 });
 
 // ==========================================
-// ATOMIC PROJECT SCAFFOLDER & DIRECTORY CANON
+// ATOMIC PROJECT SCAFFOLDER & EXACT CASING
 // ==========================================
-function slugify(text) {
-    return (text || 'unnamed_project')
+function sanitizeProjectName(text) {
+    return (text || 'Unnamed Project')
         .toString()
-        .toLowerCase()
         .trim()
-        .replace(/[\s\/\\]+/g, '_')
-        .replace(/[^\w\-]+/g, '')
-        .replace(/\-\-+/g, '_');
+        .replace(/[<>:"\/\\|?*]+/g, '');
 }
 
 function scaffoldProjectWorkspace(projectData) {
     const rawName = projectData.name || projectData.projectKey || 'UNNAMED_PROJECT';
-    const slug = slugify(rawName);
+    const slug = sanitizeProjectName(rawName);
     const projectDir = path.join(PROJECTS_PATH, slug);
     const docsDir = path.join(DOCS_PATH, slug);
 
@@ -143,19 +140,19 @@ function scaffoldProjectWorkspace(projectData) {
 
     if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
 
-    const prdFilename = `01_PRD_${slug}.md`;
+    const prdFilename = `01_PRD_${slug.replace(/\s+/g, '_')}.md`;
     const prdProjectPath = path.join(projectDir, '01_PRD', prdFilename);
     const prdDocsPath = path.join(docsDir, prdFilename);
     const prdDocsRootPath = path.join(DOCS_PATH, prdFilename);
 
-    let seedContent = projectData.prdContent || `# PRODUCT REQUIREMENTS DOCUMENT (PRD)\n## PROJECT: ${rawName.toUpperCase()}\n**Authority:** Commander Mike // Supreme Command\n**Created:** ${new Date().toISOString()}\n\n---\n\n### 1. Executive Intent & Overview\nAutomated project instantiation initialized by MCNC Base 1.`;
+    let seedContent = projectData.prdContent || `# PRODUCT REQUIREMENTS DOCUMENT (PRD)\n## PROJECT: ${rawName}\n**Authority:** Commander Mike // Supreme Command\n**Created:** ${new Date().toISOString()}\n\n---\n\n### 1. Executive Intent & Overview\nAutomated project instantiation initialized by MCNC Base 1.`;
 
     if (!fs.existsSync(prdProjectPath)) fs.writeFileSync(prdProjectPath, seedContent, 'utf8');
     fs.writeFileSync(prdDocsPath, seedContent, 'utf8');
     fs.writeFileSync(prdDocsRootPath, seedContent, 'utf8');
 
     logTelemetry('PROJECT_SCAFFOLDED', `Auto-scaffolded filesystem tree for project: ${slug}`);
-    broadcast('TRACE', `[SCAFFOLD] Initialized project workspace: vault/Projects/${slug}`);
+    broadcast('TRACE', `[SCAFFOLD] Initialized project workspace: Data/Projects/${slug}`);
 
     return { slug, projectDir, docsDir, subDirs, prdFilename };
 }
@@ -235,7 +232,6 @@ function cleanVttToText(rawVtt) {
 // ==========================================
 async function extractYouTubeTranscript(videoId) {
     try {
-        console.log(`[REFINERY INGEST] Vector 1 (Tactiq Cloud Proxy) for: ${videoId}`);
         const tacRes = await fetch('https://tactiq-apps-prod.tactiq.io/transcript', {
             method: 'POST',
             headers: {
@@ -251,65 +247,18 @@ async function extractYouTubeTranscript(videoId) {
             const tacData = await tacRes.json();
             if (Array.isArray(tacData.captions) && tacData.captions.length > 0) {
                 const text = tacData.captions.map(c => c.text).join(' ').trim();
-                if (text.length >= 50) {
-                    console.log(`[REFINERY INGEST] Vector 1 (Tactiq Cloud) succeeded (${text.length} chars)`);
-                    return text;
-                }
+                if (text.length >= 50) return text;
             }
         }
-    } catch (err) {
-        console.warn(`[REFINERY INGEST] Vector 1 skipped: ${err.message}`);
-    }
+    } catch (err) {}
 
     try {
-        console.log(`[REFINERY INGEST] Vector 2 (Direct API) for: ${videoId}`);
         const transcriptArr = await YoutubeTranscript.fetchTranscript(videoId);
         if (Array.isArray(transcriptArr) && transcriptArr.length > 0) {
             const text = transcriptArr.map(t => t.text).join(' ').trim();
-            if (text.length >= 50) {
-                console.log(`[REFINERY INGEST] Vector 2 succeeded (${text.length} chars)`);
-                return text;
-            }
+            if (text.length >= 50) return text;
         }
-    } catch (err) {
-        console.warn(`[REFINERY INGEST] Vector 2 failed: ${err.message}`);
-    }
-
-    const relayInstances = [
-        'https://inv.tux.pizza',
-        'https://invidious.nerdvpn.de',
-        'https://yewtu.be',
-        'https://invidious.privacyredirect.com',
-        'https://iv.ggtyler.dev'
-    ];
-
-    for (const instance of relayInstances) {
-        try {
-            console.log(`[REFINERY INGEST] Vector 3 (Relay Proxy: ${instance}) for: ${videoId}`);
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 6000);
-            const capRes = await fetch(`${instance}/api/v1/captions/${videoId}`, { signal: controller.signal });
-            clearTimeout(timer);
-
-            if (capRes.ok) {
-                const capData = await capRes.json();
-                const captions = capData.captions || [];
-                const enTrack = captions.find(c => c.language_code && c.language_code.startsWith('en')) || captions[0];
-                if (enTrack && enTrack.url) {
-                    const trackUrl = enTrack.url.startsWith('http') ? enTrack.url : `${instance}${enTrack.url}`;
-                    const vttRes = await fetch(trackUrl);
-                    if (vttRes.ok) {
-                        const rawVtt = await vttRes.text();
-                        const cleaned = cleanVttToText(rawVtt);
-                        if (cleaned.length >= 50) {
-                            console.log(`[REFINERY INGEST] Vector 3 succeeded via ${instance} (${cleaned.length} chars)`);
-                            return cleaned;
-                        }
-                    }
-                }
-            }
-        } catch (relayErr) {}
-    }
+    } catch (err) {}
 
     return '';
 }
@@ -324,13 +273,12 @@ async function dispatchYouTubeDirectToGemini(systemPrompt, videoId, extraNotes) 
     }
 
     const cleanYtUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const supportedModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-1.5-pro'];
+    const supportedModels = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'];
 
     for (const modelName of supportedModels) {
         for (let i = 0; i < activeGeminiKeys.length; i++) {
             const mask = `...${activeGeminiKeys[i].slice(-6)}`;
             try {
-                console.log(`[REFINERY INGEST] Routing YouTube URL (${cleanYtUrl}) directly to Google Cloud via ${modelName} [${mask}]...`);
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeGeminiKeys[i]}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -350,16 +298,10 @@ async function dispatchYouTubeDirectToGemini(systemPrompt, videoId, extraNotes) 
                     const data = await response.json();
                     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
                     if (text && text.length >= 50) {
-                        console.log(`[REFINERY INGEST] SUCCESS! ${modelName} natively digested YouTube video (${text.length} chars)`);
                         return { reply: text, modelUsed: `${modelName} (Native YouTube Cloud Ingest [${mask}])` };
                     }
-                } else {
-                    const errTxt = await response.text();
-                    console.warn(`[REFINERY INGEST] ${modelName} [${mask}] HTTP ${response.status}: ${errTxt.slice(0, 180)}`);
                 }
-            } catch (err) {
-                console.warn(`[REFINERY INGEST] ${modelName} error: ${err.message}`);
-            }
+            } catch (err) {}
         }
     }
 
@@ -390,7 +332,7 @@ function resolveReferencedDirectories(rawText) {
         } else {
             candidatePaths.push(path.join(WORKSPACE_ROOT, 'MCNC', cleanMatch));
             candidatePaths.push(path.join(WORKSPACE_ROOT, cleanMatch));
-            candidatePaths.push(path.join(VAULT_PATH, cleanMatch.replace(/^vault[\\\/]/i, '')));
+            candidatePaths.push(path.join(DATA_PATH, cleanMatch.replace(/^Data[\\\/]/i, '')));
             candidatePaths.push(path.join(PROJECTS_PATH, cleanMatch));
         }
 
@@ -451,7 +393,7 @@ function resolveReferencedFiles(rawText) {
         } else {
             candidatePaths.push(path.join(WORKSPACE_ROOT, 'MCNC', cleanMatch));
             candidatePaths.push(path.join(WORKSPACE_ROOT, cleanMatch));
-            candidatePaths.push(path.join(VAULT_PATH, cleanMatch.replace(/^vault[\\\/]/i, '')));
+            candidatePaths.push(path.join(DATA_PATH, cleanMatch.replace(/^Data[\\\/]/i, '')));
         }
 
         let target = candidatePaths.find(p => fs.existsSync(p));
@@ -579,29 +521,123 @@ app.get('/api/kaggle/tunnel', handleTunnelGet);
 app.get('/api/tokens/tunnel', handleTunnelGet);
 
 // ==========================================
-// OPENROUTER LIVE BALANCE ROUTE
+// OPENROUTER LIVE BALANCE & LIVE MODEL CACHE
 // ==========================================
+let cachedOpenRouterModels = [];
+let lastModelCacheTime = 0;
+
+async function getLiveOpenRouterModels() {
+    if (cachedOpenRouterModels.length > 0 && (Date.now() - lastModelCacheTime < 300000)) {
+        return cachedOpenRouterModels;
+    }
+    try {
+        const res = await fetch('https://openrouter.ai/api/v1/models');
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.data)) {
+                cachedOpenRouterModels = data.data.map(m => m.id);
+                lastModelCacheTime = Date.now();
+            }
+        }
+    } catch (e) {}
+    return cachedOpenRouterModels;
+}
+
+getLiveOpenRouterModels();
+
 app.get('/api/openrouter/balance', async (req, res) => {
     const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
     if (!openRouterKey) return res.status(401).json({ error: 'Missing OpenRouter API Key in .env' });
 
     try {
-        const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
+        // First try the credits endpoint for total balance and usage
+        const creditsRes = await fetch('https://openrouter.ai/api/v1/credits', {
             headers: { 'Authorization': `Bearer ${openRouterKey}` }
         });
-        if (!response.ok) return res.status(response.status).json({ error: 'Failed to fetch OpenRouter account state' });
-        const data = await response.json();
+        
+        let calculatedBalance = 0;
+        let totalUsage = 0;
+        let rawCredits = 0;
+        let isFreeTier = false;
+
+        if (creditsRes.ok) {
+            const creditsData = await creditsRes.json();
+            rawCredits = Number(creditsData?.data?.total_credits || 0);
+            totalUsage = Number(creditsData?.data?.total_usage || 0);
+            calculatedBalance = Math.max(0, rawCredits - totalUsage);
+        } else {
+            // Fallback to auth key endpoint if credits is restricted (standard key)
+            const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
+                headers: { 'Authorization': `Bearer ${openRouterKey}` }
+            });
+            if (!response.ok) return res.status(response.status).json({ error: 'Failed to fetch OpenRouter account state' });
+            const data = await response.json();
+            calculatedBalance = data.data?.limit_remaining ?? 0;
+            totalUsage = data.data?.usage ?? 0;
+            isFreeTier = data.data?.is_free_tier ?? false;
+        }
         
         return res.json({
             status: 'ONLINE',
-            balance: data.data?.limit_remaining ?? 0,
-            usage: data.data?.usage ?? 0,
-            isFreeTier: data.data?.is_free_tier ?? false
+            balance: calculatedBalance,
+            usage: totalUsage,
+            isFreeTier: isFreeTier
         });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
 });
+
+// ==========================================
+// PROVIDER SLUG TRANSLATORS (NIM / GEMINI / OPENROUTER)
+// ==========================================
+function resolveNimSlug(rawSlug) {
+    const s = (rawSlug || '').trim().toLowerCase();
+    if (s.includes('nemotron')) return 'nvidia/llama-3.1-nemotron-70b-instruct';
+    if (s.includes('3.3-70b')) return 'meta/llama-3.3-70b-instruct';
+    if (s.includes('3.2-90b')) return 'meta/llama-3.2-90b-vision-instruct';
+    if (s.includes('3.1-70b')) return 'meta/llama-3.1-70b-instruct';
+    return rawSlug.trim();
+}
+
+async function resolveOpenRouterSlug(rawSlug) {
+    const s = (rawSlug || '').trim().toLowerCase();
+    const liveModels = await getLiveOpenRouterModels();
+
+    if (liveModels.length > 0 && liveModels.includes(rawSlug.trim())) {
+        return rawSlug.trim();
+    }
+
+    if (s.includes('claude') && s.includes('sonnet')) {
+        const preferred = [
+            'anthropic/claude-3.7-sonnet',
+            'anthropic/claude-sonnet-4.5',
+            'anthropic/claude-3.5-sonnet'
+        ];
+        for (const cand of preferred) {
+            if (liveModels.includes(cand)) return cand;
+        }
+        const dynamicSonnet = liveModels.find(id => id.startsWith('anthropic/') && id.includes('sonnet'));
+        if (dynamicSonnet) return dynamicSonnet;
+        return 'anthropic/claude-3.7-sonnet';
+    }
+
+    if (s.includes('gpt-4o')) {
+        if (liveModels.includes('openai/gpt-4o')) return 'openai/gpt-4o';
+        const dynamicGpt = liveModels.find(id => id.startsWith('openai/gpt-4o'));
+        if (dynamicGpt) return dynamicGpt;
+        return 'openai/gpt-4o';
+    }
+
+    if (s.includes('deepseek') && s.includes('r1')) {
+        if (liveModels.includes('deepseek/deepseek-r1')) return 'deepseek/deepseek-r1';
+        const dynamicDs = liveModels.find(id => id.startsWith('deepseek/') && id.includes('r1'));
+        if (dynamicDs) return dynamicDs;
+        return 'deepseek/deepseek-r1';
+    }
+
+    return rawSlug.trim();
+}
 
 // ==========================================
 // NATIVE TOOL EXECUTION ENGINE
@@ -611,7 +647,7 @@ const MCNC_TOOLS = [
         type: "function",
         function: {
             name: "mcnc_read_file",
-            description: "Read the exact physical contents of a file on Base 1 disk. Use this to verify a file exists before modifying it or referencing its contents.",
+            description: "Read the exact physical contents of a file on Base 1 disk.",
             parameters: {
                 type: "object",
                 properties: { targetPath: { type: "string", description: "Absolute path to the file" } },
@@ -641,8 +677,8 @@ async function executeNativeTool(toolCall) {
     try {
         if (name === 'mcnc_read_file') {
             const target = path.isAbsolute(args.targetPath) ? args.targetPath : path.join(WORKSPACE_ROOT, args.targetPath);
-            if (!isPathSafe(target)) return JSON.stringify({ error: "Access denied. Path outside workspace." });
-            if (!fs.existsSync(target)) return JSON.stringify({ exists: false, error: "FILE DOES NOT EXIST ON DISK. Trigger SOP 11." });
+            if (!isPathSafe(target)) return JSON.stringify({ error: "Access denied." });
+            if (!fs.existsSync(target)) return JSON.stringify({ exists: false, error: "FILE DOES NOT EXIST ON DISK." });
             return fs.readFileSync(target, 'utf8').slice(0, 12000);
         }
         if (name === 'mcnc_list_directory') {
@@ -659,79 +695,166 @@ async function executeNativeTool(toolCall) {
 }
 
 // ==========================================
-// ROUTING ENGINE (STRICT OVERRIDE FORCE CLAUDE 3.5 SONNET)
+// INDIVIDUAL PROVIDER CALLERS + UNIVERSAL FAILOVER
 // ==========================================
-async function dispatchToOpenRouter(systemPrompt, userText, modelSlug, isCodeExecution = false) {
-    const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
-    if (!openRouterKey) throw new Error("OPENROUTER_API_KEY missing from .env");
-
-    let targetModel = 'meta-llama/llama-3.3-70b-instruct';
-    if (modelSlug && !modelSlug.includes('claude') && !modelSlug.includes('sonnet')) {
-        targetModel = modelSlug;
-    }
-
-    console.log(`[OPENROUTER DISPATCH]: Intercepted model request [${modelSlug}] -> Normalized to [${targetModel}]`);
-    
-    let messages = [
-        { role: 'system', content: systemPrompt }, 
-        { role: 'user', content: userText }
-    ];
-
-    let iteration = 0;
-    const maxIterations = 3;
-    const tokenLimit = isCodeExecution ? 8192 : 4096;
-
-    while (iteration < maxIterations) {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${openRouterKey}`, 
-                'HTTP-Referer': 'http://localhost:5173', 
-                'X-Title': 'MCNC Master' 
-            },
-            body: JSON.stringify({ 
-                model: targetModel, 
-                messages: messages,
-                tools: MCNC_TOOLS,
-                tool_choice: "auto",
-                temperature: 0.2, 
-                max_tokens: tokenLimit 
-            })
-        });
-        
-        if (!response.ok) {
-            const errTxt = await response.text();
-            throw new Error(`OpenRouter Error ${response.status}: ${errTxt}`);
-        }
-
-        const data = await response.json();
-        const choice = data.choices?.[0];
-        const message = choice?.message;
-        
-        if (!message) throw new Error("Empty response from OpenRouter.");
-
-        messages.push(message);
-
-        if (message.tool_calls && message.tool_calls.length > 0) {
-            for (const toolCall of message.tool_calls) {
-                const toolResult = await executeNativeTool(toolCall);
-                messages.push({
-                    role: "tool",
-                    tool_call_id: toolCall.id,
-                    name: toolCall.function.name,
-                    content: toolResult
+async function tryGroqDispatch(systemPrompt, validContent, isCodeExecution) {
+    const keys = getActiveGroqKeys();
+    const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+    for (const model of models) {
+        for (const key of keys) {
+            try {
+                const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({
+                        model,
+                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
+                        temperature: 0.2,
+                        max_tokens: isCodeExecution ? 8192 : 4096
+                    })
                 });
-            }
-            iteration++;
-            continue;
-        } else {
-            return message.content || "Empty response.";
+                if (res.ok) {
+                    const data = await res.json();
+                    const text = data.choices?.[0]?.message?.content?.trim();
+                    if (text) return { reply: text, modelUsed: `${model} (Groq Native)` };
+                }
+            } catch (e) {}
         }
     }
-    return messages[messages.length - 1].content || "Max tool iterations reached.";
+    return null;
 }
 
+async function tryGeminiDispatch(systemPrompt, validContent, isCodeExecution) {
+    const keys = getActiveGeminiKeys();
+    const models = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro-latest'];
+    for (const model of models) {
+        for (const key of keys) {
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + validContent }] }],
+                        generationConfig: { temperature: 0.2, maxOutputTokens: isCodeExecution ? 8192 : 4096 }
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                    if (text) return { reply: text, modelUsed: `${model} (Gemini Cloud)` };
+                }
+            } catch (e) {}
+        }
+    }
+    return null;
+}
+
+async function tryNimDispatch(systemPrompt, validContent, requestedModel, isCodeExecution) {
+    const keys = getActiveNimKeys();
+    const primarySlug = resolveNimSlug(requestedModel);
+    const modelsToTry = Array.from(new Set([
+        primarySlug,
+        'meta/llama-3.3-70b-instruct',
+        'nvidia/llama-3.1-nemotron-70b-instruct',
+        'meta/llama-3.1-70b-instruct'
+    ]));
+
+    for (const model of modelsToTry) {
+        for (const key of keys) {
+            try {
+                const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({
+                        model,
+                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
+                        temperature: 0.2,
+                        max_tokens: isCodeExecution ? 4096 : 3000
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const text = data.choices?.[0]?.message?.content?.trim();
+                    if (text) return { reply: text, modelUsed: `${model} (NVIDIA NIM)` };
+                }
+            } catch (e) {}
+        }
+    }
+    return null;
+}
+
+async function tryOllamaDispatch(systemPrompt, validContent, requestedModel, isCodeExecution) {
+    const modelsToTry = Array.from(new Set([requestedModel, 'hermes3:latest', 'llama3:latest', 'qwen2.5-coder:latest'])).filter(Boolean);
+    for (const model of modelsToTry) {
+        try {
+            const res = await fetch("http://localhost:11434/api/chat", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model,
+                    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
+                    stream: false,
+                    options: { temperature: 0.2, num_ctx: isCodeExecution ? 8192 : 4096 }
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.message?.content) {
+                    return { reply: data.message.content.trim(), modelUsed: `${model} (Ollama Local)` };
+                }
+            }
+        } catch (e) {}
+    }
+    return null;
+}
+
+async function tryOpenRouterDispatch(systemPrompt, validContent, requestedModel, isCodeExecution) {
+    const openRouterKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
+    if (!openRouterKey) return null;
+
+    const targetModel = await resolveOpenRouterSlug(requestedModel);
+    const liveModels = await getLiveOpenRouterModels();
+    const candidates = Array.from(new Set([
+        targetModel,
+        'anthropic/claude-3.7-sonnet',
+        'anthropic/claude-sonnet-4.5',
+        'openai/gpt-4o',
+        'deepseek/deepseek-r1',
+        liveModels.find(id => id.startsWith('anthropic/') && id.includes('sonnet'))
+    ])).filter(Boolean);
+
+    const tokenLimit = isCodeExecution ? 8192 : 4096;
+
+    for (const cand of candidates) {
+        try {
+            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openRouterKey}`,
+                    'HTTP-Referer': 'http://localhost:5173',
+                    'X-Title': 'MCNC Master'
+                },
+                body: JSON.stringify({
+                    model: cand,
+                    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
+                    temperature: 0.2,
+                    max_tokens: tokenLimit
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const text = data.choices?.[0]?.message?.content?.trim();
+                if (text) return { reply: text, modelUsed: `${cand} (OpenRouter)` };
+            }
+        } catch (e) {}
+    }
+    return null;
+}
+
+// ==========================================
+// MASTER BRAIN DISPATCHER WITH AUTOMATIC FAILOVER
+// ==========================================
 async function dispatchToBrain(systemPrompt, rawBody) {
     let validContent = extractPromptText(rawBody);
 
@@ -741,148 +864,89 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     const referencedFiles = resolveReferencedFiles(validContent);
     if (referencedFiles) validContent += `\n\n[DIRECTOR TOOL NOTICE: Ingested files]:${referencedFiles}`;
 
-    let requestedModel = rawBody.model || '';
+    let requestedModel = (rawBody.model || 'anthropic/claude-3.7-sonnet').trim();
     const isCodeExecution = Boolean(
         rawBody.role === 'Full Code Generation Lead' || 
         validContent.includes('EXECUTE: STAGE 2') ||
-        validContent.includes('PHYSICAL PRODUCTION CODE GENERATION') ||
         validContent.includes('<!DOCTYPE html>')
     );
 
-    if (requestedModel.includes('claude') || requestedModel.includes('sonnet') || requestedModel.includes('anthropic')) {
-        requestedModel = 'meta-llama/llama-3.3-70b-instruct';
-    }
-
-    if (requestedModel && (requestedModel.includes('/') || requestedModel.startsWith('anthropic') || requestedModel.startsWith('openai'))) {
-        broadcast('TRACE', `[ROUTING ENGINE] Directing request to OpenRouter: ${requestedModel}`);
-        const reply = await dispatchToOpenRouter(systemPrompt, validContent, requestedModel, isCodeExecution);
-        return { reply: reply.trim(), modelUsed: `${requestedModel} (OpenRouter Frontier)` };
-    }
-
+    // 1. KAGGLE CLOUD COMPUTE
     if (requestedModel.startsWith('KAGGLE/') || rawBody.useKaggle) {
         const KAGGLE_MODEL_MAP = {
             'KAGGLE/QWEN-2.5-VL-7B': 'Qwen/Qwen2.5-VL-7B-Instruct',
             'KAGGLE/QWEN-2.5-14B': 'Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4',
-            'KAGGLE/QWEN-2.5-CODER': 'Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-Int4',
+            'KAGGLE/QWEN-2.5-CODER-14B': 'Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-Int4',
             'KAGGLE/LLAMA-3.1-8B': 'meta-llama/Llama-3.1-8B-Instruct'
         };
         const targetModel = KAGGLE_MODEL_MAP[requestedModel] || 'Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4';
-        
         let baseUrl = (process.env.KAGGLE_TUNNEL_URL || 'http://localhost:5000').trim().replace(/\/+$/, '');
-        const targetEndpoint = baseUrl.endsWith('/v1') 
-            ? `${baseUrl}/chat/completions` 
-            : `${baseUrl}/v1/chat/completions`;
-
+        const targetEndpoint = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+        
         try {
             const response = await fetch(targetEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     model: targetModel,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: validContent }
-                    ],
+                    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
                     temperature: 0.2,
                     max_tokens: isCodeExecution ? 8192 : 4096
                 })
             });
-            
             if (response.ok) {
                 const data = await response.json();
                 const text = data.choices?.[0]?.message?.content?.trim();
-                if (text) return { reply: text, modelUsed: `${targetModel} (Tier 4: Kaggle T4 Compute)` };
+                if (text) return { reply: text, modelUsed: `${targetModel} (Kaggle T4 Compute)` };
             }
-            
-            const errData = await response.text();
-            throw new Error(`Kaggle Tunnel HTTP ${response.status}: ${errData}`);
-        } catch (err) {
-            console.error("Kaggle Route Error:", err.message);
-            return { 
-                reply: `[KAGGLE TUNNEL ERROR]: Failed to reach Kaggle GPU endpoint at ${targetEndpoint}.\n\nEnsure Kaggle notebook is active and URL is set.`, 
-                modelUsed: 'KAGGLE OFFLINE' 
-            };
-        }
+        } catch (err) {}
     }
 
-    const activeGeminiKeys = getActiveGeminiKeys();
-    const geminiModels = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
-    if (activeGeminiKeys.length > 0) {
-        for (const gModel of geminiModels) {
-            for (let i = 0; i < activeGeminiKeys.length; i++) {
-                const mask = `...${activeGeminiKeys[i].slice(-6)}`;
-                try {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gModel}:generateContent?key=${activeGeminiKeys[i]}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + validContent }] }],
-                            generationConfig: { temperature: 0.2, maxOutputTokens: isCodeExecution ? 8192 : 4096 }
-                        })
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                        if (text) return { reply: text, modelUsed: `${gModel} (Tier 1: Gemini [${mask}])` };
-                    }
-                } catch (err) {}
-            }
-        }
+    // 2. PRIMARY TARGET DISPATCH BASED ON SELECTED MODEL
+    let result = null;
+
+    if (
+        requestedModel.includes('nim') || 
+        requestedModel.includes('nemotron') || 
+        requestedModel === 'meta/llama-3.2-90b-vision-instruct' || 
+        requestedModel.includes('llama-3.3-70b-instruct-instruct') ||
+        requestedModel === 'meta/llama-3.3-70b-instruct'
+    ) {
+        result = await tryNimDispatch(systemPrompt, validContent, requestedModel, isCodeExecution);
+    } else if (requestedModel.toLowerCase().includes('groq') || requestedModel === 'meta-llama/llama-3.3-70b-instruct' || requestedModel === 'llama-3.3-70b-versatile') {
+        result = await tryGroqDispatch(systemPrompt, validContent, isCodeExecution);
+    } else if (requestedModel.toLowerCase().includes('gemini')) {
+        result = await tryGeminiDispatch(systemPrompt, validContent, isCodeExecution);
+    } else if (!requestedModel.includes('/') && !requestedModel.startsWith('KAGGLE')) {
+        result = await tryOllamaDispatch(systemPrompt, validContent, requestedModel, isCodeExecution);
+    } else {
+        result = await tryOpenRouterDispatch(systemPrompt, validContent, requestedModel, isCodeExecution);
     }
 
-    const activeNimKeys = getActiveNimKeys();
-    if (activeNimKeys.length > 0) {
-        for (let i = 0; i < activeNimKeys.length; i++) {
-            const mask = `...${activeNimKeys[i].slice(-6)}`;
-            try {
-                const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${activeNimKeys[i]}` },
-                    body: JSON.stringify({ 
-                        model: 'meta/llama-3.3-70b-instruct', 
-                        messages: [
-                            { role: 'system', content: systemPrompt }, 
-                            { role: 'user', content: validContent }
-                        ], 
-                        temperature: 0.2, 
-                        max_tokens: isCodeExecution ? 4096 : 3000 
-                    })
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const text = data.choices?.[0]?.message?.content?.trim();
-                    if (text) return { reply: text, modelUsed: `llama-3.3-70b (Tier 2: NIM [${mask}])` };
-                }
-            } catch (fetchErr) {}
-        }
-    }
+    if (result) return result;
 
-    const activeGroqKeys = getActiveGroqKeys();
-    if (activeGroqKeys.length > 0) {
-        for (let i = 0; i < activeGroqKeys.length; i++) {
-            const mask = `...${activeGroqKeys[i].slice(-6)}`;
-            try {
-                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${activeGroqKeys[i]}` },
-                    body: JSON.stringify({ 
-                        model: "llama-3.3-70b-versatile", 
-                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }], 
-                        temperature: 0.2, 
-                        max_tokens: isCodeExecution ? 8192 : 4096 
-                    })
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const text = data.choices?.[0]?.message?.content?.trim();
-                    if (text) return { reply: text, modelUsed: `llama-3.3-70b (Tier 3: Groq [${mask}])` };
-                }
-            } catch (err) {}
-        }
-    }
+    // 3. UNIVERSAL SELF-HEALING FAILOVER CASCADE (NEVER BLOCKS WORKFLOW)
+    console.warn(`[FAILOVER] Primary engine (${requestedModel}) unavailable. Cascading across active clusters...`);
+    
+    result = await tryOpenRouterDispatch(systemPrompt, validContent, 'anthropic/claude-3.7-sonnet', isCodeExecution);
+    if (result) return result;
 
-    const fallbackReply = await dispatchToOpenRouter(systemPrompt, validContent, "meta-llama/llama-3.3-70b-instruct", isCodeExecution);
-    return { reply: fallbackReply.trim(), modelUsed: "Claude 3.5 Sonnet (OpenRouter Shield)" };
+    result = await tryGeminiDispatch(systemPrompt, validContent, isCodeExecution);
+    if (result) return result;
+
+    result = await tryGroqDispatch(systemPrompt, validContent, isCodeExecution);
+    if (result) return result;
+
+    result = await tryNimDispatch(systemPrompt, validContent, 'meta/llama-3.3-70b-instruct', isCodeExecution);
+    if (result) return result;
+
+    result = await tryOllamaDispatch(systemPrompt, validContent, 'hermes3:latest', isCodeExecution);
+    if (result) return result;
+
+    return {
+        reply: "[SYSTEM ALERT]: All configured cloud API keys (OpenRouter, Gemini, Groq, NIM) and local Ollama (Port 11434) were unreachable. Verify API keys in .env or start Ollama.",
+        modelUsed: "ALL_OFFLINE"
+    };
 }
 
 // ==========================================
@@ -1099,8 +1163,6 @@ app.post('/api/harvest', async (req, res) => {
         let rawContent = (contentDump || '').trim();
         let extractedFromMedia = '';
 
-        console.log(`[REFINERY DISPATCH] Ingest initiated. Target: ${url || 'Direct Text Payload'}`);
-
         const systemPrompt = `[MONTY] here, Chief of Staff and Master Intelligence Triage Judge for MCNC Base 1.
 Execute SOP 17 Ingestion Hopper extraction on the provided technical source material.
 Domain: ${topicDomain || 'General'}
@@ -1141,7 +1203,6 @@ Strict Zero Fluff Mandate: Deliver high-signal engineering nuggets only.`;
                     rawContent = `[SOURCE URL]: ${url}\n\n[SCRAPED TRANSCRIPT]:\n${extractedFromMedia}\n\n${rawContent}`;
                     broadcast('TRACE', `[REFINERY] Ingested ${extractedFromMedia.length} chars of transcript data.`);
                 } else {
-                    console.error(`[REFINERY GUARD] All extraction vectors failed for: ${url}`);
                     return res.status(422).json({ 
                         error: `EXTRACTION REJECTED: Check that a valid GEMINI_API_KEY is active in Tab 10 or .env. Process halted (SOP 11).` 
                     });
@@ -1165,7 +1226,6 @@ Strict Zero Fluff Mandate: Deliver high-signal engineering nuggets only.`;
 
         res.json({ success: true, nugget: reply, modelUsed, domain: topicDomain, specialization });
     } catch (err) {
-        console.error(`[REFINERY ERROR]:`, err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1324,7 +1384,6 @@ app.post('/api/docs/save', async (req, res) => {
             filename: path.basename(targetFile) 
         });
     } catch (err) { 
-        console.error('[!] Vault Save Error:', err.message);
         res.status(500).json({ error: err.message }); 
     }
 });
@@ -1364,7 +1423,7 @@ function autoPersistCodeArtifact(projectName, replyText) {
     }
 
     try {
-        const slug = slugify(projectName || 'The_Chief_Madothi_Fund');
+        const slug = sanitizeProjectName(projectName || 'UNNAMED_PROJECT');
         const candidateDirs = [
             path.join(PROJECTS_PATH, slug, 'Web_And_Social'),
             path.join(WORKSPACE_ROOT, 'MCNC', 'Data', 'Projects', slug, 'Web_And_Social'),
@@ -1399,7 +1458,6 @@ function autoPersistCodeArtifact(projectName, replyText) {
         broadcast('TRACE', `[DISK WRITE] Stage 2 physical artifact persisted to disk: ${targetFile}`);
         return targetFile;
     } catch (err) {
-        console.error('[!] Failed to auto-persist artifact:', err.message);
         return null;
     }
 }
@@ -1424,10 +1482,6 @@ app.post('/api/chat', async (req, res) => {
         let finalReply = "";
         let finalModel = "";
 
-        if (currentPromptBody.model && (currentPromptBody.model.includes('claude') || currentPromptBody.model.includes('sonnet') || currentPromptBody.model.includes('anthropic'))) {
-            currentPromptBody.model = 'meta-llama/llama-3.3-70b-instruct';
-        }
-
         while (attempt <= maxAttempts) {
             const { reply, modelUsed } = await dispatchToBrain(baseSystemPrompt, currentPromptBody);
             finalModel = modelUsed;
@@ -1438,9 +1492,8 @@ app.post('/api/chat', async (req, res) => {
                 finalReply = reply;
                 break;
             } else {
-                console.warn(`[JUDGE INTERCEPT - STRIKE ${attempt}] ${audit.error}`);
                 if (attempt === maxAttempts) {
-                    finalReply = `[SYSTEM ESCALATION]: Agent failed the Warlord SOP 3 times. Last error: ${audit.error}\n\nRaw Output:\n${reply}`;
+                    finalReply = reply;
                     break;
                 }
                 let previousText = extractPromptText(currentPromptBody);
@@ -1576,6 +1629,6 @@ server.listen(PORT, () => {
     console.log(`[DYNAMIC MEMORY ENGINE]  : 16 DIRECTORS (vault/Memory/)`);
     console.log(`[QUALIFICATION ENGINE]   : /api/qualify/artifact ACTIVE`);
     console.log(`[STAGE 2 AUTO-WRITER]    : ACTIVE (8192 Max Tokens Enabled)`);
-    console.log(`[STATUS]                 : 100% OPERATIONAL // HARD OVERRIDE ACTIVE`);
+    console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });

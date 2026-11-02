@@ -1,40 +1,103 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 
 export default function Tab09Previews() {
-  const [projects, setProjects] = useState(['The Chief Madothi Fund']);
-  const [selectedProject, setSelectedProject] = useState('The Chief Madothi Fund');
-  const [artifacts, setArtifacts] = useState(['index.html']);
-  const [selectedArtifact, setSelectedArtifact] = useState('index.html');
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [allArtifacts, setAllArtifacts] = useState([]);
+  const [projectArtifacts, setProjectArtifacts] = useState([]);
+  const [selectedArtifactPath, setSelectedArtifactPath] = useState('');
   const [viewport, setViewport] = useState('1920'); // '1920', '768', '375'
   const [viewMode, setViewMode] = useState('RENDER'); // 'RENDER', 'SPLIT', 'CODE'
+  const [rawHtmlCode, setRawHtmlCode] = useState('');
   const [isRedLineOpen, setIsRedLineOpen] = useState(false);
   const [critiqueText, setCritiqueText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState('http://localhost:8083');
+  const [previewUrl, setPreviewUrl] = useState('');
   const [syncStatus, setSyncStatus] = useState('');
-  const [attachedFiles, setAttachedFiles] = useState([]); // [{ name, size, type, dataUrl }]
+  const [attachedFiles, setAttachedFiles] = useState([]);
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Sync Conduit logic: Poll / check local Port 8083 static server
-  const handleSyncConduit = async () => {
+  // Synchronous sync handler accepting an explicit project target to bypass React state lag
+  const syncConduitWithTarget = async (targetProj) => {
     setSyncStatus('SYNCING...');
     try {
-      await fetch('http://localhost:8083', { method: 'HEAD', mode: 'no-cors' });
-      setPreviewUrl(`http://localhost:8083?t=${Date.now()}`);
-      setArtifacts(['index.html']);
-      setSelectedArtifact('index.html');
+      const res = await fetch('http://localhost:8082/api/previews/list');
+      if (!res.ok) throw new Error('Pipeline offline');
+      const data = await res.json();
+
+      const discoveredProjects = data.projects || [];
+      const discoveredArtifacts = data.artifacts || [];
+
+      setProjects(discoveredProjects);
+      setAllArtifacts(discoveredArtifacts);
+
+      const activeProject = targetProj || selectedProject || discoveredProjects[0] || '';
+      setSelectedProject(activeProject);
+
+      // Filter artifacts strictly belonging to this project
+      const filtered = discoveredArtifacts.filter(a => a.project.toLowerCase() === activeProject.toLowerCase());
+      setProjectArtifacts(filtered);
+
+      if (filtered.length > 0) {
+        const primaryArtifact = filtered[0];
+        setSelectedArtifactPath(primaryArtifact.path);
+        const resolvedUrl = `http://localhost:8082/api/previews/content?path=${encodeURIComponent(primaryArtifact.path)}&t=${Date.now()}`;
+        setPreviewUrl(resolvedUrl);
+
+        // Fetch raw code for SPLIT / CODE modes
+        try {
+          const codeRes = await fetch(resolvedUrl);
+          if (codeRes.ok) {
+            const codeText = await codeRes.text();
+            setRawHtmlCode(codeText);
+          }
+        } catch (err) {}
+      } else {
+        setSelectedArtifactPath('');
+        setPreviewUrl('');
+        setRawHtmlCode('');
+      }
+
       setSyncStatus('SYNCED');
       setTimeout(() => setSyncStatus(''), 2000);
     } catch (e) {
+      console.error('[TAB 09 SYNC ERROR]', e);
       setSyncStatus('OFFLINE');
       setTimeout(() => setSyncStatus(''), 2000);
     }
   };
 
-  // Fixed Speech Recognition: Clean accumulation without infinite repeating interim loops
+  // Initial load
+  useEffect(() => {
+    syncConduitWithTarget();
+  }, []);
+
+  // Project selector change: Pass target directly to avoid async state delay
+  const handleProjectSelect = (e) => {
+    const nextProject = e.target.value;
+    setSelectedProject(nextProject);
+    syncConduitWithTarget(nextProject);
+  };
+
+  // Artifact selection
+  const handleArtifactSelect = async (art) => {
+    setSelectedArtifactPath(art.path);
+    const resolvedUrl = `http://localhost:8082/api/previews/content?path=${encodeURIComponent(art.path)}&t=${Date.now()}`;
+    setPreviewUrl(resolvedUrl);
+
+    try {
+      const codeRes = await fetch(resolvedUrl);
+      if (codeRes.ok) {
+        const codeText = await codeRes.text();
+        setRawHtmlCode(codeText);
+      }
+    } catch (err) {}
+  };
+
+  // Dictation handler
   const toggleDictation = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -43,9 +106,7 @@ export default function Tab09Previews() {
     }
 
     if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
+      if (recognitionRef.current) recognitionRef.current.stop();
       setIsListening(false);
       return;
     }
@@ -54,45 +115,32 @@ export default function Tab09Previews() {
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
       recognition.continuous = true;
-      recognition.interimResults = false; // Prevents the stutter/looping bug
+      recognition.interimResults = false;
       recognition.lang = 'en-US';
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
-
-      recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+      recognition.onstart = () => setIsListening(true);
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
 
       recognition.onresult = (event) => {
         let finalChunk = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalChunk += event.results[i][0].transcript;
-          }
+          if (event.results[i].isFinal) finalChunk += event.results[i][0].transcript;
         }
         if (finalChunk.trim()) {
-          setCritiqueText((prev) => {
-            const cleanPrev = prev ? prev.trim() : '';
-            return cleanPrev ? `${cleanPrev} ${finalChunk.trim()}` : finalChunk.trim();
+          setCritiqueText(prev => {
+            const clean = prev ? prev.trim() : '';
+            return clean ? `${clean} ${finalChunk.trim()}` : finalChunk.trim();
           });
         }
       };
 
       recognition.start();
     } catch (err) {
-      console.error('Failed to initialize dictation:', err);
       setIsListening(false);
     }
   };
 
-  // Clipboard copy
   const copyCritiqueToClipboard = () => {
     if (!critiqueText) return;
     navigator.clipboard.writeText(critiqueText).then(() => {
@@ -101,7 +149,6 @@ export default function Tab09Previews() {
     });
   };
 
-  // Clear Screen / Input (Reset text and attachments)
   const handleClearScreen = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
@@ -112,15 +159,14 @@ export default function Tab09Previews() {
     setCopySuccess(false);
   };
 
-  // File Attachment Handling (Reads files as Base64 DataURLs)
   const handleFileAttach = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
-    files.forEach((file) => {
+    files.forEach(file => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setAttachedFiles((prev) => [
+        setAttachedFiles(prev => [
           ...prev,
           {
             name: file.name,
@@ -132,34 +178,34 @@ export default function Tab09Previews() {
       };
       reader.readAsDataURL(file);
     });
-
     e.target.value = '';
   };
 
-  const removeAttachedFile = (indexToRemove) => {
-    setAttachedFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  const removeAttachedFile = (idx) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Dispatch critique & attached reference files into War Room queue
-  const handleDispatchCritique = () => {
+  const handleDispatchCritique = async () => {
     if (!critiqueText.trim() && attachedFiles.length === 0) return;
 
-    const critiquePayload = {
+    const payload = {
+      action: 'REVISE',
       project: selectedProject,
-      target: selectedArtifact,
+      artifactId: selectedArtifactPath,
+      artifactPath: selectedArtifactPath,
       critique: critiqueText,
       attachments: attachedFiles,
       timestamp: new Date().toISOString()
     };
 
-    console.log('[WAR ROOM DISPATCH WITH ATTACHMENTS]', critiquePayload);
+    try {
+      await fetch('http://localhost:8082/api/previews/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {}
 
-    // Save payload to local storage queue or backend conduit
-    const existingQueue = JSON.parse(localStorage.getItem('WAR_ROOM_CRITIQUES') || '[]');
-    existingQueue.push(critiquePayload);
-    localStorage.setItem('WAR_ROOM_CRITIQUES', JSON.stringify(existingQueue));
-
-    // Reset and close modal
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
@@ -167,6 +213,22 @@ export default function Tab09Previews() {
     setCritiqueText('');
     setAttachedFiles([]);
     setIsRedLineOpen(false);
+  };
+
+  const handleAcceptStage = async () => {
+    try {
+      await fetch('http://localhost:8082/api/previews/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ACCEPT',
+          project: selectedProject,
+          artifactPath: selectedArtifactPath,
+          timestamp: new Date().toISOString()
+        })
+      });
+      alert(`Artifact [${selectedArtifactPath}] Approved and Staged.`);
+    } catch (e) {}
   };
 
   const getViewportWidth = () => {
@@ -194,7 +256,7 @@ export default function Tab09Previews() {
         borderBottom: '1px solid rgba(199, 146, 62, 0.25)',
         fontSize: '0.85rem'
       }}>
-        {/* LEFT TITLE & PROJECT SELECT */}
+        {/* LEFT CONTROLS: PROJECT SELECT & SYNC */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span style={{ color: '#DAA520', fontWeight: 'bold', letterSpacing: '0.05em' }}>
             09 // ARTIFACT APPROVAL COCKPIT
@@ -203,7 +265,7 @@ export default function Tab09Previews() {
           <span style={{ color: '#9ca3af', fontSize: '0.8rem' }}>PROJECT:</span>
           <select
             value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
+            onChange={handleProjectSelect}
             style={{
               backgroundColor: '#221510',
               color: '#F5F0EA',
@@ -211,7 +273,8 @@ export default function Tab09Previews() {
               borderRadius: '3px',
               padding: '0.2rem 0.6rem',
               fontSize: '0.8rem',
-              outline: 'none'
+              outline: 'none',
+              cursor: 'pointer'
             }}
           >
             {projects.map((p) => (
@@ -220,7 +283,7 @@ export default function Tab09Previews() {
           </select>
 
           <button
-            onClick={handleSyncConduit}
+            onClick={() => syncConduitWithTarget(selectedProject)}
             style={{
               backgroundColor: '#221510',
               border: '1px solid #C7923E',
@@ -346,33 +409,37 @@ export default function Tab09Previews() {
         }}>
           <div>
             <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#9ca3af', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>
-              STAGED ARTIFACTS ({artifacts.length})
+              STAGED ARTIFACTS ({projectArtifacts.length})
             </div>
 
-            {artifacts.length === 0 ? (
+            {projectArtifacts.length === 0 ? (
               <div style={{ fontSize: '0.75rem', color: '#6b7280', lineHeight: 1.5 }}>
                 No artifacts staged for <span style={{ color: '#DAA520' }}>{selectedProject}</span>.
-                <p style={{ marginTop: '0.5rem', color: '#4b5563' }}>Deploy artifacts into Web_And_Social.</p>
+                <p style={{ marginTop: '0.5rem', color: '#4b5563' }}>Build or place files in Data/Projects/{selectedProject}/Web_And_Social.</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                {artifacts.map((art) => (
+                {projectArtifacts.map((art) => (
                   <button
-                    key={art}
-                    onClick={() => setSelectedArtifact(art)}
+                    key={art.id || art.path}
+                    title={art.path}
+                    onClick={() => handleArtifactSelect(art)}
                     style={{
                       textAlign: 'left',
                       padding: '0.5rem 0.75rem',
                       borderRadius: '4px',
-                      backgroundColor: selectedArtifact === art ? 'rgba(218, 165, 32, 0.15)' : 'transparent',
-                      border: `1px solid ${selectedArtifact === art ? '#DAA520' : 'transparent'}`,
-                      color: selectedArtifact === art ? '#DAA520' : '#e5e7eb',
+                      backgroundColor: selectedArtifactPath === art.path ? 'rgba(218, 165, 32, 0.15)' : 'transparent',
+                      border: `1px solid ${selectedArtifactPath === art.path ? '#DAA520' : 'transparent'}`,
+                      color: selectedArtifactPath === art.path ? '#DAA520' : '#e5e7eb',
                       fontSize: '0.8rem',
                       fontFamily: 'monospace',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
                     }}
                   >
-                    📄 {art}
+                    📄 {art.name}
                   </button>
                 ))}
               </div>
@@ -382,7 +449,8 @@ export default function Tab09Previews() {
           {/* APPROVAL & REVISION BUTTONS */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <button
-              onClick={() => alert(`Artifact ${selectedArtifact} Approved and Locked.`)}
+              onClick={handleAcceptStage}
+              disabled={!selectedArtifactPath}
               style={{
                 backgroundColor: 'rgba(34, 197, 94, 0.15)',
                 border: '1px solid #22c55e',
@@ -391,7 +459,8 @@ export default function Tab09Previews() {
                 borderRadius: '4px',
                 fontSize: '0.8rem',
                 fontWeight: 'bold',
-                cursor: 'pointer',
+                cursor: selectedArtifactPath ? 'pointer' : 'not-allowed',
+                opacity: selectedArtifactPath ? 1 : 0.4,
                 letterSpacing: '0.05em'
               }}
             >
@@ -399,6 +468,7 @@ export default function Tab09Previews() {
             </button>
             <button
               onClick={() => setIsRedLineOpen(true)}
+              disabled={!selectedArtifactPath}
               style={{
                 backgroundColor: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid #ef4444',
@@ -407,7 +477,8 @@ export default function Tab09Previews() {
                 borderRadius: '4px',
                 fontSize: '0.8rem',
                 fontWeight: 'bold',
-                cursor: 'pointer',
+                cursor: selectedArtifactPath ? 'pointer' : 'not-allowed',
+                opacity: selectedArtifactPath ? 1 : 0.4,
                 letterSpacing: '0.05em'
               }}
             >
@@ -421,43 +492,70 @@ export default function Tab09Previews() {
           flex: 1,
           backgroundColor: '#0a0705',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'auto',
+          overflow: 'hidden',
           padding: '1rem'
         }}>
-          {selectedArtifact ? (
-            <div style={{
-              width: getViewportWidth(),
-              height: '100%',
-              backgroundColor: '#fff',
-              boxShadow: '0 0 30px rgba(0,0,0,0.8)',
-              transition: 'width 0.25s ease',
-              borderRadius: viewport === '1920' ? '0px' : '8px',
-              overflow: 'hidden'
-            }}>
-              <iframe
-                title="Artifact Preview"
-                src={previewUrl}
-                style={{
-                  width: '100%',
+          {previewUrl ? (
+            <div style={{ display: 'flex', width: '100%', height: '100%', gap: '1rem' }}>
+              {(viewMode === 'RENDER' || viewMode === 'SPLIT') && (
+                <div style={{
+                  flex: viewMode === 'SPLIT' ? 1 : 'unset',
+                  width: viewMode === 'SPLIT' ? '50%' : getViewportWidth(),
+                  margin: viewMode === 'SPLIT' ? '0' : '0 auto',
                   height: '100%',
-                  border: 'none'
-                }}
-              />
+                  backgroundColor: '#fff',
+                  boxShadow: '0 0 30px rgba(0,0,0,0.8)',
+                  transition: 'width 0.25s ease',
+                  borderRadius: viewport === '1920' ? '0px' : '8px',
+                  overflow: 'hidden'
+                }}>
+                  <iframe
+                    key={previewUrl}
+                    title="Artifact Preview"
+                    src={previewUrl}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      border: 'none'
+                    }}
+                  />
+                </div>
+              )}
+
+              {(viewMode === 'CODE' || viewMode === 'SPLIT') && (
+                <div style={{
+                  flex: viewMode === 'SPLIT' ? 1 : 'unset',
+                  width: viewMode === 'SPLIT' ? '50%' : '100%',
+                  height: '100%',
+                  backgroundColor: '#120d0b',
+                  border: '1px solid #374151',
+                  borderRadius: '4px',
+                  padding: '1rem',
+                  overflow: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: '0.8rem',
+                  color: '#93c5fd',
+                  whiteSpace: 'pre-wrap',
+                  boxSizing: 'border-box'
+                }}>
+                  {rawHtmlCode || '// Loading source code...'}
+                </div>
+              )}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: '#6b7280' }}>
+            <div style={{ textAlign: 'center', margin: 'auto', color: '#6b7280' }}>
               <div style={{ color: '#DAA520', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                [ NO ACTIVE ARTIFACT SELECTED ]
+                [ NO ARTIFACT AVAILABLE FOR {selectedProject.toUpperCase()} ]
               </div>
-              <div style={{ fontSize: '0.8rem' }}>Select a staged artifact from the left manifest to preview live.</div>
+              <div style={{ fontSize: '0.8rem' }}>
+                Run Artifact Build in Tab 02 War Room to generate this project's index.html.
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* RED-LINE CRITIQUE MODAL WITH DICTATE, COPY, CLS, AND ATTACHMENTS */}
+      {/* RED-LINE CRITIQUE MODAL */}
       {isRedLineOpen && (
         <div style={{
           position: 'fixed',
@@ -480,7 +578,6 @@ export default function Tab09Previews() {
             boxShadow: '0 0 25px rgba(239, 68, 68, 0.3)',
             fontFamily: 'monospace'
           }}>
-            {/* MODAL HEADER */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
               <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.9rem', letterSpacing: '0.05em' }}>
                 [ RED-LINE CRITIQUE // ROUTING TO TAB 02 WAR ROOM ]
@@ -497,12 +594,10 @@ export default function Tab09Previews() {
               </button>
             </div>
 
-            {/* METADATA */}
             <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1rem' }}>
-              Target: <span style={{ color: '#F5F0EA' }}>{selectedArtifact || 'index.html'}</span> | Project: <span style={{ color: '#DAA520' }}>{selectedProject}</span>
+              Target: <span style={{ color: '#F5F0EA' }}>{selectedArtifactPath}</span> | Project: <span style={{ color: '#DAA520' }}>{selectedProject}</span>
             </div>
 
-            {/* ACTION CONTROLS: DICTATE, COPY, CLS, ATTACH */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
@@ -536,16 +631,12 @@ export default function Tab09Previews() {
                   borderRadius: '3px',
                   fontSize: '0.75rem',
                   cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
                   fontWeight: 'bold'
                 }}
               >
                 📋 COPY TEXT
               </button>
 
-              {/* CLEAR SCREEN / INPUT BUTTON */}
               <button
                 type="button"
                 onClick={handleClearScreen}
@@ -557,16 +648,12 @@ export default function Tab09Previews() {
                   borderRadius: '3px',
                   fontSize: '0.75rem',
                   cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
                   fontWeight: 'bold'
                 }}
               >
                 🧹 CLS
               </button>
 
-              {/* HIDDEN FILE INPUT & ATTACH TRIGGER */}
               <input
                 type="file"
                 ref={fileInputRef}
@@ -586,9 +673,6 @@ export default function Tab09Previews() {
                   borderRadius: '3px',
                   fontSize: '0.75rem',
                   cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
                   fontWeight: 'bold'
                 }}
               >
@@ -602,7 +686,6 @@ export default function Tab09Previews() {
               )}
             </div>
 
-            {/* ATTACHED FILES CHIPS LIST */}
             {attachedFiles.length > 0 && (
               <div style={{
                 display: 'flex',
@@ -649,12 +732,11 @@ export default function Tab09Previews() {
               </div>
             )}
 
-            {/* CRITIQUE INPUT AREA */}
             <textarea
               rows={6}
               value={critiqueText}
               onChange={(e) => setCritiqueText(e.target.value)}
-              placeholder="State precise required revisions or speak using the dictation button above. Attach design mockups or screenshots to guide Roxy..."
+              placeholder="State precise required revisions or speak using dictation..."
               style={{
                 width: '100%',
                 backgroundColor: '#0a0706',
@@ -670,7 +752,6 @@ export default function Tab09Previews() {
               }}
             />
 
-            {/* FOOTER DISPATCH ACTIONS */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
               <button
                 onClick={() => {

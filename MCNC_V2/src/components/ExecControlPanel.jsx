@@ -35,7 +35,7 @@ export default function ExecControlPanel({ onModelSelect, onDirectorQueryComplet
   // Model Tier Collapsible States
   const [tiers, setTiers] = useState([]);
   const [openTiers, setOpenTiers] = useState({ 0: true, 1: true, 2: true });
-  const [selectedModel, setSelectedModel] = useState('meta/llama-3.3-70b-instruct');
+  const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3.3-70b-instruct-instruct');
 
   // Director Direct-Query States
   const [selectedDirector, setSelectedDirector] = useState(null);

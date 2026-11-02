@@ -20,7 +20,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Base System Paths (Strictly grounded in C:\Warlord_Inc\Warlord_WASP\MCNC)
-const BASE_MCNC = __dirname;
+const BASE_MCNC = path.resolve('C:\\Warlord_Inc\\Warlord_WASP\\MCNC');
 const DATA_DIR = path.join(BASE_MCNC, 'Data');
 const PROJECTS_ROOT = path.join(DATA_DIR, 'Projects');
 const CHATS_ROOT = path.join(DATA_DIR, 'Chats');
@@ -113,42 +113,69 @@ app.get(['/api/projects', '/api/projects/list', '/api/projects/all'], (req, res)
 });
 
 // ----------------------------------------------------------------------------
-// 3. TAB 01: CHAT CATALOG & PERSISTENCE CONDUITS
+// 3. TAB 01: AUTO-HEALING CHAT DISCOVERY (INSTANT TAB 01 VISIBILITY)
 // ----------------------------------------------------------------------------
 
 app.get('/api/chats/all', (req, res) => {
   try {
-    const catalog = {
-      'CHIEF MADOTHI FUND': [],
-      'RHYTHM TRADING': [],
-      'General_Chats': []
-    };
+    const catalog = {};
+    const discoveredProjects = new Set(['General_Chats']);
 
-    if (fs.existsSync(CHATS_ROOT)) {
-      const projects = fs.readdirSync(CHATS_ROOT, { withFileTypes: true })
+    // Discover from Projects Root
+    if (fs.existsSync(PROJECTS_ROOT)) {
+      fs.readdirSync(PROJECTS_ROOT, { withFileTypes: true })
         .filter(d => d.isDirectory())
-        .map(d => d.name);
-
-      projects.forEach(prj => {
-        const prjDir = path.join(CHATS_ROOT, prj);
-        const files = fs.readdirSync(prjDir).filter(f => f.endsWith('.json') && !f.includes('Master'));
-        
-        catalog[prj] = files.map(file => {
-          try {
-            const raw = fs.readFileSync(path.join(prjDir, file), 'utf8');
-            const parsed = JSON.parse(raw);
-            return {
-              id: parsed.id || file.replace('.json', ''),
-              title: parsed.title || file.replace('.json', ''),
-              project: prj,
-              updatedAt: parsed.updatedAt || new Date().toISOString()
-            };
-          } catch (e) {
-            return { id: file.replace('.json', ''), title: file.replace('.json', ''), project: prj };
-          }
-        });
-      });
+        .forEach(d => discoveredProjects.add(d.name));
     }
+
+    // Discover from Chats Root
+    if (fs.existsSync(CHATS_ROOT)) {
+      fs.readdirSync(CHATS_ROOT, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .forEach(d => discoveredProjects.add(d.name));
+    }
+
+    // Auto-heal every project with an active chat ledger
+    discoveredProjects.forEach(prj => {
+      catalog[prj] = [];
+      const prjChatDir = path.join(CHATS_ROOT, prj);
+
+      if (!fs.existsSync(prjChatDir)) {
+        fs.mkdirSync(prjChatDir, { recursive: true });
+      }
+
+      let files = fs.readdirSync(prjChatDir).filter(f => f.endsWith('.json') && !f.includes('Master'));
+
+      // If empty, immediately seed a Master Chat so it appears in Tab 01
+      if (files.length === 0) {
+        const seedId = `chat_init_${Date.now()}`;
+        const seedPayload = {
+          id: seedId,
+          title: 'Master Chat',
+          project: prj,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messages: []
+        };
+        fs.writeFileSync(path.join(prjChatDir, `${seedId}.json`), JSON.stringify(seedPayload, null, 2), 'utf8');
+        files = [`${seedId}.json`];
+      }
+
+      catalog[prj] = files.map(file => {
+        try {
+          const raw = fs.readFileSync(path.join(prjChatDir, file), 'utf8');
+          const parsed = JSON.parse(raw);
+          return {
+            id: parsed.id || file.replace('.json', ''),
+            title: parsed.title || 'Master Chat',
+            project: prj,
+            updatedAt: parsed.updatedAt || new Date().toISOString()
+          };
+        } catch (e) {
+          return { id: file.replace('.json', ''), title: file.replace('.json', ''), project: prj };
+        }
+      });
+    });
 
     return res.json({ success: true, catalog });
   } catch (err) {
@@ -317,7 +344,7 @@ app.all([
 ], handleTaxonomySuggestion);
 
 // ----------------------------------------------------------------------------
-// 5. TAB 09: PREVIEWS & ACTIONS
+// 5. TAB 09: NORMALIZED WINDOWS PREVIEWS ENGINE
 // ----------------------------------------------------------------------------
 
 app.get('/api/previews/list', (req, res) => {
@@ -364,23 +391,30 @@ app.get('/api/previews/list', (req, res) => {
   }
 });
 
+// PREVIEWS CONTENT ENGINE WITH CROSS-PLATFORM PATH RESOLVER
 app.get('/api/previews/content', (req, res) => {
   try {
     const relPath = req.query.path;
     if (!relPath) return res.status(400).send('Path parameter missing');
 
-    const targetPath = path.resolve(PROJECTS_ROOT, relPath);
-    if (!targetPath.startsWith(PROJECTS_ROOT) || !fs.existsSync(targetPath)) {
-      return res.status(404).send('Artifact boundary fault: File not found');
+    const cleanRelPath = decodeURIComponent(relPath).replace(/[\/\\]+/g, path.sep);
+    const targetPath = path.resolve(PROJECTS_ROOT, cleanRelPath);
+
+    // Normalize casing and separators for Windows
+    const normTarget = targetPath.toLowerCase();
+    const normRoot = PROJECTS_ROOT.toLowerCase();
+
+    if (!normTarget.startsWith(normRoot) || !fs.existsSync(targetPath)) {
+      return res.status(404).send('Artifact boundary fault: File not found on disk.');
     }
 
     const content = fs.readFileSync(targetPath, 'utf8');
     const ext = path.extname(targetPath).toLowerCase();
 
     if (ext === '.html') {
-      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
     } else {
-      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     }
 
     return res.send(content);
@@ -430,7 +464,7 @@ app.post('/api/previews/action', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 6. AUTO-ROUTER CONDUIT (NO MODE OVERRIDE)
+// 6. AUTO-ROUTER CONDUIT
 // ----------------------------------------------------------------------------
 
 app.post('/api/router/classify', (req, res) => {
@@ -516,7 +550,7 @@ app.post('/api/router/classify', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 7. GLOBAL JSON FALLBACK (PREVENTS ANY HTML <!DOCTYPE> CRASHES)
+// 7. GLOBAL JSON FALLBACK
 // ----------------------------------------------------------------------------
 
 app.use((req, res) => {
@@ -539,7 +573,9 @@ const server = app.listen(PORT, () => {
   console.log('====================================================');
   console.log('[PILLAR 2] MCNC PIPELINE ENGINE ONLINE');
   console.log(`[PORT]             : ${PORT}`);
-  console.log(`[STATUS]           : 100% OPERATIONAL (CHATS, TAXONOMY, PREVIEWS, ROUTER)`);
+  console.log(`[CANONICAL ROOT]   : ${PROJECTS_ROOT}`);
+  console.log(`[CHATS ROOT]       : ${CHATS_ROOT}`);
+  console.log(`[STATUS]           : AUTO-HEALING & PREVIEWS ACTIVE`);
   console.log('====================================================');
 });
 

@@ -35,7 +35,7 @@ export default function MontysBrainSidebar({ onDirectorSelected }) {
   const [directorsOpen, setDirectorsOpen] = useState(true);
   
   const [tiers, setTiers] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('meta/llama-3.3-70b-instruct');
+  const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3.3-70b-instruct-instruct');
   
   const [activeDirector, setActiveDirector] = useState(DIRECTORS[0]);
   const [chatLog, setChatLog] = useState([]);

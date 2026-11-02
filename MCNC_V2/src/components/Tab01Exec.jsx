@@ -20,9 +20,9 @@ const RAW_MODEL_TIERS = [
     tier: 'TIER 2: HARVESTED CLUSTERS (FREE)',
     models: [
       { id: 'meta/llama-3.2-90b-vision-instruct', name: 'Llama 3.2 90B Vision (NIM)', badge: 'NIM-VISION', scores: { general: 90, code: 82, mql: 75, graphics: 96, content: 88, quant: 82 } },
-      { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (NIM)', badge: 'NIM', scores: { general: 93, code: 85, mql: 78, graphics: 40, content: 92, quant: 84 } },
-      { id: 'groq/llama-3.3-70b', name: 'Llama 3.3 70B (Groq)', badge: 'GROQ', scores: { general: 93, code: 85, mql: 78, graphics: 30, content: 92, quant: 84 } },
-      { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro (Studio)', badge: 'GEMINI', scores: { general: 92, code: 87, mql: 76, graphics: 92, content: 96, quant: 85 } },
+      { id: 'meta-llama/llama-3.3-70b-instruct-instruct', name: 'Llama 3.3 70B (NIM)', badge: 'NIM', scores: { general: 93, code: 85, mql: 78, graphics: 40, content: 92, quant: 84 } },
+      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (Groq)', badge: 'GROQ', scores: { general: 93, code: 85, mql: 78, graphics: 30, content: 92, quant: 84 } },
+      { id: 'google/gemini-1.5-pro-latest', name: 'Gemini 1.5 Pro (Studio)', badge: 'GEMINI', scores: { general: 92, code: 87, mql: 76, graphics: 92, content: 96, quant: 85 } },
       { id: 'nvidia/nemotron-70b-ultra', name: 'Nemotron 70B Ultra (NIM)', badge: 'NIM', scores: { general: 91, code: 86, mql: 82, graphics: 30, content: 85, quant: 90 } }
     ]
   },
@@ -30,7 +30,8 @@ const RAW_MODEL_TIERS = [
     id: 'tier3',
     tier: 'TIER 3: OPENROUTER (ELITE)',
     models: [
-      { id: 'anthropic/claude-3.5-sonnet-20241022', name: 'Claude Sonnet 3.5', badge: 'ELITE', scores: { general: 96, code: 98, mql: 99, graphics: 94, content: 95, quant: 92 } },
+      { id: 'anthropic/claude-3.7-sonnet', name: 'Claude 3.7 Sonnet', badge: 'ELITE', scores: { general: 98, code: 99, mql: 99, graphics: 95, content: 96, quant: 95 } },
+      { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', badge: 'FRONTIER', scores: { general: 99, code: 100, mql: 100, graphics: 97, content: 98, quant: 97 } },
       { id: 'openai/gpt-4o', name: 'GPT-4o Omni', badge: 'ELITE', scores: { general: 95, code: 92, mql: 85, graphics: 96, content: 94, quant: 90 } },
       { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', badge: 'REASONING', scores: { general: 90, code: 96, mql: 95, graphics: 20, content: 80, quant: 99 } }
     ]
@@ -73,12 +74,15 @@ export default function Tab01Exec({ ws }) {
     });
   }, [activeMode]);
 
-  // --- Brain & Model Hierarchy ---
+  // --- Brain & Model Hierarchy (Auto-Upgrades Retired 3.5 Slugs) ---
   const [selectedBrain, setSelectedBrain] = useState(() => {
-    return localStorage.getItem('mcnc_selected_brain') || 'meta/llama-3.2-90b-vision-instruct';
+    const stored = localStorage.getItem('mcnc_selected_brain');
+    if (!stored || stored.includes('claude-3.5-sonnet')) {
+      return 'anthropic/claude-3.7-sonnet';
+    }
+    return stored;
   });
 
-  // HARDENED: Defaults all tiers completely collapsed / minimized on load
   const [collapsedTiers, setCollapsedTiers] = useState({
     tier1: true,
     tier2: true,
@@ -86,7 +90,6 @@ export default function Tab01Exec({ ws }) {
     tier4: true
   });
 
-  // HARDENED: Defaults strictly to STANDBY
   const [kaggleStatus, setKaggleStatus] = useState(() => {
     localStorage.removeItem('kaggle_status');
     localStorage.removeItem('kaggle_cluster_status');
@@ -94,23 +97,20 @@ export default function Tab01Exec({ ws }) {
   });
 
   const handleSelectModel = (modelId) => {
-    setSelectedBrain(modelId);
-    localStorage.setItem('mcnc_selected_brain', modelId);
-    window.dispatchEvent(new CustomEvent('mcnc-model-selected', { detail: { model: modelId } }));
+    const cleanId = modelId.includes('claude-3.5-sonnet') ? 'anthropic/claude-3.7-sonnet' : modelId;
+    setSelectedBrain(cleanId);
+    localStorage.setItem('mcnc_selected_brain', cleanId);
+    window.dispatchEvent(new CustomEvent('mcnc-model-selected', { detail: { model: cleanId } }));
   };
 
   // --- Multi-Chat & Master Ledger State ---
-  const [activeProject, setActiveProject] = useState('CHIEF MADOTHI FUND');
+  const [activeProject, setActiveProject] = useState('John Tanton - Project Management Book');
   const [activeChatId, setActiveChatId] = useState(null);
   const [activeChatTitle, setActiveChatTitle] = useState('IDLE');
   const [isMasterChat, setIsMasterChat] = useState(true);
   const [newChatPromptOpen, setNewChatPromptOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
-  const [chatCatalog, setChatCatalog] = useState({
-    'CHIEF MADOTHI FUND': [],
-    'RHYTHM TRADING': [],
-    'General_Chats': []
-  });
+  const [chatCatalog, setChatCatalog] = useState({});
 
   // --- Execution & Chat State ---
   const [inputCommand, setInputCommand] = useState('');
@@ -171,8 +171,12 @@ export default function Tab01Exec({ ws }) {
     fetchChatCatalog();
 
     const currentStoredBrain = localStorage.getItem('mcnc_selected_brain') || selectedBrain;
-    localStorage.setItem('mcnc_selected_brain', currentStoredBrain);
-    window.dispatchEvent(new CustomEvent('mcnc-model-selected', { detail: { model: currentStoredBrain } }));
+    const cleanBrain = currentStoredBrain.includes('claude-3.5-sonnet')
+      ? 'anthropic/claude-3.7-sonnet'
+      : currentStoredBrain;
+    if (cleanBrain !== selectedBrain) setSelectedBrain(cleanBrain);
+    localStorage.setItem('mcnc_selected_brain', cleanBrain);
+    window.dispatchEvent(new CustomEvent('mcnc-model-selected', { detail: { model: cleanBrain } }));
 
     const handleCustomKaggleEvent = (e) => {
       const stat = e.detail?.status;
@@ -208,13 +212,17 @@ export default function Tab01Exec({ ws }) {
     };
   }, [selectedBrain, activeMode]);
 
-  // --- Catalog API Calls ---
+  // --- Catalog API Calls (Dynamic Disk Mount) ---
   const fetchChatCatalog = async () => {
     try {
       const res = await fetch('http://localhost:8082/api/chats/all');
       const data = await res.json();
       if (data.success && data.catalog) {
         setChatCatalog(data.catalog);
+        const projects = Object.keys(data.catalog);
+        if (projects.length > 0 && !data.catalog[activeProject]) {
+          setActiveProject(projects[0]);
+        }
       }
     } catch (err) {
       console.error('Catalog fetch error:', err);
@@ -471,9 +479,117 @@ export default function Tab01Exec({ ws }) {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleCLS = () => {
+  // ==========================================================================
+  // PRUNE CRAP: PURGES FAILURE PAYLOADS, DISPATCH ERRORS & DUPLICATE PROMPTS
+  // COMMITS THE CLEANSED HISTORY DIRECTLY TO DISK ON PORT 8082
+  // ==========================================================================
+  const handlePruneCrap = async () => {
+    if (!activeChatId || isMasterChat) return;
+
+    const cleaned = chatLog.filter((msg, index) => {
+      const text = msg.text || '';
+      if (
+        text.includes('[LLM DISPATCH ERROR]') || 
+        text.includes('DISPATCH ERROR]:') || 
+        text.includes('[GROQ NATIVE DISPATCH ERROR]') ||
+        text.includes('[GEMINI NATIVE DISPATCH ERROR]') ||
+        text.includes('[OPENROUTER DISPATCH ERROR]') ||
+        text.includes('[NIM NATIVE DISPATCH ERROR]') ||
+        text.includes('Daemon link failure:') ||
+        text.includes('[SYSTEM ESCALATION]:')
+      ) {
+        return false;
+      }
+      if (index > 0 && msg.sender === 'MIKE' && chatLog[index - 1].sender === 'MIKE' && msg.text === chatLog[index - 1].text) {
+        return false;
+      }
+      return true;
+    });
+
+    const finalMessages = cleaned.length > 0 ? cleaned : [
+      {
+        sender: 'MONTY',
+        collaborators: ['CHARLIE'],
+        title: 'Chief of Staff',
+        time: new Date().toLocaleTimeString(),
+        text: 'Sub-chat thread [' + activeChatTitle + '] pruned clean. Ready for operational directives.'
+      }
+    ];
+
+    setChatLog(finalMessages);
+
+    try {
+      await fetch('http://localhost:8082/api/chats/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: activeProject,
+          id: activeChatId,
+          title: activeChatTitle,
+          messages: finalMessages
+        })
+      });
+    } catch (err) {
+      console.error('Failed to commit pruned chat to disk:', err);
+    }
+  };
+
+  // ==========================================================================
+  // SINGLE-MESSAGE PURGE: DELETE INDIVIDUAL ENTRY FROM STATE AND DISK
+  // ==========================================================================
+  const handleDeleteMessage = async (indexToDelete) => {
+    if (!activeChatId || isMasterChat) return;
+
+    const updated = chatLog.filter((_, idx) => idx !== indexToDelete);
+    const finalMessages = updated.length > 0 ? updated : [
+      {
+        sender: 'MONTY',
+        collaborators: ['CHARLIE'],
+        title: 'Chief of Staff',
+        time: new Date().toLocaleTimeString(),
+        text: 'Sub-chat thread [' + activeChatTitle + '] re-initialized. Ready for operational directives.'
+      }
+    ];
+
+    setChatLog(finalMessages);
+
+    try {
+      await fetch('http://localhost:8082/api/chats/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: activeProject,
+          id: activeChatId,
+          title: activeChatTitle,
+          messages: finalMessages
+        })
+      });
+    } catch (err) {
+      console.error('Failed to delete message on disk:', err);
+    }
+  };
+
+  // --- CLS: FULL SCREEN CLEAR & DISK FLUSH ---
+  const handleCLS = async () => {
     handleAllStop();
     setZeroState();
+
+    if (activeChatId && !isMasterChat) {
+      try {
+        await fetch('http://localhost:8082/api/chats/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project: activeProject,
+            id: activeChatId,
+            title: activeChatTitle,
+            messages: []
+          })
+        });
+      } catch (e) {
+        console.error('CLS sync error:', e);
+      }
+    }
   };
 
   const handleAllStop = () => {
@@ -529,13 +645,16 @@ export default function Tab01Exec({ ws }) {
       const data = await res.json();
 
       if (data.recommendedModel) {
-        handleSelectModel(data.recommendedModel);
+        const cleanRec = data.recommendedModel.includes('claude-3.5-sonnet')
+          ? 'anthropic/claude-3.7-sonnet'
+          : data.recommendedModel;
+        handleSelectModel(cleanRec);
 
         if (data.tierId) {
           setCollapsedTiers((prev) => ({ ...prev, [data.tierId]: false }));
         }
 
-        setRoutingRationale(`ROUTED: ${data.recommendedModel.toUpperCase()} // ${data.rationale}`);
+        setRoutingRationale(`ROUTED: ${cleanRec.toUpperCase()} // ${data.rationale}`);
         setTimeout(() => setRoutingRationale(''), 6000);
       }
     } catch (err) {
@@ -549,11 +668,11 @@ export default function Tab01Exec({ ws }) {
         tier = 'tier3';
         rationale = 'REASONING ARCHITECTURE // DEEPSEEK R1';
       } else if (text.includes('landing page') || text.includes('html') || text.includes('code') || text.includes('react')) {
-        targetModel = 'anthropic/claude-3.5-sonnet-20241022';
+        targetModel = 'anthropic/claude-3.7-sonnet';
         tier = 'tier3';
-        rationale = 'FRONTEND SYNTHESIS // CLAUDE 3.5 SONNET';
+        rationale = 'FRONTEND SYNTHESIS // CLAUDE 3.7 SONNET';
       } else if (text.includes('copy') || text.includes('marketing') || text.includes('story')) {
-        targetModel = 'google/gemini-1.5-pro';
+        targetModel = 'google/gemini-1.5-pro-latest';
         tier = 'tier2';
         rationale = 'CONTENT & NARRATIVE // GEMINI 1.5 PRO';
       }
@@ -621,19 +740,15 @@ export default function Tab01Exec({ ws }) {
       return;
     }
 
-    // 1. Stage in localStorage for Tab 02 mount ingestion
     localStorage.setItem('mcnc_warroom_seed_prompt', promptToSend);
     localStorage.setItem('mcnc_warroom_seed_project', activeProject);
 
-    // 2. Dispatch live event in case Tab 02 is mounted or listening in DOM
     window.dispatchEvent(new CustomEvent('push-to-warroom', {
       detail: { project: activeProject, payload: promptToSend, prompt: promptToSend }
     }));
 
-    // 3. User confirmation
     alert('Directive staged for War Room [Tab 02] under project: ' + activeProject);
 
-    // 4. Trigger auto-navigation to Tab 02 War Room across common application routing conventions
     window.dispatchEvent(new CustomEvent('switch-tab', { detail: '02 WAR ROOM' }));
     window.dispatchEvent(new CustomEvent('switch-tab', { detail: '02' }));
     window.dispatchEvent(new CustomEvent('tab-change', { detail: '02 WAR ROOM' }));
@@ -646,6 +761,7 @@ export default function Tab01Exec({ ws }) {
     abortControllerRef.current = new AbortController();
     const payloadText = inputCommand;
     const currentFiles = [...attachedFiles];
+    const dispatchModel = selectedBrain || 'anthropic/claude-3.7-sonnet';
 
     const userMsg = {
       sender: 'MIKE',
@@ -668,7 +784,7 @@ export default function Tab01Exec({ ws }) {
         headers: { 'Content-Type': 'application/json' },
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({
-          model: selectedBrain,
+          model: dispatchModel,
           prompt: payloadText,
           project: activeProject,
           chatId: activeChatId,
@@ -755,7 +871,7 @@ export default function Tab01Exec({ ws }) {
     }
   };
 
-  const renderIdentityHeader = (msg) => {
+  const renderIdentityHeader = (msg, msgIdx) => {
     if (msg.sender === 'MIKE') {
       return (
         <div className="flex items-center gap-2">
@@ -901,6 +1017,7 @@ export default function Tab01Exec({ ws }) {
           })}
         </div>
 
+        {/* DYNAMIC CHAT CATALOG LEDGERS (DRIVEN BY DISK VIA /api/chats/all) */}
         <div className="mt-6 border-t border-[#1f242d] pt-3 p-2 flex flex-col shrink-0 bg-[#0d0f12]">
           <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#1f242d]">
             <span className="text-[10px] font-bold text-[#DAA520] tracking-wider uppercase">
@@ -916,7 +1033,7 @@ export default function Tab01Exec({ ws }) {
           </div>
 
           <div className="flex flex-col gap-2.5">
-            {['CHIEF MADOTHI FUND', 'RHYTHM TRADING', 'General_Chats'].map((proj) => (
+            {Object.keys(chatCatalog).map((proj) => (
               <div key={proj} className="flex flex-col gap-1">
                 <span className="text-[9px] font-bold text-[#DAA520] uppercase px-1">{proj}</span>
 
@@ -1030,14 +1147,26 @@ export default function Tab01Exec({ ws }) {
               className="border border-[#1f242d] bg-[#0b0e14] p-3 rounded flex flex-col gap-1.5 shrink-0"
             >
               <div className="flex items-center justify-between text-[9px] pb-1 border-b border-[#1f242d]/50">
-                {renderIdentityHeader(msg)}
-                <button
-                  type="button"
-                  onClick={() => handleCopyMsg(msg.text)}
-                  className="text-gray-500 hover:text-gray-300 text-[8px] cursor-pointer"
-                >
-                  COPY
-                </button>
+                {renderIdentityHeader(msg, i)}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyMsg(msg.text)}
+                    className="text-gray-500 hover:text-gray-300 text-[8px] cursor-pointer"
+                  >
+                    COPY
+                  </button>
+                  {!isMasterChat && (
+                    <button
+                      type="button"
+                      title="Delete this message"
+                      onClick={() => handleDeleteMessage(i)}
+                      className="text-gray-600 hover:text-red-400 text-[9px] font-bold px-1 rounded hover:bg-[#1f242d] cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="text-[11px] text-gray-300 whitespace-pre-wrap leading-relaxed font-mono">
@@ -1297,13 +1426,14 @@ export default function Tab01Exec({ ws }) {
             )}
           />
 
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            <div className="flex items-center gap-1.5">
+          {/* SINGLE-ROW COCKPIT CONTROLS: COMPACT DOCK WITH RIGHT-ALIGNED MODES */}
+          <div className="flex flex-nowrap items-center gap-1.5 pt-0.5 overflow-x-auto w-full" style={{ scrollbarWidth: 'none' }}>
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
                 disabled={isMasterChat || activeChatId === null || isLoading}
                 onClick={handleSendMessage}
-                className={'text-[10px] font-bold px-3.5 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-all ' + (
+                className={'text-[10px] font-bold px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-all ' + (
                   isMasterChat || activeChatId === null || isLoading
                     ? 'bg-[#1f242d] text-gray-500 cursor-not-allowed'
                     : 'bg-[#DAA520] hover:bg-[#DAA520]/80 text-[#080a0c] shadow-[0_0_8px_rgba(218,165,32,0.2)]'
@@ -1321,10 +1451,10 @@ export default function Tab01Exec({ ws }) {
                 title="Analyze input text & auto-select optimal LLM engine"
                 style={{
                   position: 'relative',
-                  padding: '7px 16px',
-                  fontSize: '11px',
+                  padding: '6px 14px',
+                  fontSize: '10px',
                   fontWeight: 900,
-                  letterSpacing: '1.2px',
+                  letterSpacing: '1px',
                   borderRadius: '3px',
                   cursor: isMasterChat || activeChatId === null ? 'not-allowed' : 'pointer',
                   opacity: isMasterChat || activeChatId === null ? 0.45 : 1,
@@ -1341,13 +1471,14 @@ export default function Tab01Exec({ ws }) {
                   transform: autoRouteHover ? 'translateY(-1px)' : 'translateY(0)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px'
+                  gap: '6px',
+                  flexShrink: 0
                 }}
               >
                 <span style={{
                   display: 'inline-block',
-                  width: '7px',
-                  height: '7px',
+                  width: '6px',
+                  height: '6px',
                   borderRadius: '50%',
                   backgroundColor: '#38bdf8',
                   boxShadow: '0 0 8px #38bdf8, 0 0 16px #0284c7',
@@ -1357,12 +1488,12 @@ export default function Tab01Exec({ ws }) {
               </button>
             </div>
 
-            <div className="flex items-center gap-1 bg-[#080a0c] border border-[#1f242d] px-1 py-0.5 rounded">
+            <div className="flex items-center gap-1 bg-[#080a0c] border border-[#1f242d] px-1 py-0.5 rounded shrink-0">
               <button
                 type="button"
                 disabled={isDistilling}
                 onClick={handleCreatePrompt}
-                className="border border-[#10b981] text-[#10b981] hover:bg-[#10b981]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all"
+                className="border border-[#10b981] text-[#10b981] hover:bg-[#10b981]/15 font-bold text-[9px] px-2 py-1 rounded cursor-pointer transition-all shrink-0"
               >
                 {isDistilling ? 'DISTILLING (' + elapsedSeconds + 's)' : 'CREATE PROMPT'}
               </button>
@@ -1370,7 +1501,7 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handlePushToWarRoom}
-                className="border border-[#C5BD9F] text-[#C5BD9F] hover:bg-[#C5BD9F]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all"
+                className="border border-[#C5BD9F] text-[#C5BD9F] hover:bg-[#C5BD9F]/15 font-bold text-[9px] px-2 py-1 rounded cursor-pointer transition-all shrink-0"
               >
                 PUSH TO WAR ROOM
               </button>
@@ -1378,7 +1509,7 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handleRefine}
-                className="border border-[#1f242d] text-gray-400 hover:text-white hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all"
+                className="border border-[#1f242d] text-gray-400 hover:text-white hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all shrink-0"
               >
                 REFINE
               </button>
@@ -1386,15 +1517,25 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handleCopyAll}
-                className="border border-[#1f242d] text-gray-400 hover:text-white hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all"
+                className="border border-[#1f242d] text-gray-400 hover:text-white hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all shrink-0"
               >
                 {copyFeedback ? 'COPIED' : 'COPY ALL'}
+              </button>
+
+              {/* PRUNE CRAP ACTION BUTTON */}
+              <button
+                type="button"
+                onClick={handlePruneCrap}
+                className="border border-[#eab308] text-[#eab308] hover:bg-[#eab308]/15 font-bold text-[9px] px-2 py-1 rounded cursor-pointer transition-all shrink-0"
+                title="Purge errors, failure dumps, and duplicate prompts while saving clean chat to disk"
+              >
+                PRUNE CRAP
               </button>
 
               <button
                 type="button"
                 onClick={handleCLS}
-                className="border border-[#1f242d] text-gray-400 hover:text-red-400 hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all"
+                className="border border-[#1f242d] text-gray-400 hover:text-red-400 hover:bg-[#14171c] text-[9px] px-2 py-1 rounded cursor-pointer transition-all shrink-0"
               >
                 CLS
               </button>
@@ -1402,25 +1543,28 @@ export default function Tab01Exec({ ws }) {
               <button
                 type="button"
                 onClick={handleAllStop}
-                className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all"
+                className="border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/15 font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-all shrink-0"
               >
                 ALL STOP
               </button>
             </div>
 
-            <div className="w-[110px] shrink-0" aria-hidden="true" />
+            {/* FLEXIBLE GAP SPACER: ABSORBS ALL REMAINING SPACE BETWEEN ALL STOP AND NEW CHAT */}
+            <div className="flex-1 min-w-[20px]" />
 
+            {/* + NEW CHAT PUSHED RIGHT-OF-CENTER */}
             <button
               type="button"
               onClick={() => setNewChatPromptOpen(true)}
-              className="border border-[#DAA520] text-[#DAA520] hover:bg-[#DAA520]/20 font-bold text-[9px] px-3 py-1.5 rounded cursor-pointer transition-all shadow-[0_0_6px_rgba(218,165,32,0.15)]"
+              className="border border-[#DAA520] text-[#DAA520] hover:bg-[#DAA520]/20 font-bold text-[9px] px-2.5 py-1.5 rounded cursor-pointer transition-all shadow-[0_0_6px_rgba(218,165,32,0.15)] shrink-0"
             >
               + NEW CHAT
             </button>
 
-            <div className="h-5 w-[1px] bg-[#1f242d] mx-0.5"></div>
+            <div className="h-5 w-[1px] bg-[#1f242d] mx-0.5 shrink-0"></div>
 
-            <div className="flex items-center gap-1.5 bg-[#080a0c] border border-[#1f242d] px-2 py-1 rounded shadow-inner">
+            {/* MODE SELECTOR ANCHORED FLUSH TO THE RIGHT-HAND MARGIN */}
+            <div className="flex items-center gap-1 bg-[#080a0c] border border-[#1f242d] px-1.5 py-1 rounded shadow-inner shrink-0">
               <span className="text-[9px] text-[#DAA520] uppercase font-bold tracking-wider mr-0.5">
                 MODE:
               </span>
@@ -1438,7 +1582,7 @@ export default function Tab01Exec({ ws }) {
                     key={mode.id}
                     type="button"
                     onClick={() => setActiveMode(mode.id)}
-                    className={'text-[9px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all border ' + (
+                    className={'text-[9px] px-2 py-0.5 rounded font-bold cursor-pointer transition-all border ' + (
                       isActive
                         ? 'bg-[#DAA520] border-[#DAA520] text-[#080a0c] shadow-[0_0_10px_rgba(218,165,32,0.4)] scale-105'
                         : 'bg-[#0d0f12] border-[#1f242d] text-gray-400 hover:text-gray-100 hover:border-[#DAA520]/60 hover:bg-[#14171c]'

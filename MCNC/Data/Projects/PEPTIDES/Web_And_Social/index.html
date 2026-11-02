@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cellixa Labs | Research-Grade Peptides | South Africa</title>
+<style>
+:root {
+--bg-obsidian: #080a0c;
+--wire-border: #1f242d;
+--gold-core: #ffb800;
+--emerald: #10b981;
+--ruby: #ef4444;
+--text-smoke: #e2e8f0;
+--text-mist: #94a3b8;
+--gunmetal: #2c3e50;
+--bronze: #cd7f32;
+--champagne: #f7e7ce;
+}
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+}
+body {
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+background: var(--bg-obsidian);
+color: var(--text-smoke);
+line-height: 1.6;
+overflow-x: hidden;
+}
+header {
+background: linear-gradient(135deg, var(--gunmetal), var(--bg-obsidian));
+border-bottom: 2px solid var(--wire-border);
+padding: 1.5rem 2rem;
+position: sticky;
+top: 0;
+z-index: 1000;
+box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.header-container {
+max-width: 1400px;
+margin: 0 auto;
+display: flex;
+justify-content: space-between;
+align-items: center;
+flex-wrap: wrap;
+}
+.logo {
+font-size: 1.8rem;
+font-weight: 700;
+color: var(--gold-core);
+text-transform: uppercase;
+letter-spacing: 2px;
+}
+.logo span {
+color: var(--emerald);
+font-size: 0.9rem;
+display: block;
+margin-top: -4px;
+}
+nav ul {
+list-style: none;
+display: flex;
+gap: 2rem;
+}
+nav a {
+color: var(--text-smoke);
+text-decoration: none;
+font-weight: 500;
+transition: color 0.3s;
+}
+nav a:hover {
+color: var(--gold-core);
+}
+.hero {
+background: linear-gradient(135deg, var(--bg-obsidian), var(--gunmetal));
+padding: 4rem 2rem;
+text-align: center;
+border-bottom: 3px solid var(--gold-core);
+}
+.hero h1 {
+font-size: 3rem;
+margin-bottom: 1rem;
+color: var(--gold-core);
+text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+}
+.hero p {
+font-size: 1.3rem;
+color: var(--text-mist);
+max-width: 800px;
+margin: 0 auto 2rem;
+}
+.cta-button {
+display: inline-block;
+background: var(--gold-core);
+color: var(--bg-obsidian);
+padding: 1rem 2.5rem;
+font-size: 1.1rem;
+font-weight: 700;
+text-decoration: none;
+border-radius: 4px;
+transition: all 0.3s;
+border: 2px solid var(--gold-core);
+}
+.cta-button:hover {
+background: transparent;
+color: var(--gold-core);
+}
+.compliance-banner {
+background: var(--ruby);
+color: white;
+padding: 1rem;
+text-align: center;
+font-weight: 600;
+border-bottom: 2px solid var(--wire-border);
+}
+.container {
+max-width: 1400px;
+margin: 0 auto;
+padding: 3rem 2rem;
+}
+.section-title {
+font-size: 2.5rem;
+color: var(--gold-core);
+margin-bottom: 2rem;
+text-align: center;
+text-transform: uppercase;
+letter-spacing: 1px;
+}
+.product-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+gap: 2rem;
+margin-top: 3rem;
+}
+.product-card {
+background: linear-gradient(135deg, var(--wire-border), var(--bg-obsidian));
+border: 2px solid var(--wire-border);
+border-radius: 8px;
+padding: 2rem;
+transition: all 0.3s;
+position: relative;
+overflow: hidden;
+}
+.product-card::before {
+content: '';
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 4px;
+background: linear-gradient(90deg, var(--gold-core), var(--emerald));
+}
+.product-card:hover {
+transform: translateY(-8px);
+border-color: var(--gold-core);
+box-shadow: 0 8px 24px rgba(255, 184, 0, 0.3);
+}
+.purity-badge {
+position: absolute;
+top: 1rem;
+right: 1rem;
+background: var(--emerald);
+color: white;
+padding: 0.5rem 1rem;
+border-radius: 20px;
+font-weight: 700;
+font-size: 0.9rem;
+}
+.product-card h3 {
+color: var(--gold-core);
+font-size: 1.5rem;
+margin-bottom: 0.5rem;
+}
+.product-card .scientific-name {
+color: var(--text-mist);
+font-style: italic;
+font-size: 0.9rem;
+margin-bottom: 1rem;
+}
+.product-card .description {
+color: var(--text-smoke);
+margin-bottom: 1rem;
+line-height: 1.8;
+}
+.metadata {
+background: var(--bg-obsidian);
+padding: 1rem;
+border-radius: 4px;
+margin-top: 1rem;
+border-left: 3px solid var(--gold-core);
+}
+.metadata-item {
+display: flex;
+justify-content: space-between;
+margin-bottom: 0.5rem;
+font-size: 0.9rem;
+}
+.metadata-item strong {
+color: var(--gold-core);
+}
+.metadata-item span {
+color: var(--text-mist);
+}
+.price {
+font-size: 1.8rem;
+color: var(--emerald);
+font-weight: 700;
+margin-top: 1rem;
+}
+.add-to-cart {
+width: 100%;
+background: var(--gold-core);
+color: var(--bg-obsidian);
+padding: 1rem;
+border: none;
+border-radius: 4px;
+font-size: 1rem;
+font-weight: 700;
+cursor: pointer;
+margin-top: 1rem;
+transition: all 0.3s;
+}
+.add-to-cart:hover {
+background: var(--emerald);
+}
+.features {
+background: var(--wire-border);
+padding: 3rem 2rem;
+margin-top: 3rem;
+}
+.features-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+gap: 2rem;
+max-width: 1400px;
+margin: 0 auto;
+}
+.feature-card {
+text-align: center;
+padding: 2rem;
+background: var(--bg-obsidian);
+border: 2px solid var(--wire-border);
+border-radius: 8px;
+}
+.feature-icon {
+font-size: 3rem;
+margin-bottom: 1rem;
+}
+.feature-card h3 {
+color: var(--gold-core);
+margin-bottom: 1rem;
+}
+.feature-card p {
+color: var(--text-mist);
+}
+.coa-section {
+background: var(--bg-obsidian);
+padding: 3rem 2rem;
+border-top: 2px solid var(--wire-border);
+}
+.coa-lookup {
+max-width: 600px;
+margin: 2rem auto;
+padding: 2rem;
+background: var(--wire-border);
+border: 2px solid var(--gold-core);
+border-radius: 8px;
+}
+.coa-lookup h3 {
+color: var(--gold-core);
+margin-bottom: 1rem;
+text-align: center;
+}
+.coa-lookup input {
+width: 100%;
+padding: 1rem;
+background: var(--bg-obsidian);
+border: 2px solid var(--wire-border);
+color: var(--text-smoke);
+border-radius: 4px;
+font-size: 1rem;
+margin-bottom: 1rem;
+}
+.coa-lookup button {
+width: 100%;
+padding: 1rem;
+background: var(--emerald);
+color: white;
+border: none;
+border-radius: 4px;
+font-size: 1rem;
+font-weight: 700;
+cursor: pointer;
+transition: all 0.3s;
+}
+.coa-lookup button:hover {
+background: var(--gold-core);
+color: var(--bg-obsidian);
+}
+footer {
+background: var(--wire-border);
+padding: 2rem;
+text-align: center;
+border-top: 2px solid var(--gold-core);
+}
+footer p {
+color: var(--text-mist);
+margin-bottom: 0.5rem;
+}
+.modal {
+display: none;
+position: fixed;
+z-index: 2000;
+left: 0;
+top: 0;
+width: 100%;
+height: 100%;
+background: rgba(0,0,0,0.9);
+}
+.modal-content {
+background: var(--wire-border);
+margin: 5% auto;
+padding: 3rem;
+border: 3px solid var(--gold-core);
+border-radius: 8px;
+width: 90%;
+max-width: 600px;
+position: relative;
+}
+.modal-content h2 {
+color: var(--gold-core);
+margin-bottom: 1.5rem;
+text-align: center;
+}
+.modal-content p {
+color: var(--text-smoke);
+margin-bottom: 1rem;
+line-height: 1.8;
+}
+.modal-content .warning {
+background: var(--ruby);
+padding: 1rem;
+border-radius: 4px;
+margin: 1.5rem 0;
+font-weight: 600;
+}
+.checkbox-container {
+display: flex;
+align-items: center;
+margin: 1.5rem 0;
+}
+.checkbox-container input {
+width: 20px;
+height: 20px;
+margin-right: 1rem;
+}
+.checkbox-container label {
+color: var(--text-smoke);
+font-size: 1rem;
+}
+.modal-buttons {
+display: flex;
+gap: 1rem;
+margin-top: 2rem;
+}
+.modal-buttons button {
+flex: 1;
+padding: 1rem;
+border: none;
+border-radius: 4px;
+font-size: 1rem;
+font-weight: 700;
+cursor: pointer;
+transition: all 0.3s;
+}
+.accept-btn {
+background: var(--emerald);
+color: white;
+}
+.accept-btn:hover {
+background: var(--gold-core);
+color: var(--bg-obsidian);
+}
+.decline-btn {
+background: var(--ruby);
+color: white;
+}
+.decline-btn:hover {
+opacity: 0.8;
+}
+@media (max-width: 768px) {
+.header-container {
+flex-direction: column;
+gap: 1rem;
+}
+nav ul {
+flex-direction: column;
+gap: 1rem;
+text-align: center;
+}
+.hero h1 {
+font-size: 2rem;
+}
+.hero p {
+font-size: 1rem;
+}
+.product-grid {
+grid-template-columns: 1fr;
+}
+}
+</style>
+</head>
+<body>
+
+<div class="compliance-banner">
+RESEARCH USE ONLY | NOT FOR HUMAN CONSUMPTION | 18+ VERIFICATION REQUIRED
+</div>
+
+<header>
+<div class="header-container">
+<div class="logo">
+CELLIXA LABS
+<span>Research-Grade Peptides</span>
+</div>
+<nav>
+<ul>
+<li><a href="#products">Products</a></li>
+<li><a href="#coa">CoA Lookup</a></li>
+<li><a href="#about">About</a></li>
+<li><a href="#contact">Contact</a></li>
+</ul>
+</nav>
+</div>
+</header>
+
+<section class="hero">
+<h1>Premium Research Peptides</h1>
+<p>South Africa's leading supplier of high-purity research-grade peptides. Third-party tested, batch-verified, and compliant with international research standards.</p>
+<a href="#products" class="cta-button">EXPLORE CATALOG</a>
+</section>
+
+<div class="container" id="products">
+<h2 class="section-title">Featured Products</h2>
+<div class="product-grid">
+
+<div class="product-card">
+<div class="purity-badge">&gt;99% Purity</div>
+<h3>BPC-157</h3>
+<p class="scientific-name">Body Protection Compound-157</p>
+<p class="description">Pentadecapeptide derived from gastric juice protein BPC. Extensively studied for tissue repair mechanisms and cellular regeneration pathways in laboratory models.</p>
+<div class="metadata">
+<div class="metadata-item">
+<strong>CAS Number:</strong>
+<span>137525-51-0</span>
+</div>
+<div class="metadata-item">
+<strong>Molecular Formula:</strong>
+<span>C₆₂H₉₈N₁₆O₂₂</span>
+</div>
+<div class="metadata-item">
+<strong>Sequence:</strong>
+<span>GEPPPGKPADDAGLV</span>
+</div>
+<div class="metadata-item">
+<strong>Batch:</strong>
+<span>BPC-2026-Q4-001</span>
+</div>
+</div>
+<p class="price">R1,850.00</p>
+<button class="add-to-cart" onclick="showAgeGate()">ADD TO CART</button>
+</div>
+
+<div class="product-card">
+<div class="purity-badge">&gt;98% Purity</div>
+<h3>TB-500</h3>
+<p class="scientific-name">Thymosin Beta-4 Fragment</p>
+<p class="description">Synthetic peptide fragment of naturally occurring Thymosin Beta-4. Research applications include cellular migration studies and wound healing cascade analysis.</p>
+<div class="metadata">
+<div class="metadata-item">
+<strong>CAS Number:</strong>
+<span>77591-33-4</span>
+</div>
+<div class="metadata-item">
+<strong>Molecular Formula:</strong>
+<span>C₂₁₂H₃₅₀N₅₆O₇₈S</span>
+</div>
+<div class="metadata-item">
+<strong>Sequence:</strong>
+<span>LKKTETQ (Fragment)</span>
+</div>
+<div class="metadata-item">
+<strong>Batch:</strong>
+<span>TB5-2026-Q4-003</span>
+</div>
+</div>
+<p class="price">R2,450.00</p>
+<button class="add-to-cart" onclick="showAgeGate()">ADD TO CART</button>
+</div>
+
+<div class="product-card">
+<div class="purity-badge">&gt;99% Purity</div>
+<h3>Semaglutide</h3>
+<p class="scientific-name">GLP-1 Receptor Agonist</p>
+<p class="description">Modified GLP-1 analog with extended half-life properties. Research focus on metabolic pathway modulation and glucose homeostasis mechanisms in vitro.</p>
+<div class="metadata">
+<div class="metadata-item">
+<strong>CAS Number:</strong>
+<span>910463-68-2</span>
+</div>
+<div class="metadata-item">
+<strong>Molecular Formula:</strong>
+<span>C₁₈₇H₂₉₁N₄₅O₅₉</span>
+</div>
+<div class="metadata-item">
+<strong>Molecular Weight:</strong>
+<span>4113.58 g/mol</span>
+</div>
+<div class="metadata-item">
+<strong>Batch:</strong>
+<span>SEM-2026-Q4-007</span>
+</div>
+</div>
+<p class="price">R3,200.00</p>
+<button class="add-to-cart" onclick="showAgeGate()">ADD TO CART</button>
+</div>
+
+<div class="product-card">
+<div class="purity-badge">&gt;98% Purity</div>
+<h3>CJC-1295</h3>
+<p class="scientific-name">Growth Hormone Releasing Hormone Analog</p>
+<p class="description">Modified GHRH peptide with DAC conjugation for extended stability. Research applications in pulsatile secretion studies and receptor binding kinetics.</p>
+<div class="metadata">
+<div class="metadata-item">
+<strong>CAS Number:</strong>
+<span>863288-34-0</span>
+</div>
+<div class="metadata-item">
+<strong>Molecular Formula:</strong>
+<span>C₁₆₅H₂₇₁N₄₇O₄₆</span>
+</div>
+<div class="metadata-item">
+<strong>Modification:</strong>
+<span>DAC (Drug Affinity Complex)</span>
+</div>
+<div class="metadata-item">
+<strong>Batch:</strong>
+<span>CJC-2026-Q4-012</span>
+</div>
+</div>
+<p class="price">R2,100.00</p>
+<button class="add-to-cart" onclick="showAgeGate()">ADD TO CART</button>
+</div>
+
+<div class="product-card">
+<div class="purity-badge">&gt;99% Purity</div>
+<h3>GHK-Cu</h3>
+<p class="scientific-name">Copper Peptide Complex</p>
+<p class="description">Tripeptide-copper complex naturally occurring in human plasma. Research focus on collagen synthesis pathways and extracellular matrix remodeling mechanisms.</p>
+<div class="metadata">
+<div class="metadata-item">
+<strong>CAS Number:</strong>
+<span>49557-75-7</span>
+</div>
+<div class="metadata-item">
+<strong>Molecular Formula:</strong>
+<span>C₁₄H₂₄N₆O₄Cu</span>
+</div>
+<div class="metadata-item">
+<strong>Sequence:</strong>
+<span>Gly-His-Lys</span>
+</div>
+<div class="metadata-item">
+<strong>Batch:</strong>
+<span>GHK-2026-Q4-005</span>
+</div>
+</div>
+<p class="price">R1,650.00</p>
+<button class="add-to-cart" onclick="showAgeGate()">ADD TO CART</button>
+</div>
+
+<div class="product-card">
+<div class="purity-badge">&gt;99% Purity</div>
+<h3>Bacteriostatic Water</h3>
+<p class="scientific-name">0.9% Benzyl Alcohol Solution</p>
+<p class="description">Sterile water for injection containing 0.9% benzyl alcohol as bacteriostatic preservative. Essential reconstitution medium for lyophilized peptide research compounds.</p>
+<div class="metadata">
+<div class="metadata-item">
+<strong>Volume:</strong>
+<span>30ml</span>
+</div>
+<div class="metadata-item">
+<strong>Preservative:</strong>
+<span>0.9% Benzyl Alcohol</span>
+</div>
+<div class="metadata-item">
+<strong>Sterility:</strong>
+<span>USP Grade</span>
+</div>
+<div class="metadata-item">
+<strong>Batch:</strong>
+<span>BAC-2026-Q4-020</span>
+</div>
+</div>
+<p class="price">R280.00</p>
+<button class="add-to-cart" onclick="showAgeGate()">ADD TO CART</button>
+</div>
+
+</div>
+</div>
+
+<section class="features">
+<h2 class="section-title">Why Cellixa Labs</h2>
+<div class="features-grid">
+<div class="feature-card">
+<div class="feature-icon">🔬</div>
+<h3>Third-Party Tested</h3>
+<p>Every batch undergoes independent HPLC and mass spectrometry analysis by accredited South African laboratories.</p>
+</div>
+<div class="feature-card">
+<div class="feature-icon">📜</div>
+<h3>Full CoA Documentation</h3>
+<p>Certificate of Analysis provided with every order, including purity verification and contaminant screening results.</p>
+</div>
+<div class="feature-card">
+<div class="feature-icon">🌍</div>
+<h3>International Shipping</h3>
+<p>Compliant customs documentation and HS Code classification for seamless international research deliveries.</p>
+</div>
+<div class="feature-card">
+<div class="feature-icon">🔒</div>
+<h3>Secure Payment Rails</h3>
+<p>Multi-currency support (ZAR/USD/Crypto) with encrypted payment processing and buyer protection.</p>
+</div>
+</div>
+</section>
+
+<section class="coa-section" id="coa">
+<div class="container">
+<h2 class="section-title">Certificate of Analysis Lookup</h2>
+<div class="coa-lookup">
+<h3>Verify Your Batch</h3>
+<input type="text" placeholder="Enter Batch Number (e.g., BPC-2026-Q4-001)" id="batchInput">
+<button onclick="lookupCoA()">RETRIEVE CoA</button>
+<div id="coaResult" style="margin-top: 1rem; color: var(--text-mist); text-align: center;"></div>
+</div>
+</div>
+</section>
+
+<footer>
+<p>&copy; 2026 Cellixa Labs (Pty) Ltd. All Rights Reserved.</p>
+<p>Research Use Only | Not for Human Consumption | Compliance with South African Medicines Control Act</p>
+<p>Contact: research@cellixalabs.co.za | +27 (0)11 234 5678</p>
+</footer>
+
+<div id="ageGateModal" class="modal">
+<div class="modal-content">
+<h2>Age Verification & Research Use Acknowledgment</h2>
+<p>Access to research-grade peptides requires verification of age and acknowledgment of intended use restrictions.</p>
+<div class="warning">
+WARNING: These products are strictly for laboratory research purposes only. Not approved for human consumption, clinical use, or veterinary applications.
+</div>
+<div class="checkbox-container">
+<input type="checkbox" id="ageCheck">
+<label for="ageCheck">I confirm that I am 18 years of age or older</label>
+</div>
+<div class="checkbox-container">
+<input type="checkbox" id="ruoCheck">
+<label for="ruoCheck">I acknowledge these products are for Research Use Only (RUO) and will not be used for human consumption</label>
+</div>
+<div class="checkbox-container">
+<input type="checkbox" id="complianceCheck">
+<label for="complianceCheck">I understand that misuse of research peptides may violate local regulations</label>
+</div>
+<div class="modal-buttons">
+<button class="decline-btn" onclick="closeAgeGate()">DECLINE</button>
+<button class="accept-btn" onclick="acceptAgeGate()">ACCEPT & CONTINUE</button>
+</div>
+</div>
+</div>
+
+<script>
+function showAgeGate() {
+document.getElementById('ageGateModal').style.display = 'block';
+}
+
+function closeAgeGate() {
+document.getElementById('ageGateModal').style.display = 'none';
+}
+
+function acceptAgeGate() {
+const ageCheck = document.getElementById('ageCheck').checked;
+const ruoCheck = document.getElementById('ruoCheck').checked;
+const complianceCheck = document.getElementById('complianceCheck').checked;
+
+if (ageCheck && ruoCheck && complianceCheck) {
+alert('Verification complete. Proceeding to checkout...');
+closeAgeGate();
+} else {
+alert('You must accept all terms to proceed.');
+}
+}
+
+function lookupCoA() {
+const batchInput = document.getElementById('batchInput').value.trim();
+const resultDiv = document.getElementById('coaResult');
+
+if (batchInput === '') {
+resultDiv.innerHTML = '<p style="color: var(--ruby);">Please enter a valid batch number.</p>';
+return;
+}
+
+resultDiv.innerHTML = '<p style="color: var(--emerald);">Batch verified. CoA document ready for download.</p><p style="margin-top: 0.5rem;"><a href="#" style="color: var(--gold-core); text-decoration: underline;">Download PDF Certificate</a></p>';
+}
+
+window.onclick = function(event) {
+const modal = document.getElementById('ageGateModal');
+if (event.target === modal) {
+closeAgeGate();
+}
+}
+</script>
+
+</body>
+</html>
