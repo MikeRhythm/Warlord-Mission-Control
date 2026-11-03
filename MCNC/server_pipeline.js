@@ -2,6 +2,7 @@
 // WARLORD WASP // MCNC BACKEND PIPELINE & EXECUTION SERVER
 // PORT: 8082
 // RUNTIME: C:\Warlord_Inc\Warlord_WASP\MCNC
+// FILE: C:\Warlord_Inc\Warlord_WASP\MCNC\server_pipeline.js
 // ============================================================================
 
 require('dotenv').config();
@@ -92,7 +93,7 @@ app.all('/api/heartbeat', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 2. TAB 03: PROJECTS CONDUIT
+// 2. TAB 03: DISK-TRUTH PROJECTS CONDUIT
 // ----------------------------------------------------------------------------
 
 app.get(['/api/projects', '/api/projects/list', '/api/projects/all'], (req, res) => {
@@ -100,20 +101,148 @@ app.get(['/api/projects', '/api/projects/list', '/api/projects/all'], (req, res)
     if (!fs.existsSync(PROJECTS_ROOT)) {
       return res.json({ success: true, projects: [] });
     }
-    const projects = fs.readdirSync(PROJECTS_ROOT, { withFileTypes: true })
+
+    const projectDirs = fs.readdirSync(PROJECTS_ROOT, { withFileTypes: true })
       .filter(d => d.isDirectory())
-      .map(d => ({
-        name: d.name,
-        path: path.join(PROJECTS_ROOT, d.name)
-      }));
-    return res.json({ success: true, projects });
+      .map(d => d.name);
+
+    const detailedProjects = projectDirs.map(name => {
+      const prjPath = path.join(PROJECTS_ROOT, name);
+      const manifestPath = path.join(prjPath, 'project_manifest.json');
+
+      let manifest = null;
+      if (fs.existsSync(manifestPath)) {
+        try {
+          manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        } catch (e) {
+          console.error(`[PIPELINE] Failed to parse manifest for ${name}:`, e.message);
+        }
+      }
+
+      // Scan physical subdirectories
+      let subdirs = [];
+      try {
+        subdirs = fs.readdirSync(prjPath, { withFileTypes: true })
+          .filter(d => d.isDirectory())
+          .map(d => d.name);
+      } catch (e) {}
+
+      // Count files across all subdirectories
+      let fileCount = 0;
+      let filesList = [];
+      subdirs.forEach(sd => {
+        const sdPath = path.join(prjPath, sd);
+        try {
+          const files = fs.readdirSync(sdPath).filter(f => !f.startsWith('.'));
+          fileCount += files.length;
+          files.forEach(f => filesList.push(`${sd}/${f}`));
+        } catch (e) {}
+      });
+
+      // Check for lead files
+      let totalLeads = 0;
+      const leadsPath = path.join(prjPath, 'Leads');
+      if (fs.existsSync(leadsPath)) {
+        try {
+          const leadFiles = fs.readdirSync(leadsPath).filter(f => f.endsWith('.csv') || f.endsWith('.json'));
+          totalLeads = leadFiles.length;
+        } catch (e) {}
+      }
+
+      return {
+        id: name,
+        name: name.replace(/_/g, ' '),
+        status: manifest?.status || 'ACTIVE',
+        description: manifest?.prd_data?.objective || `Project workspace for ${name.replace(/_/g, ' ')}.`,
+        industry: manifest?.prd_data?.industry || 'Operational',
+        dominantMetric: manifest?.prd_data?.dominantMetric || 'Pipeline Velocity',
+        stakeholder: manifest?.prd_data?.stakeholder || '',
+        directories: subdirs,
+        total_leads: totalLeads,
+        fileCount: fileCount,
+        files: filesList,
+        manifest: manifest,
+        pillars: manifest?.pillars || [],
+        cronJobs: manifest?.cronJobs || [],
+        path: prjPath
+      };
+    });
+
+    return res.json({ success: true, projects: detailedProjects });
   } catch (err) {
     return res.status(500).json({ error: err.message, projects: [] });
   }
 });
 
+// Create / Provision Project on Disk
+app.post('/api/projects/create', (req, res) => {
+  try {
+    const { projectName, subdirectories, prdPayload } = req.body;
+    if (!projectName) {
+      return res.status(400).json({ error: 'projectName is required' });
+    }
+
+    const cleanName = projectName.trim().replace(/[^a-zA-Z0-9_\- ]/g, '_');
+    const targetDir = path.join(PROJECTS_ROOT, cleanName);
+
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    // Provision subdirectories
+    const dirsToCreate = subdirectories && Array.isArray(subdirectories)
+      ? subdirectories
+      : ['Leads', 'Responses_And_Donations', 'Assets_And_Artwork', 'Web_And_Social', 'Source_Artifacts'];
+
+    dirsToCreate.forEach(dir => {
+      const subPath = path.join(targetDir, dir);
+      if (!fs.existsSync(subPath)) {
+        fs.mkdirSync(subPath, { recursive: true });
+      }
+    });
+
+    // Write initial project_manifest.json
+    const manifestPath = path.join(targetDir, 'project_manifest.json');
+    const manifestData = {
+      project_name: cleanName,
+      created_at: new Date().toISOString(),
+      status: 'ACTIVE',
+      prd_data: prdPayload || {
+        objective: `Operational node for ${cleanName}`,
+        industry: 'Operational',
+        dominantMetric: 'Pipeline Velocity'
+      },
+      directories: dirsToCreate,
+      pillars: [],
+      cronJobs: []
+    };
+
+    fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2), 'utf8');
+
+    // Seed master chat ledger
+    const prjChatDir = path.join(CHATS_ROOT, cleanName);
+    if (!fs.existsSync(prjChatDir)) {
+      fs.mkdirSync(prjChatDir, { recursive: true });
+    }
+    const seedId = `chat_init_${Date.now()}`;
+    const seedPayload = {
+      id: seedId,
+      title: 'Master Chat',
+      project: cleanName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      messages: []
+    };
+    fs.writeFileSync(path.join(prjChatDir, `${seedId}.json`), JSON.stringify(seedPayload, null, 2), 'utf8');
+
+    return res.json({ success: true, project: cleanName, path: targetDir });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ----------------------------------------------------------------------------
-// 3. TAB 01: AUTO-HEALING CHAT DISCOVERY (INSTANT TAB 01 VISIBILITY)
+// 3. TAB 01: AUTO-HEALING CHAT DISCOVERY
 // ----------------------------------------------------------------------------
 
 app.get('/api/chats/all', (req, res) => {
@@ -121,21 +250,18 @@ app.get('/api/chats/all', (req, res) => {
     const catalog = {};
     const discoveredProjects = new Set(['General_Chats']);
 
-    // Discover from Projects Root
     if (fs.existsSync(PROJECTS_ROOT)) {
       fs.readdirSync(PROJECTS_ROOT, { withFileTypes: true })
         .filter(d => d.isDirectory())
         .forEach(d => discoveredProjects.add(d.name));
     }
 
-    // Discover from Chats Root
     if (fs.existsSync(CHATS_ROOT)) {
       fs.readdirSync(CHATS_ROOT, { withFileTypes: true })
         .filter(d => d.isDirectory())
         .forEach(d => discoveredProjects.add(d.name));
     }
 
-    // Auto-heal every project with an active chat ledger
     discoveredProjects.forEach(prj => {
       catalog[prj] = [];
       const prjChatDir = path.join(CHATS_ROOT, prj);
@@ -146,7 +272,6 @@ app.get('/api/chats/all', (req, res) => {
 
       let files = fs.readdirSync(prjChatDir).filter(f => f.endsWith('.json') && !f.includes('Master'));
 
-      // If empty, immediately seed a Master Chat so it appears in Tab 01
       if (files.length === 0) {
         const seedId = `chat_init_${Date.now()}`;
         const seedPayload = {
@@ -265,86 +390,7 @@ app.post('/api/chats/archive', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 4. TAB 12: TAXONOMY & AUTO-SUGGESTION
-// ----------------------------------------------------------------------------
-
-const handleTaxonomySuggestion = (req, res) => {
-  try {
-    const { content, existingTaxonomy } = req.body || {};
-    const text = (content || '').toLowerCase();
-
-    let domain = 'Cutting Edge AI';
-    let subNiche = 'Hermes';
-
-    if (text.includes('mql') && text.includes('node')) {
-      domain = 'System Architecture & Code';
-      subNiche = 'MQL5 / Node.js Bridges';
-    } else if (text.includes('react') || text.includes('vite') || text.includes('tailwind')) {
-      domain = 'System Architecture & Code';
-      subNiche = 'React Vite Interfaces';
-    } else if (text.includes('openclaw') || text.includes('agent routing')) {
-      domain = 'System Architecture & Code';
-      subNiche = 'OpenClaw Agent Routing';
-    } else if (text.includes('decompil') || text.includes('reverse engineer') || text.includes('ghidra') || text.includes('rea')) {
-      domain = 'System Architecture & Code';
-      subNiche = 'Reverse Engineering & Decompilation';
-    } 
-    else if (text.includes('dell') || text.includes('poweredge') || text.includes('server setup') || text.includes('base 1 server')) {
-      domain = 'Hardware & Infrastructure';
-      subNiche = 'Base 1 Server Setup';
-    }
-    else if (text.includes('eurusd') || text.includes('london/ny') || text.includes('gbpusd') || text.includes('cross-asset')) {
-      domain = 'Market & Currency Pairs';
-      subNiche = text.includes('eurusd') ? 'EURUSD Volatility & London/NY Overlap' : 'Cross-Asset Momentum';
-    }
-    else if (text.includes('caprivi') || text.includes('zanzibar') || text.includes('riverine') || text.includes('madothi')) {
-      domain = 'Tactical & Historical Archives';
-      subNiche = text.includes('madothi') ? 'Donor Outreach & Landing Pages' : 'Caprivi Patrol Memoirs';
-    }
-    else if (text.includes('trading') || text.includes('arbitrage') || text.includes('forex') || text.includes('mql')) {
-      domain = 'Market & Currency Pairs';
-      subNiche = 'Cross-Asset Momentum';
-    } else if (text.includes('ollama') || text.includes('hermes') || text.includes('local llm')) {
-      domain = 'Cutting Edge AI';
-      subNiche = text.includes('ollama') ? 'Ollama Runtimes' : 'Hermes';
-    }
-
-    if (existingTaxonomy && existingTaxonomy[domain]) {
-      const availableSpecs = existingTaxonomy[domain];
-      if (!availableSpecs.includes(subNiche) && availableSpecs.length > 0) {
-        subNiche = availableSpecs[0];
-      }
-    }
-
-    return res.json({
-      success: true,
-      domain: domain,
-      subNiche: subNiche,
-      topic: domain,
-      specialization: subNiche,
-      confidence: 0.98
-    });
-  } catch (err) {
-    return res.json({
-      success: true,
-      domain: 'Cutting Edge AI',
-      subNiche: 'Hermes',
-      confidence: 0.50
-    });
-  }
-};
-
-app.all([
-  '/api/review/suggest-taxonomy',
-  '/api/suggest-taxonomy',
-  '/api/taxonomy/suggest',
-  '/api/classify-taxonomy',
-  '/api/taxonomy/classify',
-  '/api/taxonomy'
-], handleTaxonomySuggestion);
-
-// ----------------------------------------------------------------------------
-// 5. TAB 09: NORMALIZED WINDOWS PREVIEWS ENGINE
+// 4. TAB 09: NORMALIZED WINDOWS PREVIEWS ENGINE
 // ----------------------------------------------------------------------------
 
 app.get('/api/previews/list', (req, res) => {
@@ -391,7 +437,6 @@ app.get('/api/previews/list', (req, res) => {
   }
 });
 
-// PREVIEWS CONTENT ENGINE WITH CROSS-PLATFORM PATH RESOLVER
 app.get('/api/previews/content', (req, res) => {
   try {
     const relPath = req.query.path;
@@ -400,7 +445,6 @@ app.get('/api/previews/content', (req, res) => {
     const cleanRelPath = decodeURIComponent(relPath).replace(/[\/\\]+/g, path.sep);
     const targetPath = path.resolve(PROJECTS_ROOT, cleanRelPath);
 
-    // Normalize casing and separators for Windows
     const normTarget = targetPath.toLowerCase();
     const normRoot = PROJECTS_ROOT.toLowerCase();
 
@@ -425,7 +469,7 @@ app.get('/api/previews/content', (req, res) => {
 
 app.post('/api/previews/action', (req, res) => {
   try {
-    const { action, project, artifactId, artifactPath, critique, timestamp } = req.body;
+    const { action, project, artifactPath, critique, timestamp } = req.body;
     const ts = timestamp || new Date().toISOString();
 
     if (action === 'ACCEPT') {
@@ -438,7 +482,6 @@ app.post('/api/previews/action', (req, res) => {
       const feedbackPayload = {
         timestamp: ts,
         project,
-        artifactId,
         artifactPath,
         critique,
         dispatchedFrom: 'Tab09_Previews'
@@ -464,110 +507,16 @@ app.post('/api/previews/action', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 6. AUTO-ROUTER CONDUIT
-// ----------------------------------------------------------------------------
-
-app.post('/api/router/classify', (req, res) => {
-  try {
-    const { promptText } = req.body;
-    const text = (promptText || '').toLowerCase().trim();
-
-    if (!text) {
-      return res.json({
-        recommendedModel: 'hermes3:latest',
-        tierId: 'tier1',
-        rationale: 'EMPTY INPUT DETECTED // DEFAULTING TO LOCAL ZERO-COST HERMES 3'
-      });
-    }
-
-    if (
-      text.includes('prd') ||
-      text.includes('war room') ||
-      text.includes('litmus test') ||
-      text.includes('multi-agent') ||
-      text.includes('orchestrat') ||
-      text.includes('architect') ||
-      text.includes('directive //') ||
-      text.includes('adversarial') ||
-      text.includes('judge')
-    ) {
-      return res.json({
-        recommendedModel: 'deepseek/deepseek-r1',
-        tierId: 'tier3',
-        rationale: 'HIGH-REASONING LOGIC & PRD BREAKDOWN // ROUTED TO DEEPSEEK R1 (REASONING)'
-      });
-    }
-
-    if (
-      text.includes('landing page') ||
-      text.includes('html') ||
-      text.includes('jsx') ||
-      text.includes('react') ||
-      text.includes('express') ||
-      text.includes('node') ||
-      text.includes('javascript') ||
-      text.includes('css') ||
-      text.includes('tailwind') ||
-      text.includes('mql') ||
-      text.includes('indicator') ||
-      text.includes('metatrader') ||
-      text.includes('palette') ||
-      text.includes('refactor') ||
-      text.includes('ast patching')
-    ) {
-      return res.json({
-        recommendedModel: 'anthropic/claude-3.5-sonnet-20241022',
-        tierId: 'tier3',
-        rationale: 'HIGH-PRECISION CODE & UI SYNTHESIS // ROUTED TO CLAUDE 3.5 SONNET (ELITE)'
-      });
-    }
-
-    if (
-      text.includes('copy') ||
-      text.includes('email marketing') ||
-      text.includes('campaign') ||
-      text.includes('storytelling') ||
-      text.includes('newsletter') ||
-      text.includes('lead') ||
-      text.includes('social') ||
-      text.includes('amber')
-    ) {
-      return res.json({
-        recommendedModel: 'google/gemini-1.5-pro',
-        tierId: 'tier2',
-        rationale: 'RAPID CONTENT, COPY & NARRATIVE DESIGN // ROUTED TO GEMINI 1.5 PRO (STUDIO)'
-      });
-    }
-
-    return res.json({
-      recommendedModel: 'hermes3:latest',
-      tierId: 'tier1',
-      rationale: 'LOCAL BASELINE DIRECTIVE // ROUTED TO HERMES 3 (SOVEREIGN LOCAL :11434)'
-    });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-// ----------------------------------------------------------------------------
-// 7. GLOBAL JSON FALLBACK
+// 5. GLOBAL FALLBACK & LISTEN
 // ----------------------------------------------------------------------------
 
 app.use((req, res) => {
   return res.json({
     success: true,
     status: 'FALLBACK_ACKNOWLEDGED',
-    url: req.originalUrl,
-    domain: 'Cutting Edge AI',
-    subNiche: 'Hermes',
-    projects: [],
-    catalog: {}
+    url: req.originalUrl
   });
 });
-
-// ----------------------------------------------------------------------------
-// 8. LISTEN
-// ----------------------------------------------------------------------------
 
 const server = app.listen(PORT, () => {
   console.log('====================================================');
@@ -575,7 +524,7 @@ const server = app.listen(PORT, () => {
   console.log(`[PORT]             : ${PORT}`);
   console.log(`[CANONICAL ROOT]   : ${PROJECTS_ROOT}`);
   console.log(`[CHATS ROOT]       : ${CHATS_ROOT}`);
-  console.log(`[STATUS]           : AUTO-HEALING & PREVIEWS ACTIVE`);
+  console.log(`[STATUS]           : DISK-TRUTH ACTIVE`);
   console.log('====================================================');
 });
 

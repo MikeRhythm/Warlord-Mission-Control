@@ -2,6 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 
 // Industry preset mapping: suggested tool stacks & base palettes
 const INDUSTRY_PRESETS = {
+  'Communal Living & Property Org': {
+    tools: ['Expense Splitter', 'Chore Schedule Engine', 'Shared Ledger', 'Utility Tracker'],
+    palette: [
+      { id: '1', role: 'PRIMARY', hex: '#ffb800' },
+      { id: '2', role: 'SECONDARY', hex: '#C5BD9F' },
+      { id: '3', role: 'CANVAS BG', hex: '#080a0c' },
+      { id: '4', role: 'ACCENT', hex: '#10b981' }
+    ]
+  },
   'Corporate Expansion': {
     tools: ['ERP Bridge', 'Local Banking API', 'Compliance Scanner', 'Executive Dashboard'],
     palette: [
@@ -64,12 +73,12 @@ const INITIAL_FORM = {
   name: '',
   stakeholder: '',
   contactEmail: '',
-  industry: 'Corporate Expansion',
+  industry: 'Communal Living & Property Org',
   webStatus: 'Have Existing',
   webUrl: '',
-  selectedSocials: ['LinkedIn', 'Email Marketing'],
-  toolStack: INDUSTRY_PRESETS['Corporate Expansion'].tools,
-  palette: INDUSTRY_PRESETS['Corporate Expansion'].palette,
+  selectedSocials: ['Email Marketing', 'WhatsApp Channel'],
+  toolStack: INDUSTRY_PRESETS['Communal Living & Property Org'].tools,
+  palette: INDUSTRY_PRESETS['Communal Living & Property Org'].palette,
   uploadedFiles: [],
   objective: '',
   dominantMetric: 'Absolute Precision',
@@ -88,12 +97,10 @@ export default function NewProjectModal({ isOpen, onClose, onSaveProject, onPush
   const recognitionRef = useRef(null);
   const activeMicFieldRef = useRef(null);
 
-  // Keep ref synchronized to avoid stale speech listener callbacks
   useEffect(() => {
     activeMicFieldRef.current = activeMicField;
   }, [activeMicField]);
 
-  // Robust SpeechRecognition Initialization
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -205,8 +212,8 @@ export default function NewProjectModal({ isOpen, onClose, onSaveProject, onPush
       }
       setFormData({
         ...INITIAL_FORM,
-        palette: INDUSTRY_PRESETS['Corporate Expansion'].palette,
-        toolStack: INDUSTRY_PRESETS['Corporate Expansion'].tools
+        palette: INDUSTRY_PRESETS['Communal Living & Property Org'].palette,
+        toolStack: INDUSTRY_PRESETS['Communal Living & Property Org'].tools
       });
       setStep(1);
       setActiveMicField(null);
@@ -249,7 +256,6 @@ export default function NewProjectModal({ isOpen, onClose, onSaveProject, onPush
     });
   };
 
-  // Swatch actions
   const handleUpdateSwatch = (id, key, val) => {
     setFormData((prev) => ({
       ...prev,
@@ -273,7 +279,6 @@ export default function NewProjectModal({ isOpen, onClose, onSaveProject, onPush
     }));
   };
 
-  // Dossier File Handler
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     const formatted = files.map((f) => ({
@@ -359,6 +364,18 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
         .mcnc-modal-scroll::-webkit-scrollbar-thumb:hover {
           background: #ffb800;
         }
+        .mcnc-select-field {
+          appearance: auto;
+          -webkit-appearance: auto;
+          -moz-appearance: auto;
+          background-color: #080a0c !important;
+          color: #ffb800 !important;
+        }
+        .mcnc-select-field option {
+          background-color: #0d0f12 !important;
+          color: #ffb800 !important;
+          padding: 8px;
+        }
       `}</style>
 
       <div style={{
@@ -418,7 +435,7 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
           </div>
         </div>
 
-        {/* Global Mic Banner / Status Indicator */}
+        {/* Global Mic Banner */}
         {micStatusMsg && (
           <div style={{
             padding: '6px 24px',
@@ -486,7 +503,7 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
                   type="text" 
                   value={formData.name} 
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
-                  placeholder="e.g., CUMMINGS GROUP // CAPE TOWN EXPANSION"
+                  placeholder="e.g., COMMUNE ORG APP"
                   style={{
                     width: '100%',
                     backgroundColor: '#080a0c',
@@ -502,7 +519,7 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <label style={{ color: '#C5BD9F', fontSize: '11px', textTransform: 'uppercase' }}>Key Stakeholder / CEO</label>
+                    <label style={{ color: '#C5BD9F', fontSize: '11px', textTransform: 'uppercase' }}>Key Stakeholder / Household Lead</label>
                     <button 
                       onClick={() => toggleDictation('stakeholder')}
                       style={{
@@ -520,7 +537,7 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
                     type="text" 
                     value={formData.stakeholder} 
                     onChange={(e) => setFormData({ ...formData, stakeholder: e.target.value })} 
-                    placeholder="e.g., Andrew Tanton"
+                    placeholder="e.g., Harri, Mer, Claire, Aedeen"
                     style={{
                       width: '100%',
                       backgroundColor: '#080a0c',
@@ -538,7 +555,7 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
                     type="text" 
                     value={formData.contactEmail} 
                     onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })} 
-                    placeholder="e.g., andrew@cummingsgroup.com"
+                    placeholder="e.g., commune@internal.network"
                     style={{
                       width: '100%',
                       backgroundColor: '#080a0c',
@@ -553,23 +570,43 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
               </div>
 
               <div>
-                <label style={{ color: '#C5BD9F', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Industry Sector Track (Auto-Configures Modules & Palettes)</label>
-                <select 
-                  value={formData.industry}
-                  onChange={handleIndustryChange}
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#080a0c',
-                    border: '1px solid #1f242d',
-                    padding: '10px',
-                    color: '#ffb800',
-                    fontSize: '12px',
-                    fontFamily: 'monospace'
-                  }}>
-                  {Object.keys(INDUSTRY_PRESETS).map((ind) => (
-                    <option key={ind} value={ind}>{ind}</option>
-                  ))}
-                </select>
+                <label style={{ color: '#C5BD9F', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                  Industry Sector Track (Auto-Configures Modules & Palettes)
+                </label>
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <select 
+                    className="mcnc-select-field"
+                    value={formData.industry}
+                    onChange={handleIndustryChange}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#080a0c',
+                      border: '1px solid #ffb800',
+                      padding: '12px 14px',
+                      color: '#ffb800',
+                      fontSize: '13px',
+                      fontFamily: 'monospace',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      borderRadius: '2px',
+                      outline: 'none',
+                      position: 'relative',
+                      zIndex: 10
+                    }}>
+                    {Object.keys(INDUSTRY_PRESETS).map((ind) => (
+                      <option 
+                        key={ind} 
+                        value={ind}
+                        style={{
+                          backgroundColor: '#0d0f12',
+                          color: '#ffb800',
+                          padding: '10px'
+                        }}>
+                        {ind}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </>
           )}
@@ -604,7 +641,7 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
                     type="text" 
                     value={formData.webUrl} 
                     onChange={(e) => setFormData({ ...formData, webUrl: e.target.value })} 
-                    placeholder="e.g., https://www.cummingsgroup.com"
+                    placeholder="e.g., https://commune.local"
                     style={{
                       width: '100%',
                       backgroundColor: '#080a0c',
@@ -889,7 +926,7 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
                   rows={focusedField === 'objective' ? 6 : 2}
                   value={formData.objective} 
                   onChange={(e) => setFormData({ ...formData, objective: e.target.value })} 
-                  placeholder="e.g., Deploy regional digital infrastructure, marketing funnel, and operational dashboard."
+                  placeholder="e.g., Deploy household ledger, rotating chore schedules, and expense settlement for Harri, Mer, Claire, and Aedeen."
                   style={{
                     width: '100%',
                     backgroundColor: '#080a0c',
@@ -1000,14 +1037,14 @@ Deconstruct this project into atomic technical tiers. Monty, establish PRD phase
                       padding: '1px 6px',
                       cursor: 'pointer'
                     }}>
-                    {activeMicField === 'forbiddenVectors' && isListening ? '● REC' : '🎙️ MIC'}
-                  </button>
-                </div>
+                      {activeMicField === 'forbiddenVectors' && isListening ? '● REC' : '🎙️ MIC'}
+                    </button>
+                  </div>
                 <input 
                   type="text" 
                   value={formData.forbiddenVectors} 
                   onChange={(e) => setFormData({ ...formData, forbiddenVectors: e.target.value })} 
-                  placeholder="e.g., No public ad-spend without sign-off; no direct mutations to core database."
+                  placeholder="e.g., No public access to expense receipts; no manual ledger balance overrides."
                   style={{
                     width: '100%',
                     backgroundColor: '#080a0c',

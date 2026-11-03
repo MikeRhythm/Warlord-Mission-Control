@@ -1,0 +1,453 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COMMUNE // Household Financial Ledger & Duty Matrix</title>
+  <style>
+    :root {
+      --obsidian: #080a0c;
+      --card-bg: #0d0f12;
+      --panel-border: #1f242d;
+      --gold-core: #ffb800;
+      --gold-muted: #c5bd9f;
+      --slate-mist: #94a3b8;
+      --emerald: #10b981;
+      --ruby: #ef4444;
+      --sky: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    body {
+      background-color: var(--obsidian);
+      color: #f1f5f9;
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--panel-border);
+      border-left: 4px solid var(--gold-core);
+    }
+
+    .brand-title {
+      font-size: clamp(14px, 1.2vw, 18px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #ffffff;
+    }
+
+    .brand-tag {
+      font-size: 11px;
+      color: var(--gold-core);
+      margin-top: 4px;
+    }
+
+    .status-badge {
+      font-size: 10px;
+      padding: 4px 10px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid var(--emerald);
+      color: var(--emerald);
+      letter-spacing: 0.05em;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--panel-border);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold-muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* 3-MEMBER ROSTER GRID */
+    .member-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .member-card {
+      background-color: #12151a;
+      border: 1px solid var(--panel-border);
+      padding: 14px;
+      text-align: center;
+      border-radius: 2px;
+    }
+
+    .member-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold-core);
+      margin-bottom: 6px;
+    }
+
+    .member-balance {
+      font-size: 13px;
+      color: var(--slate-mist);
+      font-weight: bold;
+    }
+
+    .member-balance.positive { color: var(--emerald); }
+    .member-balance.negative { color: var(--ruby); }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 10px;
+      color: var(--slate-mist);
+      text-transform: uppercase;
+    }
+
+    input, select {
+      background-color: var(--obsidian);
+      border: 1px solid var(--panel-border);
+      color: #fff;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-family: monospace;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--gold-core);
+    }
+
+    button.btn-primary {
+      background-color: rgba(255, 184, 0, 0.15);
+      border: 1px solid var(--gold-core);
+      color: var(--gold-core);
+      font-weight: 700;
+      padding: 9px 14px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: monospace;
+      transition: background 0.2s ease;
+    }
+
+    button.btn-primary:hover {
+      background-color: var(--gold-core);
+      color: var(--obsidian);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    th {
+      text-align: left;
+      padding: 8px;
+      color: var(--gold-muted);
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    td {
+      padding: 8px;
+      border-bottom: 1px solid rgba(31, 36, 45, 0.5);
+      color: #cbd5e1;
+    }
+
+    .badge {
+      padding: 2px 6px;
+      font-size: 9px;
+      border-radius: 2px;
+    }
+
+    .badge-rent { background: rgba(56, 189, 248, 0.15); color: var(--sky); border: 1px solid var(--sky); }
+    .badge-elec { background: rgba(255, 184, 0, 0.15); color: var(--gold-core); border: 1px solid var(--gold-core); }
+    .badge-food { background: rgba(16, 185, 129, 0.15); color: var(--emerald); border: 1px solid var(--emerald); }
+    .badge-other { background: rgba(148, 163, 184, 0.15); color: var(--slate-mist); border: 1px solid var(--slate-mist); }
+
+    .chore-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: #111419;
+      border: 1px solid var(--panel-border);
+      margin-bottom: 8px;
+    }
+
+    .chore-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .chore-title {
+      font-size: 12px;
+      color: #f8fafc;
+      font-weight: 600;
+    }
+
+    .chore-assignee {
+      font-size: 10px;
+      color: var(--gold-core);
+    }
+
+    .btn-done {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--emerald);
+      color: var(--emerald);
+      font-size: 10px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <div class="brand-title">COMMUNE // RESIDENTIAL RECONCILIATION NODE</div>
+      <div class="brand-tag">SHARED COSTS: RENT, ELECTRICITY, FOOD & HOUSEHOLD DUTIES</div>
+    </div>
+    <div class="status-badge">3 CO-TENANTS LOCKED</div>
+  </header>
+
+  <!-- 3-PERSON ROSTER SUMMARY -->
+  <div class="member-grid">
+    <div class="member-card">
+      <div class="member-name">HARRY MUR</div>
+      <div class="member-balance" id="bal-Harry_Mur">Net: R 0.00</div>
+    </div>
+    <div class="member-card">
+      <div class="member-name">CLAIRE</div>
+      <div class="member-balance" id="bal-Claire">Net: R 0.00</div>
+    </div>
+    <div class="member-card">
+      <div class="member-name">ADINE</div>
+      <div class="member-balance" id="bal-Adine">Net: R 0.00</div>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+    <!-- EXPENSE INTAKE -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">LOG HOUSEHOLD EXPENSE</span>
+      </div>
+      <div class="form-group">
+        <label>Payer</label>
+        <select id="exp-payer">
+          <option value="Harry Mur">Harry Mur</option>
+          <option value="Claire">Claire</option>
+          <option value="Adine">Adine</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="exp-cat">
+          <option value="Rent">Rent</option>
+          <option value="Electricity">Electricity</option>
+          <option value="Food">Food / Groceries</option>
+          <option value="Household">Household Supplies</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Amount (ZAR)</label>
+        <input type="number" id="exp-amount" placeholder="e.g. 1500.00" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="exp-desc" placeholder="e.g. Fiber Internet / Electricity">
+      </div>
+      <button class="btn-primary" onclick="addExpense()">+ COMMIT EXPENSE TO LEDGER</button>
+    </div>
+
+    <!-- ROTATING CHORE CADENCE -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">DUTY & CHORE DISPATCH (3-WAY ROTATION)</span>
+      </div>
+      <div id="chore-list">
+        <div class="chore-item">
+          <div class="chore-info">
+            <span class="chore-title">Kitchen Deep Clean & Trash</span>
+            <span class="chore-assignee">Assigned: Harry Mur</span>
+          </div>
+          <button class="btn-done" onclick="rotateChore(this, 'Kitchen Deep Clean & Trash')">ROTATE ✓</button>
+        </div>
+        <div class="chore-item">
+          <div class="chore-info">
+            <span class="chore-title">Electricity Units Check & Re-up</span>
+            <span class="chore-assignee">Assigned: Claire</span>
+          </div>
+          <button class="btn-done" onclick="rotateChore(this, 'Electricity Units Check & Re-up')">ROTATE ✓</button>
+        </div>
+        <div class="chore-item">
+          <div class="chore-info">
+            <span class="chore-title">Common Areas & Lounge Floor</span>
+            <span class="chore-assignee">Assigned: Adine</span>
+          </div>
+          <button class="btn-done" onclick="rotateChore(this, 'Common Areas & Lounge Floor')">ROTATE ✓</button>
+        </div>
+        <div class="chore-item">
+          <div class="chore-info">
+            <span class="chore-title">Recycling Bin & Maintenance Run</span>
+            <span class="chore-assignee">Assigned: Harry Mur</span>
+          </div>
+          <button class="btn-done" onclick="rotateChore(this, 'Recycling Bin & Maintenance Run')">ROTATE ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPENSE LEDGER -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">TRANSACTION LOG & 3-WAY SETTLEMENT</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>TIMESTAMP</th>
+          <th>PAYER</th>
+          <th>CATEGORY</th>
+          <th>DESCRIPTION</th>
+          <th>AMOUNT</th>
+          <th>1/3 SPLIT PER PERSON</th>
+        </tr>
+      </thead>
+      <tbody id="ledger-body">
+        <tr>
+          <td>Initial Baseline</td>
+          <td>Harry Mur</td>
+          <td><span class="badge badge-rent">Rent</span></td>
+          <td>Master Household Rent</td>
+          <td>R 15,000.00</td>
+          <td>R 5,000.00</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const members = ['Harry Mur', 'Claire', 'Adine'];
+    const ledger = [
+      { timestamp: new Date().toLocaleDateString(), payer: 'Harry Mur', category: 'Rent', desc: 'Master Household Rent', amount: 15000 }
+    ];
+
+    function calculateBalances() {
+      const totals = { 'Harry Mur': 0, 'Claire': 0, 'Adine': 0 };
+      ledger.forEach(tx => {
+        const share = tx.amount / members.length;
+        members.forEach(m => {
+          if (m === tx.payer) {
+            totals[m] += (tx.amount - share);
+          } else {
+            totals[m] -= share;
+          }
+        });
+      });
+
+      members.forEach(m => {
+        const cleanId = m.replace(' ', '_');
+        const el = document.getElementById('bal-' + cleanId);
+        if (el) {
+          const val = totals[m];
+          el.className = 'member-balance ' + (val >= 0 ? 'positive' : 'negative');
+          el.innerText = (val >= 0 ? '+ R ' : '- R ') + Math.abs(val).toFixed(2);
+        }
+      });
+    }
+
+    function addExpense() {
+      const payer = document.getElementById('exp-payer').value;
+      const category = document.getElementById('exp-cat').value;
+      const amount = parseFloat(document.getElementById('exp-amount').value);
+      const desc = document.getElementById('exp-desc').value.trim() || 'General Household';
+
+      if (isNaN(amount) || amount <= 0) {
+        alert('Please enter a valid amount.');
+        return;
+      }
+
+      ledger.unshift({
+        timestamp: new Date().toLocaleDateString(),
+        payer,
+        category,
+        desc,
+        amount
+      });
+
+      renderLedger();
+      calculateBalances();
+
+      document.getElementById('exp-amount').value = '';
+      document.getElementById('exp-desc').value = '';
+    }
+
+    function renderLedger() {
+      const tbody = document.getElementById('ledger-body');
+      tbody.innerHTML = '';
+      ledger.forEach(tx => {
+        const tr = document.createElement('tr');
+        const badgeClass = tx.category === 'Rent' ? 'badge-rent' : tx.category === 'Electricity' ? 'badge-elec' : tx.category === 'Food' ? 'badge-food' : 'badge-other';
+        const split = (tx.amount / members.length).toFixed(2);
+        tr.innerHTML = `
+          <td>${tx.timestamp}</td>
+          <td><strong style="color: var(--gold-core)">${tx.payer}</strong></td>
+          <td><span class="badge ${badgeClass}">${tx.category}</span></td>
+          <td>${tx.desc}</td>
+          <td>R ${tx.amount.toFixed(2)}</td>
+          <td>R ${split}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function rotateChore(btn, choreName) {
+      const infoSpan = btn.parentElement.querySelector('.chore-assignee');
+      const current = infoSpan.innerText.replace('Assigned: ', '').trim();
+      const nextIdx = (members.indexOf(current) + 1) % members.length;
+      infoSpan.innerText = 'Assigned: ' + members[nextIdx];
+    }
+
+    calculateBalances();
+  </script>
+</body>
+</html>

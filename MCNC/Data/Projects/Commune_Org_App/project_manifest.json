@@ -1,0 +1,21 @@
+﻿{
+    "id":  "Commune_Org_App",
+    "name":  "COMMUNE ORG APP",
+    "total_leads":  0,
+    "prd_data":  {
+                     "dominantMetric":  "Absolute Precision",
+                     "stakeholder":  "Harry Mur, Claire, Adine",
+                     "forbiddenVectors":  "No public access to financial receipts; no manual ledger balance overrides.",
+                     "objective":  "Communal household ledger, 3-way expense splitting (Rent, Electricity, Food), and rotating chore engine for Harry Mur, Claire, and Adine.",
+                     "definitionOfDone":  "Functional shared ledger, duty rotation schedule, and automated reconciliation dashboard.",
+                     "industry":  "Communal Living \u0026 Property Org"
+                 },
+    "status":  "ACTIVE",
+    "directories":  [
+                        "Assets_And_Artwork",
+                        "Source_Artifacts",
+                        "Web_And_Social",
+                        "Leads",
+                        "Responses_And_Donations"
+                    ]
+}
