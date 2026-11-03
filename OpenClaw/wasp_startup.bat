@@ -78,3 +78,4 @@ echo [MASTER SEQUENCE COMPLETE - ALL DAEMONS SYNCHRONIZED]
 echo ===================================================
 timeout /t 2 >nul
 exit /b 0
+start "WARLORD MAIL GATEWAY (8085)" /min cmd /k "node C:\Warlord_Inc\Warlord_WASP\MCNC\services\mail_gateway.js"

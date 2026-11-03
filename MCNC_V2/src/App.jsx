@@ -34,6 +34,9 @@ export default function App() {
   const [wsStatus, setWsStatus] = useState('DISCONNECTED');
   const [heartbeatActive, setHeartbeatActive] = useState(false);
   
+  // INITIALIZED TO FALSE: NEVER AUTO-POPS ON REFRESH
+  const [showHeartbeatModal, setShowHeartbeatModal] = useState(false);
+  
   // Universal Busy State
   const [isSystemBusy, setIsSystemBusy] = useState(false);
   const [activeModel, setActiveModel] = useState('');
@@ -41,20 +44,11 @@ export default function App() {
   // Shared state for War Room payload transfers from Tab 01
   const [warRoomPayload, setWarRoomPayload] = useState(null);
 
-  // Trigger WASP Heartbeat GUI HUD via Port 8082 Express Pipeline
-  const triggerHeartbeat = async () => {
-    try {
-      setHeartbeatActive(true);
-      await fetch('http://localhost:8082/api/heartbeat', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trigger: 'COCKPIT_HEADER' })
-      });
-      setTimeout(() => setHeartbeatActive(false), 1200);
-    } catch (err) {
-      console.error('[HEARTBEAT] Trigger failed:', err);
-      setHeartbeatActive(false);
-    }
+  // Clean trigger: Toggles only the internal updated HUD modal directly
+  const triggerHeartbeat = () => {
+    setHeartbeatActive(true);
+    setShowHeartbeatModal(prev => !prev);
+    setTimeout(() => setHeartbeatActive(false), 800);
   };
 
   // Sync selected brain across tabs to guard the telemetry dot
@@ -321,6 +315,154 @@ export default function App() {
           <Tab14PipeLine ws={mcncSocket} />
         </div>
       </main>
+
+      {/* WARLORD WASP // HEARTBEAT MODAL (PORT 8085 INCLUDED) */}
+      {showHeartbeatModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(5, 7, 10, 0.88)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 100000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: "'JetBrains Mono', monospace"
+        }}>
+          <div style={{
+            width: '480px',
+            backgroundColor: '#0a0d14',
+            border: '1px solid #1c2638',
+            borderRadius: '6px',
+            padding: '24px',
+            boxShadow: '0 0 35px rgba(0, 0, 0, 0.95)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div>
+              <div style={{ color: '#DAA520', fontSize: '13px', fontWeight: 'bold', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                WARLORD WASP // HEARTBEAT
+              </div>
+              <div style={{ color: '#64748b', fontSize: '10px', letterSpacing: '1px', marginTop: '2px', textTransform: 'uppercase' }}>
+                BASE 1 INFRASTRUCTURE &amp; CONDUIT PULSE
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              
+              {/* OPENCLAW DAEMON BRIDGE */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
+                  <div>
+                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
+                      OPENCLAW DAEMON BRIDGE <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 8081</span>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '10px' }}>WebSocket Inter-Agent Conduit</div>
+                  </div>
+                </div>
+                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
+              </div>
+
+              {/* BACKEND PIPELINE SERVER */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
+                  <div>
+                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
+                      BACKEND PIPELINE SERVER <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 8082</span>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '10px' }}>Express Pipeline &amp; JSON Ledgers</div>
+                  </div>
+                </div>
+                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
+              </div>
+
+              {/* VITE COCKPIT FRONTEND */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
+                  <div>
+                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
+                      VITE COCKPIT FRONTEND <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 5173</span>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '10px' }}>React HMR Live Presentation</div>
+                  </div>
+                </div>
+                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
+              </div>
+
+              {/* PAPERCLIP INGESTION PIPE */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
+                  <div>
+                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
+                      PAPERCLIP INGESTION PIPE <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// LOCAL BUFFER</span>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '10px' }}>Raw Intake &amp; Decompile Staging</div>
+                  </div>
+                </div>
+                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
+              </div>
+
+              {/* HERMES 3 / OLLAMA RUNTIME */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
+                  <div>
+                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
+                      HERMES 3 / OLLAMA RUNTIME <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 11434</span>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '10px' }}>Local Neural Sovereign Engine</div>
+                  </div>
+                </div>
+                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
+              </div>
+
+              {/* WARLORD MAIL GATEWAY */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
+                  <div>
+                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
+                      WARLORD MAIL GATEWAY <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 8085</span>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '10px' }}>IMAP Triage &amp; Whitelist Protection</div>
+                  </div>
+                </div>
+                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
+              </div>
+
+            </div>
+
+            <button
+              onClick={() => setShowHeartbeatModal(false)}
+              style={{
+                width: '100%',
+                backgroundColor: '#DAA520',
+                border: 'none',
+                color: '#080a0c',
+                fontWeight: 'bold',
+                padding: '12px 0',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                letterSpacing: '1.5px',
+                fontSize: '11px',
+                textTransform: 'uppercase',
+                boxShadow: '0 2px 10px rgba(218, 165, 32, 0.3)'
+              }}
+            >
+              ACKNOWLEDGE
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

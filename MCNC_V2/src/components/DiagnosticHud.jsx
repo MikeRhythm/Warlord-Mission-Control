@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 
 export default function DiagnosticHud({ onClose }) {
   const [refreshing, setRefreshing] = useState(false);
@@ -6,13 +6,14 @@ export default function DiagnosticHud({ onClose }) {
   // High Finance / HUD Theme Palettes
   const C_GREEN = '#00ffc4';
   const C_RED = '#ff3344';
-  const C_CYAN = '#00d2ff'; // Integrated for Kaggle Standby
+  const C_CYAN = '#00d2ff';
 
   const [statuses, setStatuses] = useState({
     ollama: { label: 'Ollama Local Engine (11434):', status: '[ CHECKING... ]', color: '#888' },
     openclaw: { label: 'OpenClaw Gateway (18789):', status: '[ CHECKING... ]', color: '#888' },
     paperclip: { label: 'Paperclip Orchestrator (3100):', status: '[ CHECKING... ]', color: '#888' },
     dashboard: { label: 'MCNC Dashboard (5173):', status: '[ CHECKING... ]', color: '#888' },
+    mailGateway: { label: 'Warlord Mail Gateway (8085):', status: '[ CHECKING... ]', color: '#888' },
     bridge: { label: 'Warlord Bridge (8081):', status: '[ CHECKING... ]', color: '#888' },
     kaggle: { label: 'Kaggle GPU Compute (Dual T4):', status: '[ CHECKING... ]', color: '#888' },
     parisVpn: { label: 'Paris VPN (Contabo Uplink):', status: '[ + SECURE ]', color: C_GREEN }
@@ -22,7 +23,6 @@ export default function DiagnosticHud({ onClose }) {
     try {
       const ctrl = new AbortController();
       const id = setTimeout(() => ctrl.abort(), timeoutMs);
-      // Swapped to GET: Vite dev servers frequently reject HEAD requests causing false negatives
       await fetch(url, { method: 'GET', mode: 'no-cors', credentials: 'omit', signal: ctrl.signal });
       clearTimeout(id);
       return true;
@@ -34,19 +34,18 @@ export default function DiagnosticHud({ onClose }) {
   const runDiagnostics = useCallback(async () => {
     setRefreshing(true);
 
-    // 1. MCNC Dashboard Status
-    // If this React component is executing, the server hosting it is inherently alive.
     const isDashboardAlive = true;
 
-    // 2. Probes across local backend ports via pure IPv4
-    const [ollamaUp, openclawUp, paperclipUp, bridgeUp] = await Promise.all([
+    // Probes across local backend ports via pure IPv4
+    const [ollamaUp, openclawUp, paperclipUp, bridgeUp, mailGatewayUp] = await Promise.all([
       probePort('http://127.0.0.1:11434'),
       probePort('http://127.0.0.1:18789'),
       probePort('http://127.0.0.1:3100'),
-      probePort('http://127.0.0.1:8081')
+      probePort('http://127.0.0.1:8081'),
+      probePort('http://127.0.0.1:8085')
     ]);
 
-    // 3. Kaggle Compute: Standby by default unless an active tunnel URL exists and probes successfully
+    // Kaggle Compute: Standby by default unless an active tunnel URL exists
     const kaggleEndpoint = localStorage.getItem('WARLORD_KAGGLE_URL');
     const hasDispatchedJob = localStorage.getItem('WARLORD_KAGGLE_DISPATCHED') === 'true';
 
@@ -82,6 +81,11 @@ export default function DiagnosticHud({ onClose }) {
         label: 'MCNC Dashboard (5173):',
         status: isDashboardAlive ? '[ + ONLINE ]' : '[ - OFFLINE ]',
         color: isDashboardAlive ? C_GREEN : C_RED
+      },
+      mailGateway: {
+        label: 'Warlord Mail Gateway (8085):',
+        status: mailGatewayUp ? '[ + ONLINE ]' : '[ - OFFLINE ]',
+        color: mailGatewayUp ? C_GREEN : C_RED
       },
       bridge: {
         label: 'Warlord Bridge (8081):',
