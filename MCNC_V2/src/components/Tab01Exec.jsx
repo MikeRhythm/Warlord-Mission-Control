@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // ============================================================================
 // MCNC TAB 01 EXEC // PERSISTENT MULTI-CHAT & DOMAIN-AWARE COCKPIT
@@ -200,12 +200,16 @@ export default function Tab01Exec({ ws }) {
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('kaggle-status-changed', handleCustomKaggleEvent);
     window.addEventListener('MCNC_REVERT_CHAT', handleRevert);
+    window.addEventListener('mcnc-project-created', handleRevert);
+    window.addEventListener('mcnc-project-purged', handleRevert);
 
     return () => {
       isRecordingRef.current = false;
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('kaggle-status-changed', handleCustomKaggleEvent);
       window.removeEventListener('MCNC_REVERT_CHAT', handleRevert);
+      window.removeEventListener('mcnc-project-created', handleRevert);
+      window.removeEventListener('mcnc-project-purged', handleRevert);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (recognitionRef.current) recognitionRef.current.abort();
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -1163,7 +1167,7 @@ export default function Tab01Exec({ ws }) {
                       onClick={() => handleDeleteMessage(i)}
                       className="text-gray-600 hover:text-red-400 text-[9px] font-bold px-1 rounded hover:bg-[#1f242d] cursor-pointer"
                     >
-                      ×
+                      Ã—
                     </button>
                   )}
                 </div>

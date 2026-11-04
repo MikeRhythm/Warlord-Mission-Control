@@ -1,0 +1,29 @@
+{
+  "project_name": "Becks Soccer Academy",
+  "created_at": "2026-11-04T11:33:38.631Z",
+  "status": "ACTIVE",
+  "prd_data": {
+    "name": "Becks Soccer Academy",
+    "required_directories": [
+      "01_PRD",
+      "02_GOVERNANCE",
+      "03_DONATION_LEDGER",
+      "04_DISBURSEMENT_REPORTS",
+      "05_TRANSPARENCY_DOCS",
+      "Web_And_Social",
+      "Responses_And_Donations"
+    ],
+    "prdContent": "# PHILANTHROPIC TRUST PRD\n\n## 1. Transparency Ledger\n- Live donation tracking\n- Impact matrix (Human-centric)\n\n## 2. Disbursements\n- Zero-fee direct funding protocols\n- Direct nutrition & school fee routing"
+  },
+  "directories": [
+    "01_PRD",
+    "02_GOVERNANCE",
+    "03_DONATION_LEDGER",
+    "04_DISBURSEMENT_REPORTS",
+    "05_TRANSPARENCY_DOCS",
+    "Web_And_Social",
+    "Responses_And_Donations"
+  ],
+  "pillars": [],
+  "cronJobs": []
+}

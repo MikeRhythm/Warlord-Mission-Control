@@ -518,7 +518,74 @@ app.use((req, res) => {
   });
 });
 
-const server = app.listen(PORT, () => {
+const server = 
+// ==========================================
+// NUCLEAR PURGE & OBSIDIAN ARCHIVE CONTROLLERS
+// ==========================================
+app.post('/api/projects/purge', (req, res) => {
+    try {
+        const { projectName } = req.body;
+        if (!projectName) return res.status(400).json({ success: false, error: 'Project name required.' });
+
+        const safeSlug = projectName.toString().trim().replace(/[<>:"\/\\|?*]+/g, '');
+        const targets = [
+            path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects', safeSlug),
+            path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Chats', safeSlug),
+            path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Docs', safeSlug)
+        ];
+
+        targets.forEach(dir => {
+            if (fs.existsSync(dir)) {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+
+        const prdPattern = `01_PRD_${safeSlug.replace(/\s+/g, '_')}.md`;
+        const rootPrd = path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Docs', prdPattern);
+        if (fs.existsSync(rootPrd)) fs.unlinkSync(rootPrd);
+
+        console.log(`[NUCLEAR PURGE] Physically obliterated project: ${safeSlug}`);
+        res.json({ success: true, purged: safeSlug });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/projects/archive-obsidian', (req, res) => {
+    try {
+        const { projectName } = req.body;
+        if (!projectName) return res.status(400).json({ success: false, error: 'Project name required.' });
+
+        const safeSlug = projectName.toString().trim().replace(/[<>:"\/\\|?*]+/g, '');
+        const srcProj = path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects', safeSlug);
+        const srcChat = path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Chats', safeSlug);
+        
+        const archiveRoot = 'C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Archive';
+        const archiveProjDir = path.join(archiveRoot, 'Projects', safeSlug);
+        const archiveChatDir = path.join(archiveRoot, 'Chats', safeSlug);
+
+        [archiveProjDir, archiveChatDir].forEach(d => {
+            if (!fs.existsSync(path.dirname(d))) fs.mkdirSync(path.dirname(d), { recursive: true });
+        });
+
+        if (fs.existsSync(srcProj)) {
+            if (fs.existsSync(archiveProjDir)) fs.rmSync(archiveProjDir, { recursive: true, force: true });
+            fs.renameSync(srcProj, archiveProjDir);
+        }
+
+        if (fs.existsSync(srcChat)) {
+            if (fs.existsSync(archiveChatDir)) fs.rmSync(archiveChatDir, { recursive: true, force: true });
+            fs.renameSync(srcChat, archiveChatDir);
+        }
+
+        console.log(`[OBSIDIAN ARCHIVE] Project moved to Obsidian Archive: ${safeSlug}`);
+        res.json({ success: true, archived: safeSlug, archivePath: archiveProjDir });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.listen(PORT, () => {
   console.log('====================================================');
   console.log('[PILLAR 2] MCNC PIPELINE ENGINE ONLINE');
   console.log(`[PORT]             : ${PORT}`);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
   Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles, FileText, Server, AlertTriangle, Eye, Trash2, Code, ArrowRight, Lock, RotateCcw
 } from 'lucide-react';
@@ -1622,7 +1622,7 @@ ${activeDirective}`;
                     </div>
 
                     <div className="text-[11px] text-[#e5e7eb] whitespace-pre-wrap line-clamp-2 pl-1 border-l-2 border-[#ef4444]/50">
-                      {item.critique || '(No spoken critique � reference images attached)'}
+                      {item.critique || '(No spoken critique — reference images attached)'}
                     </div>
 
                     {/* ATTACHED DESIGN EXAMPLES THUMBNAILS TRAY */}
