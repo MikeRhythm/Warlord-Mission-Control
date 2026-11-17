@@ -69,11 +69,11 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
 
         const baseFlags = `--js-runtimes node --no-warnings --no-playlist`;
         const cookieFlag = fs.existsSync(cookieFile) ? `--cookies "${cookieFile}"` : '';
-        const androidCmd = `"${YTDLP_BIN}" ${baseFlags} ${cookieFlag} --extractor-args "youtube:player_client=android,ios,mweb" "ytsearch1:${searchTitle} clip" -f "best[height<=1080][ext=mp4]/best[ext=mp4]/best" -o "${sourceFile}"`;
-        const webCmd = `"${YTDLP_BIN}" ${baseFlags} ${cookieFlag} "ytsearch1:${searchTitle}" -f "best[ext=mp4]/best" -o "${sourceFile}"`;
+        const tvCmd = `"${YTDLP_BIN}" ${baseFlags} ${cookieFlag} --extractor-args "youtube:player_client=tv_embedded,ios,web_creator" "ytsearch1:${searchTitle} clip" -f "best[height<=1080][ext=mp4]/best[ext=mp4]/best" -o "${sourceFile}"`;
+        const webCmd = `"${YTDLP_BIN}" ${baseFlags} ${cookieFlag} --extractor-args "youtube:player_client=mweb,android" "ytsearch1:${searchTitle}" -f "best[ext=mp4]/best" -o "${sourceFile}"`;
 
         try {
-            await runCmd(androidCmd);
+            await runCmd(tvCmd);
         } catch (e1) {
             await runCmd(webCmd);
         }
@@ -178,3 +178,4 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
 }
 
 module.exports = { autoExecuteBounty };
+

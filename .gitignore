@@ -10,4 +10,7 @@ node_modules/
 
 # OS Junk Files
 .DS_Store
-Thumbs.db
+Thumbs.dbMCNC/Data/Chrome_Session/
+**/yt_cookies.txt
+*cookies*.txt
+*.mp4
