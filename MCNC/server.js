@@ -1713,26 +1713,77 @@ app.post('/api/campaigns/discover', async (req, res) => {
     }
 });
 
-app.post('/api/campaigns/bounty/auto-execute', async (req, res) => {
-    try {
-        const { bounty } = req.body;
-        if (!bounty || !bounty.id) {
-            return res.status(400).json({ success: false, error: 'Missing active bounty payload.' });
-        }
-        delete require.cache[require.resolve('./Auto_Bounty_Engine')];
-        const { autoExecuteBounty } = require('./Auto_Bounty_Engine');
-        const result = await autoExecuteBounty({
-            bounty,
-            broadcast,
-            dispatchToBrain,
-            bountyDataDir: BOUNTY_DATA_DIR,
-            ledgerFile: BOUNTY_LEDGER_FILE
-        });
-        return res.json({ success: true, ...result });
-    } catch (err) {
-        broadcast('TRACE', `[AUTO-EXECUTE ERROR] ${err.message}`);
-        return res.status(500).json({ success: false, error: err.message });
+
+
+let ACTIVE_BOUNTY_JOB = {
+    running: false,
+    bountyId: '',
+    status: 'IDLE',
+    startedAt: null,
+    logs: [
+        '[INIT] Universal Campaigns & Action Station mounted.',
+        '[BRIDGE] Connected to Port 8081 execution conduits.'
+    ],
+    lastResult: null
+};
+
+app.get('/api/campaigns/bounty/job-status', (req, res) => {
+    res.json(ACTIVE_BOUNTY_JOB);
+});
+
+app.post('/api/campaigns/bounty/clear-logs', (req, res) => {
+    ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] [TELEMETRY CLEARED] Ready for dispatch.`];
+    if (!ACTIVE_BOUNTY_JOB.running) ACTIVE_BOUNTY_JOB.status = 'IDLE';
+    res.json({ success: true, job: ACTIVE_BOUNTY_JOB });
+});
+
+app.post('/api/campaigns/bounty/auto-execute', (req, res) => {
+    const { bounty } = req.body;
+    if (!bounty || !bounty.id) {
+        return res.status(400).json({ success: false, error: 'Missing active bounty payload.' });
     }
+    if (ACTIVE_BOUNTY_JOB.running) {
+        return res.json({ success: true, alreadyRunning: true, job: ACTIVE_BOUNTY_JOB });
+    }
+
+    ACTIVE_BOUNTY_JOB = {
+        running: true,
+        bountyId: bounty.id,
+        status: 'RUNNING',
+        startedAt: Date.now(),
+        logs: [`[${new Date().toLocaleTimeString()}] [DISPATCH] Starting 1-Click Auto-Pilot for ${bounty.title}...`],
+        lastResult: null
+    };
+
+    const logStep = (msg) => {
+        const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        ACTIVE_BOUNTY_JOB.logs = [entry, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
+        broadcast('TRACE', msg);
+    };
+
+    // Run asynchronously in background so switching tabs in React never aborts the job
+    (async () => {
+        try {
+            delete require.cache[require.resolve('./Auto_Bounty_Engine')];
+            const { autoExecuteBounty } = require('./Auto_Bounty_Engine');
+            const result = await autoExecuteBounty({
+                bounty,
+                logStep,
+                bountyDataDir: BOUNTY_DATA_DIR,
+                ledgerFile: BOUNTY_LEDGER_FILE
+            });
+            ACTIVE_BOUNTY_JOB.running = false;
+            ACTIVE_BOUNTY_JOB.status = 'COMPLETE';
+            ACTIVE_BOUNTY_JOB.lastResult = result;
+            logStep(`[PIPELINE COMPLETE] 3 Shorts cut (${result.renderedClips.length}/3) | Post Status: ${result.postStatus}`);
+        } catch (err) {
+            ACTIVE_BOUNTY_JOB.running = false;
+            ACTIVE_BOUNTY_JOB.status = 'FAILED';
+            logStep(`[PIPELINE FAILED] ${err.message}`);
+        }
+    })();
+
+    return res.json({ success: true, started: true, job: ACTIVE_BOUNTY_JOB });
 });
 
 app.post('/api/bounties/update-stats', (req, res) => {
@@ -2053,6 +2104,7 @@ server.listen(PORT, () => {
     console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });
+
 
 
 
