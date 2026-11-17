@@ -14,3 +14,5 @@ Thumbs.dbMCNC/Data/Chrome_Session/
 **/yt_cookies.txt
 *cookies*.txt
 *.mp4
+**/Chrome_Session/
+*.exe

@@ -1,0 +1,18 @@
+# Node Dependencies
+node_modules/
+
+# Massive AI Model Weights
+.ollama/
+
+# Environment Variables & Logs
+.env
+*.log
+
+# OS Junk Files
+.DS_Store
+Thumbs.dbMCNC/Data/Chrome_Session/
+**/yt_cookies.txt
+*cookies*.txt
+*.mp4
+**/Chrome_Session/
+*.exe
