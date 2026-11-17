@@ -1,0 +1,65 @@
+95:56:16 Tab3 StartNav47 #renderer-script #link
+95:56:16 Tab3 FinishNav47
+95:56:16 Tab3 StartNav48 #renderer-script #auto_subframe
+95:56:16 Tab3 FinishNav48
+95:56:17 Tab3 StartNav49 #renderer-script #auto_subframe
+95:56:17 Tab3 FinishNav49
+95:56:17 Tab3 PageLoad
+95:56:17 Tab3 PageLoad
+95:56:17 Tab3 StartNav50 #renderer-script #auto_subframe
+95:56:17 Tab3 FinishNav50
+95:56:17 Tab3 PageLoad
+95:56:17 Tab3 PageLoad
+95:56:17 Tab3 StartNav51 #renderer-script #auto_subframe
+95:56:17 Tab3 FinishNav51
+95:56:17 Tab3 PageLoad
+95:56:17 Tab3 StartNav52 #renderer-script #auto_subframe
+95:56:17 Tab3 FinishNav52
+95:56:17 Tab3 PageLoad
+95:56:18 Browser1 Switch from Tab3 to Tab1 at 0
+95:56:18 SwitchTab_Click
+95:56:48 Widget Closed: TooltipAura
+95:56:48 NewTab_Button
+95:56:48 NewTab
+95:56:48 Tab4 StartNav53 #ntp #typed
+95:56:48 Browser1 Insert active Tab4 at 2
+95:56:48 Tab4 AddInfobar128
+95:56:48 Tab4 FinishNav53
+95:56:48 Tab4 StartNav54 #renderer-script #auto_subframe
+95:56:48 Tab4 FinishNav54
+95:56:48 Tab4 PageLoad
+95:56:49 UserEducation.MessageNotShown
+95:56:49 UserEducation.MessageNotShown.IPH_DesktopRealboxContextualSearchFeature
+95:56:49 UserEducation.MessageNotShown.BlockedByNewProfile
+95:56:49 Tab4 PageLoad #ntp
+95:56:49 UserEducation.MessageNotShown
+95:56:49 UserEducation.MessageNotShown.IPH_DesktopCustomizeChromeAutoOpen
+95:56:49 UserEducation.MessageNotShown.FeatureDisabled
+95:56:49 Tab4 StartNav55 #renderer-script #auto_subframe
+95:56:49 Tab4 FinishNav55
+95:56:49 Tab4 PageLoad
+95:56:51 Widget Closed: TabHoverCardBubbleView
+95:56:51 Widget Closed: TabHoverCardBubbleView
+95:57:17 Tab5 StartNav56 #link
+95:57:17 Widget Closed: StatusBubble
+95:57:17 Browser1 Insert active Tab5 at 3
+95:57:17 Tab5 AddInfobar128
+95:57:17 Tab5 FinishNav56
+95:57:17 Tab5 PageLoad
+95:57:24 Tab5 RemoveInfobar128
+95:57:24 Tab4 RemoveInfobar128
+95:57:24 Tab1 RemoveInfobar128
+95:57:45 Widget Closed: StatusBubble
+95:57:54 SettingsMenu_OnStartupClicked
+95:57:54 Tab5 StartNav57 #renderer-user #link
+95:57:54 Tab5 FinishNav57
+95:58:02 Widget Closed: StatusBubble
+95:58:02 Browser1 Switch from Tab5 to Tab4 at 2
+95:58:02 SwitchTab_Click
+95:58:02 UserEducation.MessageNotShown
+95:58:02 UserEducation.MessageNotShown.IPH_DesktopRealboxContextualSearchFeature
+95:58:02 UserEducation.MessageNotShown.BlockedByNewProfile
+95:58:09 Widget Closed: TooltipAura
+95:58:20 Browser1 Closed 4 tabs
+95:58:20 Widget Closed: BrowserWidget
+95:58:21 Shutdown

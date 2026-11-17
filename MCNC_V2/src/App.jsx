@@ -13,7 +13,7 @@ import Tab07Paperclip from './components/Tab07Paperclip';
 import Tab08Palettes from './components/Tab08Palettes';
 import Tab09Previews from './components/Tab09Previews';
 import Tab10Tokens from './components/Tab10Tokens';
-import Tab11Galaxy from './components/Tab11Galaxy';
+import Tab11Campaigns from './components/Tab11Campaigns';
 import Tab12Review from './components/Tab12Review';
 import Tab13Docs from './components/Tab13Docs';
 import Tab14PipeLine from './components/Tab14PipeLine';
@@ -24,7 +24,7 @@ initGlobalInterceptor();
 const TABS = [
   '01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD',
   '05 CALENDAR', '06 MEMORY', '07 PAPERCLIP', '08 PALETTES',
-  '09 PREVIEWS', '10 TOKENS', '11 GALAXY', '12 REVIEW', 
+  '09 PREVIEWS', '10 TOKENS', '11 CAMPAIGNS', '12 REVIEW', 
   '13 DOCS', '14 PIPE-LINE'
 ];
 
@@ -299,8 +299,8 @@ export default function App() {
           <Tab10Tokens ws={mcncSocket} />
         </div>
 
-        <div style={{ display: activeTab === '11 GALAXY' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
-          <Tab11Galaxy ws={mcncSocket} />
+        <div style={{ display: activeTab === '11 CAMPAIGNS' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
+          <Tab11Campaigns ws={mcncSocket} />
         </div>
 
         <div style={{ display: activeTab === '12 REVIEW' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>

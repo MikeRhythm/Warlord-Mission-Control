@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporting Dashboard - Chief Madothi Fund</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Lato:wght@400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { deepBrown: '#4B2E05', sunsetOrange: '#E57C2B', lightSand: '#F7F3E8' }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-lightSand text-deepBrown font-sans p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="font-montserrat text-3xl font-bold mb-8">Campaign Performance (Mailchimp + Firebase)</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-deepBrown/10">
+                <p class="text-sm font-bold uppercase tracking-widest opacity-60 mb-2">Total Leads</p>
+                <p class="text-4xl font-bold text-sunsetOrange">0</p>
+                <p class="text-xs mt-2">+0% since yesterday</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-deepBrown/10">
+                <p class="text-sm font-bold uppercase tracking-widest opacity-60 mb-2">Email Open Rate</p>
+                <p class="text-4xl font-bold">0%</p>
+                <p class="text-xs mt-2">Waiting for first campaign</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-deepBrown/10">
+                <p class="text-sm font-bold uppercase tracking-widest opacity-60 mb-2">Donation Conversion</p>
+                <p class="text-4xl font-bold text-deepBrown">0%</p>
+                <p class="text-xs mt-2">Source: BackABuddy</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-sm border border-deepBrown/10">
+            <h2 class="font-montserrat text-xl font-bold mb-6">Recent Activity</h2>
+            <div class="space-y-4">
+                <p class="text-sm italic opacity-50">System initialized. Waiting for donor data...</p>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

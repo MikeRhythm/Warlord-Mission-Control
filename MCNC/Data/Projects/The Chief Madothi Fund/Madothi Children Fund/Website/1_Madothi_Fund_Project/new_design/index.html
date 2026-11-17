@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Chief Madothi Children’s School and Feeding Fund</title>
+    <!-- Montserrat, Lato, and Merriweather Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Lato:wght@400;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        deepBrown: '#4B2E05',
+                        sunsetOrange: '#E57C2B',
+                        lightSand: '#F7F3E8',
+                        forestGreen: '#2E4B28',
+                        mossGreen: '#8A9A5B',
+                        clayRed: '#5d4037',
+                        darkEarth: '#3E2723',
+                        midnightNight: '#0A1128',
+                    },
+                    fontFamily: {
+                        sans: ['Lato', 'sans-serif'],
+                        montserrat: ['Montserrat', 'sans-serif'],
+                        serif: ['Merriweather', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Rich Earthy/Sunset Backgrounds */
+        .bg-sunset-rich {
+            background: radial-gradient(circle at 50% 30%, #f2a65a 0%, #b87b45 60%, #4B2E05 100%);
+        }
+
+        .bg-earth-green {
+            background: linear-gradient(135deg, #2E4B28 0%, #1a2e16 100%);
+            color: #F7F3E8;
+        }
+
+        .bg-texture-wicker {
+            background-image: url('assets/pattern-wicker.jpg');
+            background-size: 150px;
+            mix-blend-mode: multiply;
+            opacity: 0.1;
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .vine-sidebar {
+            background-image: url('assets/vine.png');
+            background-repeat: repeat-y;
+            background-size: contain;
+            width: 80px;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            z-index: 50;
+            pointer-events: none;
+            opacity: 1;
+            filter: brightness(0.7) contrast(1.3) saturate(4.5) drop-shadow(4px 0 12px rgba(10, 30, 0, 0.8));
+        }
+
+        /* Phased African Weave Band */
+        .african-weave-band {
+            height: 48px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+            background: linear-gradient(to right,
+                    #1e1408 0%, #3E2723 10%, #5d4037 20%, #E57C2B 35%,
+                    #3E2723 50%, #8A9A5B 65%, #2E4B28 80%, #1e1408 90%, #0A1128 100%);
+            border-top: 4px solid #F9F9F9;
+            border-bottom: 7px solid #0A1128;
+        }
+
+        .african-weave-band::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: url('assets/wicker-texture.jpg');
+            background-size: 180px;
+            opacity: 0.3;
+            mix-blend-mode: overlay;
+            z-index: 2;
+        }
+
+        .african-weave-band::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(to right, rgba(0, 0, 0, 0.4) 0%, transparent 15%, transparent 85%, rgba(0, 0, 0, 0.4) 100%),
+                radial-gradient(circle, rgba(0, 0, 0, 0.2) 0%, transparent 70%);
+            z-index: 3;
+        }
+
+        .premium-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(75, 46, 5, 0.1);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15);
+        }
+
+        .bg-sunset-glow {
+            background: radial-gradient(circle at 50% 50%, rgba(245, 222, 179, 0.15) 0%, rgba(255, 255, 255, 0) 70%);
+        }
+
+        .hero-title {
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Scroll Reveal */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+        });
+    </script>
+</head>
+
+<body class="font-sans antialiased overflow-x-hidden">
+    <!-- Vine Sidebars -->
+    <div class="vine-sidebar left-0 hidden lg:block"></div>
+    <div class="vine-sidebar right-0 hidden lg:block" style="transform: scaleX(-1);"></div>
+
+    <!-- Locked Header: Navigation + African Weave Band -->
+    <div class="sticky top-0 z-50">
+        <nav class="bg-darkEarth shadow-xl">
+            <div class="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <img src="assets/logo_final_v2.jpg" alt="Logo"
+                        class="h-[52px] w-[52px] rounded-full border border-white/20">
+                    <span class="font-montserrat text-lg md:text-xl font-bold tracking-tight text-white uppercase">Chief
+                        Madothi</span>
+                </div>
+                <div class="hidden md:flex gap-8 font-bold text-sm uppercase tracking-widest text-white/90">
+                    <a href="#story" class="hover:text-sunsetOrange transition">Our Story</a>
+                    <a href="#impact" class="hover:text-sunsetOrange transition">Impact</a>
+                    <a href="#donate"
+                        class="bg-sunsetOrange text-white px-6 py-2 rounded-full hover:bg-white hover:text-deepBrown transition shadow-lg">Donate</a>
+                </div>
+            </div>
+        </nav>
+        <div class="african-weave-band relative z-30"></div>
+    </div>
+
+    <!-- Master Logo Section (Centered on Earthy Background, with 2-Layered Static Pedestal) -->
+    <div class="bg-darkEarth py-24 flex justify-center items-center relative z-40">
+        <div class="bg-texture-wicker opacity-20"></div>
+        <!-- Outer Layer of Pedestal (Earthy Brown) -->
+        <div class="bg-deepBrown p-8 shadow-[0_20px_60px_rgba(0,0,0,0.8)] rounded-3xl border border-white/5 relative">
+            <!-- Inner Layer of Pedestal (Darker Shade, Static) -->
+            <div class="bg-darkEarth p-4 rounded-xl border border-white/5 shadow-inner">
+                <img src="assets/logo_final_v2.jpg" alt="Chief Madothi's Children's Fund"
+                    class="h-64 md:h-96 w-auto rounded-lg shadow-2xl">
+            </div>
+        </div>
+    </div>
+
+    <!-- Header / Hero Section -->
+    <header class="relative pt-24 pb-32 overflow-hidden bg-white text-darkEarth">
+        <div class="absolute inset-0 bg-sunset-glow"></div>
+        <div class="absolute inset-0 bg-texture-wicker opacity-10"></div>
+        <div class="absolute inset-0 bg-[url('assets/pattern-main.jpg')] opacity-[0.03] bg-repeat"></div>
+
+        <div class="max-w-4xl mx-auto px-6 relative z-10 text-center">
+            <div
+                class="inline-block px-6 py-2 mb-10 rounded-full bg-lightSand text-darkEarth/70 border border-darkEarth/10 uppercase tracking-[0.2em] text-[10px] font-bold">
+                A Sincere Grassroots Initiative
+            </div>
+
+            <h1 class="font-montserrat text-4xl md:text-7xl font-bold mb-10 leading-[1.1] hero-title text-darkEarth">
+                Please consider supporting our <span class="text-sunsetOrange">sincere effort</span> to feed and school
+                <span class="underline decoration-sunsetOrange/60 underline-offset-8">hungry minds</span> in Malawi.
+            </h1>
+
+            <div class="flex flex-col sm:flex-row gap-6 justify-center mb-16">
+                <a href="#donate"
+                    class="bg-sunsetOrange text-white hover:bg-darkEarth px-12 py-6 rounded-xl text-xl font-black shadow-2xl transition inline-flex items-center justify-center">
+                    Donate via BackABuddy
+                </a>
+                <a href="#story"
+                    class="bg-white/50 backdrop-blur-sm border-2 border-darkEarth/20 px-12 py-6 rounded-xl text-xl font-black text-darkEarth hover:bg-darkEarth hover:text-white shadow-xl transition inline-flex items-center justify-center">
+                    Our Story
+                </a>
+            </div>
+
+            <div class="max-w-2xl mx-auto py-10 border-y border-darkEarth/5">
+                <p class="text-2xl md:text-3xl text-darkEarth/80 leading-snug italic font-medium font-serif">
+                    "Together, we can change futures... one book, one meal, and one smile at a time."
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <div class="divider-common bg-[url('assets/pattern-main.jpg')] bg-[length:180px]"></div>
+
+    <!-- Story Section -->
+    <section id="story" class="py-24 bg-lightSand relative reveal">
+        <div class="bg-texture-wicker opacity-[0.05]"></div>
+        <div class="max-w-5xl mx-auto px-6 relative z-10">
+            <div class="grid md:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 class="font-montserrat text-3xl md:text-4xl font-bold mb-6 text-deepBrown">Our Village, Our
+                        Future</h2>
+                    <div class="space-y-6 text-lg leading-relaxed text-deepBrown/90 font-serif">
+                        <p>
+                            Nestled on the southern shores of Lake Malawi, Chembe Village is a place where community is
+                            everything. But for many families, the basics of education and nutrition remain a struggle.
+                        </p>
+                        <p>
+                            This fund is a quiet, local effort born right here in the heart of the village. Led by Mr.
+                            Robert R. Matewere and William, we focus on the simple things that change everything:
+                            keeping a child in school and ensuring they never have to study on an empty stomach.
+                        </p>
+                        <p class="italic font-bold text-forestGreen font-sans">
+                            "I am because we are." This is the spirit of Ubuntu that guides us.
+                        </p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-2 bg-white rounded-3xl shadow-xl">
+                        <img src="assets/Chief Madothi Pic.png" alt="Chief Madothi" class="rounded-2xl w-full">
+                    </div>
+                    <div class="p-2 bg-white rounded-3xl shadow-xl">
+                        <img src="assets/William Pic.png" alt="William" class="rounded-2xl w-full">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider-common bg-[url('assets/pattern-green.jpg')] bg-[length:180px]"></div>
+
+    <!-- Learners Section -->
+    <section class="py-24 bg-earth-green relative text-white reveal">
+        <div class="bg-texture-wicker opacity-20"></div>
+        <div class="max-w-6xl mx-auto px-6 text-center relative z-10">
+            <h2 class="font-montserrat text-3xl md:text-4xl font-bold mb-16">The Faces of Tomorrow</h2>
+            <div class="space-y-12">
+                <div
+                    class="p-4 rounded-3xl group overflow-hidden bg-white/5 backdrop-blur-sm border border-white/10 shadow-2xl">
+                    <img src="assets/row1.png" alt="Learners Group 1"
+                        class="w-full rounded-2xl group-hover:scale-[1.01] transition duration-500 shadow-lg">
+                    <p class="mt-6 text-lg italic text-white/80">Queen, Peggy, Gracious, and Eledi – eager to start
+                        their term.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider-common bg-[url('assets/pattern-main.jpg')] bg-[length:180px]"></div>
+
+    <section class="py-24 bg-white relative reveal">
+        <div class="max-w-6xl mx-auto px-6 text-center">
+            <div class="space-y-12">
+                <div class="premium-card p-4 rounded-3xl group overflow-hidden border-2 border-deepBrown/5">
+                    <img src="assets/row2.png" alt="Learners Group 2"
+                        class="w-full rounded-2xl group-hover:scale-[1.01] transition duration-500 shadow-md">
+                    <p class="mt-6 text-lg italic text-deepBrown/70">Building a foundation for a brighter tomorrow.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider-common bg-[url('assets/pattern-green.jpg')] bg-[length:180px]"></div>
+
+    <!-- Impact / Cost Breakdown -->
+    <section id="impact" class="py-24 bg-lightSand relative reveal">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="font-montserrat text-3xl md:text-4xl font-bold mb-4 text-deepBrown text-shadow-sm">A Proposal
+                    for Support</h2>
+                <p class="text-lg text-deepBrown/60 font-bold uppercase tracking-widest">A simple breakdown of annual
+                    support for one child.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="premium-card p-10 rounded-3xl border-t-8 border-sunsetOrange shadow-xl">
+                    <h3 class="font-montserrat text-2xl font-bold mb-6 text-sunsetOrange">Education: $226</h3>
+                    <ul class="space-y-5 font-bold text-deepBrown/80">
+                        <li class="flex justify-between items-center border-b border-deepBrown/5 pb-2"><span>School
+                                Fees</span> <span
+                                class="bg-sunsetOrange/10 px-3 py-1 rounded-lg text-sunsetOrange">$35</span></li>
+                        <li class="flex justify-between items-center border-b border-deepBrown/5 pb-2"><span>Uniforms &
+                                Supplies</span> <span
+                                class="bg-sunsetOrange/10 px-3 py-1 rounded-lg text-sunsetOrange">$21</span></li>
+                        <li class="flex justify-between items-center border-b border-deepBrown/5 pb-2"><span>Computer
+                                Lessons</span> <span
+                                class="bg-sunsetOrange/10 px-3 py-1 rounded-lg text-sunsetOrange">$17</span></li>
+                        <li class="flex justify-between items-center border-b border-deepBrown/5 pb-2"><span>Exam Fees &
+                                More</span> <span
+                                class="bg-sunsetOrange/10 px-3 py-1 rounded-lg text-sunsetOrange">$153</span></li>
+                    </ul>
+                </div>
+                <div class="premium-card p-10 rounded-3xl border-t-8 border-forestGreen shadow-xl">
+                    <h3 class="font-montserrat text-2xl font-bold mb-6 text-forestGreen">Nutrition: $251</h3>
+                    <ul class="space-y-5 font-bold text-deepBrown/80">
+                        <li class="flex justify-between items-center border-b border-deepBrown/5 pb-2"><span>Maize
+                                (Simba)</span> <span
+                                class="bg-forestGreen/10 px-3 py-1 rounded-lg text-forestGreen">$35</span></li>
+                        <li class="flex justify-between items-center border-b border-deepBrown/5 pb-2"><span>Protein &
+                                Veggies</span> <span
+                                class="bg-forestGreen/10 px-3 py-1 rounded-lg text-forestGreen">$87</span></li>
+                        <li class="flex justify-between items-center border-b border-deepBrown/5 pb-2"><span>Milk &
+                                Sugar</span> <span
+                                class="bg-forestGreen/10 px-3 py-1 rounded-lg text-forestGreen">$48</span></li>
+                        <li class="flex justify-between items-center border-b border-deepBrown/5 pb-2"><span>Harvest
+                                Seeds</span> <span
+                                class="bg-forestGreen/10 px-3 py-1 rounded-lg text-forestGreen">$81</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-16 bg-deepBrown rounded-[3rem] p-1 shadow-2xl overflow-hidden relative group">
+                <div
+                    class="divider-common bg-[url('assets/pattern-main.jpg')] bg-[length:180px] opacity-30 absolute top-0 left-0 w-full h-4">
+                </div>
+                <div class="bg-texture-wicker opacity-20 absolute inset-0"></div>
+                <div class="relative z-10 p-12 text-center text-white">
+                    <p class="text-sunsetOrange font-bold tracking-widest uppercase mb-6 drop-shadow-lg">The Complete
+                        Solution</p>
+                    <div
+                        class="font-montserrat text-6xl md:text-8xl font-bold mb-6 transition-transform duration-700 drop-shadow-2xl">
+                        $477</div>
+                    <p
+                        class="text-xl md:text-2xl opacity-90 mb-12 max-w-2xl mx-auto font-medium leading-relaxed font-serif">
+                        This covers both nutrition and education for one child for a full year. Every contribution is
+                        handled directly by local leaders we know and trust.
+                    </p>
+                    <a href="#donate"
+                        class="bg-sunsetOrange hover:bg-white hover:text-deepBrown px-16 py-6 rounded-full text-2xl font-bold shadow-2xl transition-all duration-300 inline-block">Help
+                        One Child Today</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider-common bg-[url('assets/pattern-green.jpg')] bg-[length:180px]"></div>
+
+    <!-- Footer / Updates -->
+    <footer class="bg-forestGreen text-white pt-24 pb-12 relative overflow-hidden">
+        <div class="bg-texture-wicker opacity-10"></div>
+        <div class="max-w-4xl mx-auto px-6 relative z-10">
+            <div class="flex flex-col md:flex-row gap-12 items-center mb-16">
+                <div class="relative group">
+                    <div
+                        class="absolute -inset-4 bg-sunsetOrange opacity-30 blur-2xl group-hover:opacity-50 transition duration-1000">
+                    </div>
+                    <img src="assets/innocent.jpg" alt="Innocent"
+                        class="relative w-48 h-48 md:w-56 md:h-56 rounded-full border-8 border-white/10 shadow-2xl object-cover">
+                </div>
+                <div class="text-center md:text-left">
+                    <h2 class="font-montserrat text-4xl font-bold mb-6 text-shadow-md">A Continued Connection</h2>
+                    <p class="text-xl opacity-90 mb-10 leading-relaxed font-medium font-serif italic">
+                        "Zikomo kwambiri. Your kindness allows us to look forward with hope."
+                        <span class="block mt-4 text-sm font-sans font-bold uppercase tracking-wider opacity-60">— Mr.
+                            Robert R. Matewere</span>
+                    </p>
+                    <form class="flex flex-col sm:flex-row gap-4">
+                        <input type="email" placeholder="Your email address"
+                            class="flex-1 px-8 py-5 rounded-full bg-white/10 border-2 border-white/20 text-white placeholder:text-white/60 focus:outline-none focus:border-sunsetOrange transition shadow-inner font-bold"
+                            required>
+                        <button type="submit"
+                            class="bg-sunsetOrange hover:bg-white hover:text-forestGreen px-10 py-5 rounded-full font-extrabold text-lg shadow-2xl transition duration-300">Get
+                            Updates</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="border-t border-white/10 pt-12 text-center text-sm opacity-70">
+                <p class="mb-4 text-lg">
+                    Initiative led by <span class="font-bold">Chief Madothi</span>, Mr. Robert R. Matewere, William
+                    Mkandawire, Mike and Adine.
+                </p>
+                <p class="italic font-bold text-sunsetOrange">
+                    Ubuntu in Action – One smile, one set of books and one meal at a time.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

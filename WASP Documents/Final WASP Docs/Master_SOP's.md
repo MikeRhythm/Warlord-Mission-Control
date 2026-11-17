@@ -1,4 +1,4 @@
-﻿# MISSION CONTROL NERVE CENTER (MCNC) // MASTER STANDARD OPERATING PROCEDURES (SOP)
+# MISSION CONTROL NERVE CENTER (MCNC) // MASTER STANDARD OPERATING PROCEDURES (SOP)
 DOCUMENT CLASSIFICATION: MCNC_SOP_MASTER.md
 AUTHORITY: MIKE // EXECUTIVE CONTROL
 TARGET RUNTIME: BASE 1 (AGENT COUNCILS, RUNNERS & PIPELINES)
@@ -237,3 +237,14 @@ TARGET RUNTIME: BASE 1 (AGENT COUNCILS, RUNNERS & PIPELINES)
 - **Pre-Flight Path Audit:**
   * Before any agent outputs a path or generates a creation script, it MUST verify the first character of every path segment.
   * If any segment starts with a lowercase character, execution immediately aborts and corrects the string to capital initial casing before delivery.
+---
+
+## SOP 20: STRICT SINGLE-SCRIPT DISPATCH PROTOCOL (ZERO MULTI-PART EXECUTION)
+- **Mandate:** Agents are strictly forbidden from outputting multiple separate script blocks, multi-part command sequences (e.g., "Part 1" and "Part 2"), or nested execution gates within a single prompt response.
+- **The Operational Failure Mode:** Splitting updates across sequential blocks forces manual scrolling, fragments the operator's execution loop, and causes skipped stages when scrolling directly to the prompt terminus.
+- **Strict Single-Pass Rule:** 
+  * Every terminal update, configuration patch, or code rewrite must be delivered as **EXACTLY ONE single, fully consolidated, copy-paste ready block**.
+  * If a workflow requires both backend and frontend mutations, the agent must either:
+    1. Consolidate all mutations into a single self-contained atomic script that performs all writes and backups in one pass; OR
+    2. Deliver Step 1 exclusively, halt execution, and wait for Mike's verification before emitting Step 2.
+- **Zero Ambiguity:** Never leave the operator guessing which part was executed or forcing a scroll-up hunt.

@@ -94,7 +94,55 @@ const broadcast = (type, msg) => {
     });
 };
 
+// ==========================================
+// BASE 1 AUTOMATED CRON DAEMONS (BOUNTIES)
+// ==========================================
+const cron = require('node-cron');
+
+const activeCronJobs = [
+    { id: 'cron-registry', name: 'LLM Model Registry Sync', frequency: 'Every 6 Hours' },
+    { id: 'cron-runway', name: 'Bounty Pool & Runway Audit', frequency: 'Daily @ 06:30 SAST' },
+    { id: 'cron-radar', name: 'New Bounty Scout (Tess Gate)', frequency: 'Daily @ 07:00 SAST' },
+    { id: 'cron-pacing', name: 'View Floor & Pacing Check', frequency: 'Every 12 Hours' }
+];
+
+// Daily 06:30 SAST - Bounty Pool & Runway Audit
+cron.schedule('30 6 * * *', () => {
+    logTelemetry('CRON_RUNWAY', 'Running daily Bounty Pool & Runway Audit...');
+    broadcast('TRACE', '[CRON DAEMON] 06:30 SAST: Executing Bounty Pool & Runway Audit.');
+    // TODO: Wire direct API check against Vyro/Whop remaining pools here
+}, { timezone: 'Africa/Johannesburg' });
+
+// Daily 07:00 SAST - New Bounty Scout (Tess Radar)
+cron.schedule('0 7 * * *', async () => {
+    logTelemetry('CRON_RADAR', 'Running daily New Bounty Scout (Tess)...');
+    broadcast('TRACE', '[CRON DAEMON] 07:00 SAST: Tess scanning for fresh targets & episodes.');
+    try {
+        const { scrapeBounties } = require('./Bounty_Scraper');
+        await scrapeBounties();
+        broadcast('TRACE', '[CRON DAEMON] Scout complete. Targets queued for War Room review.');
+    } catch (e) {
+        broadcast('TRACE', `[CRON ERROR] Radar failed: ${e.message}`);
+    }
+}, { timezone: 'Africa/Johannesburg' });
+
+// Every 12 Hours - View Floor & Pacing Check
+cron.schedule('0 */12 * * *', () => {
+    logTelemetry('CRON_PACING', 'Running View Floor & Pacing Check...');
+    broadcast('TRACE', '[CRON DAEMON] 12HR CYCLE: Verifying view floors and posting caps.');
+    // TODO: Wire YouTube Data API / Instagram Graph API view floor checks here
+});
+
+const sendScheduleUpdate = () => {
+    const payload = JSON.stringify({ type: 'SCHEDULE_UPDATE', alwaysRunning: activeCronJobs });
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) client.send(payload);
+    });
+};
+
 wss.on('connection', (ws) => {
+    // Inject schedule update immediately on new connection
+    ws.send(JSON.stringify({ type: 'SCHEDULE_UPDATE', alwaysRunning: activeCronJobs }));
     ws.send(JSON.stringify({ type: 'TELEMETRY_CONNECTED' }));
     ws.on('message', (message) => { 
         try { 
@@ -214,17 +262,12 @@ function extractYouTubeId(urlStr) {
     return match ? match[1] : null;
 }
 
-function cleanVttToText(rawVtt) {
-    return (rawVtt || '')
-        .replace(/WEBVTT[\s\S]*?\n\n/, '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}.*/g, '')
-        .replace(/align:start position:0%/g, '')
-        .split('\n')
-        .map(line => line.trim())
-        .filter((line, idx, arr) => line.length > 0 && line !== arr[idx - 1])
-        .join(' ')
-        .trim();
+function formatSecondsToTimestamp(sec) {
+    const totalSec = Math.max(0, Math.floor(Number(sec) || 0));
+    const hrs = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+    const mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+    const secs = String(totalSec % 60).padStart(2, '0');
+    return `${hrs}:${mins}:${secs}`;
 }
 
 // ==========================================
@@ -257,6 +300,37 @@ async function extractYouTubeTranscript(videoId) {
         if (Array.isArray(transcriptArr) && transcriptArr.length > 0) {
             const text = transcriptArr.map(t => t.text).join(' ').trim();
             if (text.length >= 50) return text;
+        }
+    } catch (err) {}
+
+    return '';
+}
+
+async function extractTimestampedTranscript(videoId) {
+    try {
+        const tacRes = await fetch('https://tactiq-apps-prod.tactiq.io/transcript', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            body: JSON.stringify({
+                videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+                langCode: 'en'
+            })
+        });
+        if (tacRes.ok) {
+            const tacData = await tacRes.json();
+            if (Array.isArray(tacData.captions) && tacData.captions.length > 0) {
+                return tacData.captions.map(c => `[${formatSecondsToTimestamp(c.start)}] ${c.text}`).join('\n');
+            }
+        }
+    } catch (err) {}
+
+    try {
+        const transcriptArr = await YoutubeTranscript.fetchTranscript(videoId);
+        if (Array.isArray(transcriptArr) && transcriptArr.length > 0) {
+            return transcriptArr.map(t => `[${formatSecondsToTimestamp(t.offset / 1000)}] ${t.text}`).join('\n');
         }
     } catch (err) {}
 
@@ -550,7 +624,6 @@ app.get('/api/openrouter/balance', async (req, res) => {
     if (!openRouterKey) return res.status(401).json({ error: 'Missing OpenRouter API Key in .env' });
 
     try {
-        // First try the credits endpoint for total balance and usage
         const creditsRes = await fetch('https://openrouter.ai/api/v1/credits', {
             headers: { 'Authorization': `Bearer ${openRouterKey}` }
         });
@@ -566,7 +639,6 @@ app.get('/api/openrouter/balance', async (req, res) => {
             totalUsage = Number(creditsData?.data?.total_usage || 0);
             calculatedBalance = Math.max(0, rawCredits - totalUsage);
         } else {
-            // Fallback to auth key endpoint if credits is restricted (standard key)
             const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
                 headers: { 'Authorization': `Bearer ${openRouterKey}` }
             });
@@ -637,61 +709,6 @@ async function resolveOpenRouterSlug(rawSlug) {
     }
 
     return rawSlug.trim();
-}
-
-// ==========================================
-// NATIVE TOOL EXECUTION ENGINE
-// ==========================================
-const MCNC_TOOLS = [
-    {
-        type: "function",
-        function: {
-            name: "mcnc_read_file",
-            description: "Read the exact physical contents of a file on Base 1 disk.",
-            parameters: {
-                type: "object",
-                properties: { targetPath: { type: "string", description: "Absolute path to the file" } },
-                required: ["targetPath"]
-            }
-        }
-    },
-    {
-        type: "function",
-        function: {
-            name: "mcnc_list_directory",
-            description: "List all files and folders in a physical directory on disk.",
-            parameters: {
-                type: "object",
-                properties: { dirPath: { type: "string", description: "Absolute path to the directory" } },
-                required: ["dirPath"]
-            }
-        }
-    }
-];
-
-async function executeNativeTool(toolCall) {
-    const name = toolCall.function.name;
-    let args = {};
-    try { args = JSON.parse(toolCall.function.arguments); } catch (e) {}
-
-    try {
-        if (name === 'mcnc_read_file') {
-            const target = path.isAbsolute(args.targetPath) ? args.targetPath : path.join(WORKSPACE_ROOT, args.targetPath);
-            if (!isPathSafe(target)) return JSON.stringify({ error: "Access denied." });
-            if (!fs.existsSync(target)) return JSON.stringify({ exists: false, error: "FILE DOES NOT EXIST ON DISK." });
-            return fs.readFileSync(target, 'utf8').slice(0, 12000);
-        }
-        if (name === 'mcnc_list_directory') {
-            const target = path.isAbsolute(args.dirPath) ? args.dirPath : path.join(WORKSPACE_ROOT, args.dirPath);
-            if (!isPathSafe(target)) return JSON.stringify({ error: "Access denied." });
-            if (!fs.existsSync(target)) return JSON.stringify({ exists: false, error: "DIRECTORY DOES NOT EXIST." });
-            const entries = fs.readdirSync(target, { withFileTypes: true });
-            return JSON.stringify(entries.map(e => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' })));
-        }
-        return JSON.stringify({ error: "Unknown tool." });
-    } catch (e) {
-        return JSON.stringify({ error: e.message });
-    }
 }
 
 // ==========================================
@@ -871,7 +888,6 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         validContent.includes('<!DOCTYPE html>')
     );
 
-    // 1. KAGGLE CLOUD COMPUTE
     if (requestedModel.startsWith('KAGGLE/') || rawBody.useKaggle) {
         const KAGGLE_MODEL_MAP = {
             'KAGGLE/QWEN-2.5-VL-7B': 'Qwen/Qwen2.5-VL-7B-Instruct',
@@ -902,7 +918,6 @@ async function dispatchToBrain(systemPrompt, rawBody) {
         } catch (err) {}
     }
 
-    // 2. PRIMARY TARGET DISPATCH BASED ON SELECTED MODEL
     let result = null;
 
     if (
@@ -925,9 +940,6 @@ async function dispatchToBrain(systemPrompt, rawBody) {
 
     if (result) return result;
 
-    // 3. UNIVERSAL SELF-HEALING FAILOVER CASCADE (NEVER BLOCKS WORKFLOW)
-    console.warn(`[FAILOVER] Primary engine (${requestedModel}) unavailable. Cascading across active clusters...`);
-    
     result = await tryOpenRouterDispatch(systemPrompt, validContent, 'anthropic/claude-3.7-sonnet', isCodeExecution);
     if (result) return result;
 
@@ -944,7 +956,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     if (result) return result;
 
     return {
-        reply: "[SYSTEM ALERT]: All configured cloud API keys (OpenRouter, Gemini, Groq, NIM) and local Ollama (Port 11434) were unreachable. Verify API keys in .env or start Ollama.",
+        reply: "[SYSTEM ALERT]: All configured cloud API keys (OpenRouter, Gemini, Groq, NIM) and local Ollama (Port 11434) were unreachable.",
         modelUsed: "ALL_OFFLINE"
     };
 }
@@ -1059,7 +1071,7 @@ app.post('/api/tools/stat', async (req, res) => {
 });
 
 // ==========================================
-// ELEVENLABS TTS PROXY ROUTE (TAB 14 PIPELINE)
+// ELEVENLABS TTS PROXY ROUTE
 // ==========================================
 app.post('/api/tts', async (req, res) => {
     try {
@@ -1530,7 +1542,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================================
-// DYNAMIC AGENT MEMORY ENGINE (16 DIRECTORS)
+// DYNAMIC AGENT MEMORY ENGINE
 // ==========================================
 function getAgentDynamicMemory(agentId) {
     const normalized = (agentId || 'charlie').toLowerCase();
@@ -1613,9 +1625,398 @@ app.post('/api/qualify/artifact', async (req, res) => {
 });
 
 // ==========================================
+// MULTI-BOUNTY LEDGER & SELF-HEALING AUTO-INIT
+// ==========================================
+const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+const BOUNTY_CAMPAIGNS_DIR = path.join(BOUNTY_ROOT, 'campaigns');
+const BOUNTY_LEDGER_FILE = path.join(BOUNTY_ROOT, 'bounties_ledger.json');
+
+function initBountyEngineOnBoot() {
+    try {
+        if (!fs.existsSync(BOUNTY_ROOT)) fs.mkdirSync(BOUNTY_ROOT, { recursive: true });
+        if (!fs.existsSync(BOUNTY_CAMPAIGNS_DIR)) fs.mkdirSync(BOUNTY_CAMPAIGNS_DIR, { recursive: true });
+
+        const joyClipsDir = path.join(BOUNTY_CAMPAIGNS_DIR, 'joy_101', 'clips');
+        const joyIntakeDir = path.join(BOUNTY_CAMPAIGNS_DIR, 'joy_101', 'intake');
+        if (!fs.existsSync(joyClipsDir)) fs.mkdirSync(joyClipsDir, { recursive: true });
+        if (!fs.existsSync(joyIntakeDir)) fs.mkdirSync(joyIntakeDir, { recursive: true });
+
+        // Auto-migrate any clips from legacy flat folder into joy_101
+        const legacyClipsDir = path.join(BOUNTY_ROOT, 'clips');
+        if (fs.existsSync(legacyClipsDir)) {
+            const files = fs.readdirSync(legacyClipsDir).filter(f => f.endsWith('.mp4'));
+            files.forEach(file => {
+                fs.renameSync(path.join(legacyClipsDir, file), path.join(joyClipsDir, file));
+            });
+            try { fs.rmSync(legacyClipsDir, { recursive: true, force: true }); } catch (e) {}
+        }
+
+        // Auto-seed bounties_ledger.json if missing or empty
+        if (!fs.existsSync(BOUNTY_LEDGER_FILE)) { fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify({active: []}, null, 2), 'utf8'); }
+        // Auto-seed stripped to maintain zero-state on empty ledger.
+    } catch (err) {
+        console.error('[BOUNTY AUTO-INIT ERROR]', err.message);
+    }
+}
+
+initBountyEngineOnBoot();
+
+function getBountyLedger() {
+    initBountyEngineOnBoot();
+    return JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+}
+
+function saveBountyLedger(data) {
+    fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+app.get('/api/bounties', (req, res) => {
+    res.json(getBountyLedger());
+});
+
+app.post('/api/bounties', (req, res) => {
+    const { id, title, cpmRate, viewFloor, mandatoryTags, hookHeadline, sourcePath } = req.body;
+    const ledger = getBountyLedger();
+    const safeId = (id || title || `bounty_${Date.now()}`).toString().trim().replace(/[<>:"\/\\|?*]+/g, '').replace(/\s+/g, '_').toLowerCase();
+    
+    if (ledger.active.find(b => b.id === safeId)) {
+        return res.status(400).json({ success: false, error: 'Bounty ID already exists.' });
+    }
+
+    const newBounty = {
+        id: safeId,
+        title: title || 'New Campaign',
+        cpmRate: cpmRate || '$2.00',
+        viewFloor: viewFloor || '5,000',
+        mandatoryTags: mandatoryTags || '#Shorts',
+        hookHeadline: hookHeadline || 'WATCH THIS',
+        sourcePath: sourcePath || '',
+        createdAt: new Date().toISOString()
+    };
+    
+    ledger.active.push(newBounty);
+    saveBountyLedger(ledger);
+    
+    const campDir = path.join(BOUNTY_CAMPAIGNS_DIR, safeId);
+    fs.mkdirSync(path.join(campDir, 'clips'), { recursive: true });
+    fs.mkdirSync(path.join(campDir, 'intake'), { recursive: true });
+
+    broadcast('TRACE', `[BOUNTY ENGINE] Scaffolded new physical funnel: ${safeId}`);
+    res.json({ success: true, bounty: newBounty });
+});
+
+app.delete('/api/bounties/:id', (req, res) => {
+    const { id } = req.params;
+    const ledger = getBountyLedger();
+    ledger.active = ledger.active.filter(b => b.id !== id);
+    saveBountyLedger(ledger);
+
+    const campDir = path.join(BOUNTY_CAMPAIGNS_DIR, id);
+    if (fs.existsSync(campDir)) {
+        fs.rmSync(campDir, { recursive: true, force: true });
+        broadcast('TRACE', `[BOUNTY ENGINE] OBLITERATED physical directory & clips: ${campDir}`);
+    }
+    res.json({ success: true, purgedId: id });
+});
+
+// ==========================================
+// 1-CLICK AUTONOMOUS PIPELINE (URL -> AI HOOKS -> YT-DLP -> BATCH FFMPEG)
+// ==========================================
+function buildFfmpegRenderCommand(sourceFile, hookText, startTimestamp, endTimestamp, outputPath) {
+    const escapedHook = (hookText || 'MUST WATCH')
+        .toUpperCase()
+        .replace(/['":\\]/g, '')
+        .slice(0, 48);
+
+    const winFont = 'C:/Windows/Fonts/arialbd.ttf';
+    const fontPart = fs.existsSync(winFont) ? `fontfile='C\\:/Windows/Fonts/arialbd.ttf':` : '';
+
+    return `ffmpeg -y -ss ${startTimestamp} -to ${endTimestamp} -i "${sourceFile}" -vf "crop=ih*(9/16):ih:(iw-ih*(9/16))/2:0,scale=1080:1920,drawtext=${fontPart}text='${escapedHook}':fontcolor=white:fontsize=46:box=1:boxcolor=black@0.7:boxborderw=18:x=(w-text_w)/2:y=240:enable='between(t,0,3.5)'" -c:v libx264 -crf 20 -preset fast -c:a aac -b:a 192k "${outputPath}"`;
+}
+
+app.post('/api/campaigns/bounty/find-hooks', async (req, res) => {
+    try {
+        const { youtubeUrl, bountyId, clipCount = 3 } = req.body;
+        if (!youtubeUrl || !bountyId) {
+            return res.status(400).json({ success: false, error: 'YouTube URL and active Bounty Funnel are required.' });
+        }
+
+        const videoId = extractYouTubeId(youtubeUrl);
+        if (!videoId) {
+            return res.status(400).json({ success: false, error: 'Invalid YouTube URL.' });
+        }
+
+        const campDir = path.join(BOUNTY_CAMPAIGNS_DIR, bountyId);
+        const intakeDir = path.join(campDir, 'intake');
+        const clipsDir = path.join(campDir, 'clips');
+        fs.mkdirSync(intakeDir, { recursive: true });
+        fs.mkdirSync(clipsDir, { recursive: true });
+
+        // STAGE 1: SCRAPE TIMESTAMPED TRANSCRIPT
+        broadcast('TRACE', `[AUTO-HARVEST 1/4] Extracting timestamped transcript for ${videoId}...`);
+        const timestampedTranscript = await extractTimestampedTranscript(videoId);
+        if (!timestampedTranscript || timestampedTranscript.length < 100) {
+            return res.status(422).json({ success: false, error: 'Could not extract English captions from this YouTube video.' });
+        }
+
+        // STAGE 2: AI VIRAL MOMENT SELECTION
+        broadcast('TRACE', `[AUTO-HARVEST 2/4] Tess & Skyla analyzing transcript for top ${clipCount} viral moments...`);
+        const aiPrompt = `You are a viral short-form video producer. Analyze the timestamped podcast transcript below and pick the ${clipCount} most emotionally gripping, controversial, funny, or high-retention moments.
+Each clip MUST be between 40 and 75 seconds long.
+Return ONLY a valid JSON array with NO markdown fences, NO explanation, and NO extra text.
+Exact JSON schema:
+[
+  {
+    "hookHeadline": "SHORT PUNCHY 4-6 WORD HOOK IN ALL CAPS",
+    "startTimestamp": "HH:MM:SS",
+    "endTimestamp": "HH:MM:SS"
+  }
+]
+
+TRANSCRIPT:
+${timestampedTranscript.slice(0, 45000)}`;
+
+        const { reply } = await dispatchToBrain('You output strict JSON arrays only.', { text: aiPrompt, model: 'gemini-2.5-flash' });
+        
+        let clipsPlan = [];
+        try {
+            const jsonMatch = reply.match(/\[[\s\S]*\]/);
+            clipsPlan = JSON.parse(jsonMatch ? jsonMatch[0] : reply);
+        } catch (parseErr) {
+            return res.status(500).json({ success: false, error: 'AI failed to return valid clip timestamps.' });
+        }
+
+        if (!Array.isArray(clipsPlan) || clipsPlan.length === 0) {
+            return res.status(500).json({ success: false, error: 'No viral segments identified.' });
+        }
+
+        // STAGE 3: DOWNLOAD SOURCE VIDEO VIA YT-DLP
+        const sourceFile = path.join(intakeDir, `${videoId}.mp4`);
+        if (!fs.existsSync(sourceFile)) {
+            broadcast('TRACE', `[AUTO-HARVEST 3/4] Downloading 1080p source video via yt-dlp...`);
+            const ytdlpCmd = `yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${sourceFile}" "${youtubeUrl}"`;
+            await execPromise(ytdlpCmd);
+        } else {
+            broadcast('TRACE', `[AUTO-HARVEST 3/4] Cached source video found on disk. Skipping download.`);
+        }
+
+        // STAGE 4: BATCH RENDER ALL CLIPS VIA FFMPEG
+        const renderedFiles = [];
+        for (let i = 0; i < clipsPlan.length; i++) {
+            const item = clipsPlan[i];
+            const outName = `${videoId}_clip_${i + 1}_${Date.now()}.mp4`;
+            const outPath = path.join(clipsDir, outName);
+
+            broadcast('TRACE', `[AUTO-HARVEST 4/4] Rendering Clip ${i + 1}/${clipsPlan.length}: "${item.hookHeadline}" (${item.startTimestamp} -> ${item.endTimestamp})`);
+            const ffmpegCmd = buildFfmpegRenderCommand(sourceFile, item.hookHeadline, item.startTimestamp, item.endTimestamp, outPath);
+            await execPromise(ffmpegCmd);
+            renderedFiles.push({ filename: outName, hook: item.hookHeadline, start: item.startTimestamp, end: item.endTimestamp });
+        }
+
+        broadcast('TRACE', `[AUTO-HARVEST COMPLETE] ${renderedFiles.length} finished Shorts committed to ${bountyId}/clips.`);
+        res.json({ success: true, rendered: renderedFiles });
+
+    } catch (err) {
+        console.error('[AUTO-HARVEST ERROR]', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// MANUAL SINGLE CUT EXECUTION ENGINE
+// ==========================================
+app.post('/api/campaigns/bounty/run', async (req, res) => {
+    try {
+        const { sourceFile, hookText, startTimestamp, endTimestamp, outputFilename, bountyId } = req.body;
+        
+        if (!sourceFile || !hookText || !startTimestamp || !endTimestamp || !bountyId) {
+            return res.status(400).json({ success: false, error: 'Missing required parameters.' });
+        }
+
+        const projectDir = path.join(BOUNTY_CAMPAIGNS_DIR, bountyId, 'clips');
+        if (!fs.existsSync(projectDir)) fs.mkdirSync(projectDir, { recursive: true });
+
+        const safeOutputName = outputFilename || `clip_${Date.now()}.mp4`;
+        const outputPath = path.join(projectDir, safeOutputName);
+        
+        broadcast('TRACE', `[CAMPAIGNS ENGINE] Rendering ${safeOutputName}...`);
+        const ffmpegCmd = buildFfmpegRenderCommand(sourceFile, hookText, startTimestamp, endTimestamp, outputPath);
+        await execPromise(ffmpegCmd);
+        
+        broadcast('TRACE', `[CAMPAIGNS ENGINE] Rendered ${safeOutputName}`);
+        res.json({ success: true, clipPath: outputPath, filename: safeOutputName });
+
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// CAMPAIGN ARTIFACT VAULT DISK-TRUTH SCANNER
+// ==========================================
+app.get('/api/campaigns/artifacts/:projectId', (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const { bountyId } = req.query;
+
+        let targetDir = '';
+        if (projectId === 'BOUNTY_ENGINE') {
+            if (!bountyId) return res.json({ success: true, count: 0, artifacts: [] });
+            targetDir = path.join(BOUNTY_CAMPAIGNS_DIR, bountyId, 'clips');
+        } else {
+            targetDir = path.join(PROJECTS_PATH, sanitizeProjectName(projectId), 'Web_And_Social');
+        }
+
+        if (!fs.existsSync(targetDir)) return res.json({ success: true, count: 0, artifacts: [] });
+
+        const files = fs.readdirSync(targetDir, { withFileTypes: true })
+            .filter(dirent => dirent.isFile() && !dirent.name.endsWith('.tmp'))
+            .map(dirent => {
+                const fullPath = path.join(targetDir, dirent.name);
+                const stats = fs.statSync(fullPath);
+                return {
+                    id: dirent.name, name: dirent.name, path: fullPath,
+                    sizeKb: (stats.size / 1024).toFixed(1), modified: stats.mtime.toLocaleTimeString(), status: 'DISK_READY'
+                };
+            })
+            .sort((a, b) => b.modified.localeCompare(a.modified));
+
+        res.json({ success: true, count: files.length, artifacts: files });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// UNIFIED NUCLEAR PURGE CONTROLLER
+// ==========================================
+app.post('/api/projects/purge', (req, res) => {
+    try {
+        const { projectName } = req.body;
+        if (!projectName) return res.status(400).json({ success: false, error: 'Project name required.' });
+
+        const safeSlug = projectName.toString().trim().replace(/[<>:"\/\\|?*]+/g, '');
+        const targetBases = [
+            'C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects',
+            'C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Chats',
+            'C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Docs',
+            'C:\\Warlord_Inc\\Warlord_WASP\\Data\\Projects',
+            'C:\\Warlord_Inc\\Warlord_WASP\\Data\\Chats'
+        ];
+
+        targetBases.forEach(base => {
+            if (fs.existsSync(base)) {
+                const subDirs = fs.readdirSync(base);
+                subDirs.forEach(dirName => {
+                    if (dirName.toLowerCase() === safeSlug.toLowerCase()) {
+                        const fullPath = path.join(base, dirName);
+                        fs.rmSync(fullPath, { recursive: true, force: true });
+                        console.log(`[PURGE] Obliterated: ${fullPath}`);
+                    }
+                });
+            }
+        });
+
+        broadcast('PROJECT_PURGED', { projectName: safeSlug });
+        broadcast('CHAT_CATALOG_MUTATED', {});
+
+        return res.json({ success: true, purged: safeSlug });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+
+// ==========================================
+// AUTONOMOUS BOUNTY DISCOVERY (TESS & JACK)
+// ==========================================
+const { scrapeBounties } = require('./Bounty_Scraper');
+
+app.post('/api/campaigns/discover', async (req, res) => {
+    try {
+        broadcast('TRACE', '[DISCOVERY] Dispatching Jack & Tess to scrape Whop & Vyro...');
+        const { scrapeBounties } = require('./Bounty_Scraper');
+        const rawText = await scrapeBounties();
+
+        const aiPrompt = `You are Tess, Quant Analyst for Echo Pod Media.
+Analyze the scraped marketplace text below from Whop Workforce and Vyro Campaigns.
+Extract all open video clipping / short-form content bounties that meet these rules:
+1. REJECT any campaign tagged "Locked for new posts", "Ended", or "Paused".
+2. Must be a video clipping, short-form content, or social posting task (ignore pure referral/ambassador sign-ups).
+3. Rate conversion: If Vyro lists "$2,000 PER 1M VIEWS", divide by 1,000 to get CPM ("$2.00"). Accept campaigns with CPM >= .50 OR fixed task payout >= $5.00 (format fixed payouts as e.g. "$7.00 Fixed").
+4. View Floor must be <= 5000 (use "1000" if unlisted or fixed payout).
+
+CRITICAL OUTPUT RULE: Return ONLY a raw valid JSON array with NO markdown, NO backticks, and NO commentary. Match this exact schema:
+[
+  {
+    "id": "bty_short_slug",
+    "title": "Platform // Campaign Name",
+    "cpmRate": "$2.00",
+    "viewFloor": "1000",
+    "mandatoryTags": "#shorts #viral",
+    "hookHeadline": "VIRAL HOOK HEADLINE"
+  }
+]
+If zero campaigns qualify, return [].
+
+SCRAPED DATA:
+${rawText}`;
+
+        const { reply } = await dispatchToBrain('Output a strict JSON array only. No markdown.', { text: aiPrompt, model: 'gemini-2.5-flash' });
+
+        const cleanedReply = reply.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const jsonMatch = cleanedReply.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            throw new Error(`Tess failed to parse valid targets. Raw reply: ${cleanedReply.substring(0, 120)}`);
+        }
+
+        const discovered = JSON.parse(jsonMatch[0]);
+        let addedCount = 0;
+
+        if (Array.isArray(discovered) && discovered.length > 0) {
+            let ledger = { active: [] };
+            if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
+                try {
+                    ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+                    if (!Array.isArray(ledger.active)) ledger.active = [];
+                } catch (e) { ledger = { active: [] }; }
+            }
+
+            for (const item of discovered) {
+                const cleanId = (item.id || `bty_${Date.now()}_${addedCount}`).toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                if (!ledger.active.some(b => b.id === cleanId || b.title === item.title)) {
+                    ledger.active.push({
+                        id: cleanId,
+                        title: item.title || cleanId,
+                        cpmRate: item.cpmRate || '$2.00',
+                        viewFloor: String(item.viewFloor || '1000'),
+                        mandatoryTags: item.mandatoryTags || '#shorts #viral',
+                        hookHeadline: item.hookHeadline || 'WATCH THIS NOW',
+                        sourcePath: '',
+                        createdAt: new Date().toISOString()
+                    });
+                    const campDir = path.join(BOUNTY_DATA_DIR, 'campaigns', cleanId);
+                    fs.mkdirSync(path.join(campDir, 'clips'), { recursive: true });
+                    fs.mkdirSync(path.join(campDir, 'intake'), { recursive: true });
+                    addedCount++;
+                }
+            }
+            fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
+        }
+
+        broadcast('TRACE', `[DISCOVERY COMPLETE] Tess approved ${addedCount} qualifying bounties.`);
+        res.json({ success: true, added: addedCount, bounties: discovered });
+    } catch (err) {
+        broadcast('TRACE', `[DISCOVERY ERROR] ${err.message}`);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
 // MASTER DAEMON INITIALIZATION
 // ==========================================
 const PORT = process.env.PORT || 8081;
+
 server.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
@@ -1629,6 +2030,14 @@ server.listen(PORT, () => {
     console.log(`[DYNAMIC MEMORY ENGINE]  : 16 DIRECTORS (vault/Memory/)`);
     console.log(`[QUALIFICATION ENGINE]   : /api/qualify/artifact ACTIVE`);
     console.log(`[STAGE 2 AUTO-WRITER]    : ACTIVE (8192 Max Tokens Enabled)`);
+    console.log(`[CAMPAIGN ENGINE]        : 1-CLICK AUTO-HARVEST + BATCH RENDER ACTIVE`);
     console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });
+
+
+
+
+
+
+

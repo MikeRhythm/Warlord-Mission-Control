@@ -1,0 +1,18 @@
+﻿{
+    "lead":  "Monty (Base 1 Core Controller)",
+    "directives":  [
+                       "Tier 1: Maintain research \u0026 HPLC verification integrity on peptides4africa.org artifact.",
+                       "Tier 2: Enforce sandbox checkout isolation on shop_sandbox.html before live domain cutover.",
+                       "Log all mock requisitions and verify SKU routing handshakes."
+                   ],
+    "project":  "PEPTIDES",
+    "blueprint":  "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\PEPTIDES\\BLUEPRINT.md",
+    "taskId":  "TASK-PEPTIDES-STAGE-SANDBOX",
+    "artifacts":  [
+                      "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\PEPTIDES\\Web_And_Social\\index.html",
+                      "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\PEPTIDES\\Web_And_Social\\shop_sandbox.html"
+                  ],
+    "status":  "IN_PROGRESS",
+    "priority":  "HIGH",
+    "lastUpdate":  "2026-11-05 00:33:45"
+}

@@ -1,0 +1,7 @@
+2026/11/13-12:35:47.294 78c Reusing MANIFEST C:\Warlord_Inc\Warlord_WASP\MCNC\Data\Chrome_Orion_Profile\Default\IndexedDB\https_app.vyro.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/11/13-12:35:47.295 78c Recovering log #3
+2026/11/13-12:35:47.295 78c Reusing old log C:\Warlord_Inc\Warlord_WASP\MCNC\Data\Chrome_Orion_Profile\Default\IndexedDB\https_app.vyro.com_0.indexeddb.leveldb/000003.log 
+2026/11/13-12:55:03.017 2b88 Level-0 table #5: started
+2026/11/13-12:55:03.026 2b88 Level-0 table #5: 2998 bytes OK
+2026/11/13-12:55:03.031 2b88 Delete type=0 #3
+2026/11/13-12:55:03.032 2b88 Manual compaction at level-0 from (begin) .. (end); will stop at (end)

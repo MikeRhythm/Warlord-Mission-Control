@@ -1,36 +1,23 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './Tab05Calendar.css';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-// DEFAULT BASE 1 DAEMON SCHEDULE CONFIGURATION
 const DEFAULT_ALWAYS_RUNNING = [
   { id: 'cron-registry', name: 'LLM Model Registry Sync', frequency: 'Every 6 Hours' },
-  { id: 'cron-radar', name: 'AI Intel Radar (Tess Gate)', frequency: 'Daily @ 06:00' }
+  { id: 'cron-runway', name: 'Bounty Pool & Runway Audit', frequency: 'Daily @ 06:30 SAST' },
+  { id: 'cron-radar', name: 'New Bounty Scout (Tess Gate)', frequency: 'Daily @ 07:00 SAST' },
+  { id: 'cron-pacing', name: 'View Floor & Pacing Check', frequency: 'Every 12 Hours' }
 ];
 
-const DEFAULT_SCHEDULED_TASKS = [
-  { id: 't1-reg', day: 'Mon', title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' },
-  { id: 't1-rad', day: 'Mon', title: 'AI Intel Radar (Tess)', time: '06:00 SAST', theme: 'blue' },
-
-  { id: 't2-reg', day: 'Tue', title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' },
-  { id: 't2-rad', day: 'Tue', title: 'AI Intel Radar (Tess)', time: '06:00 SAST', theme: 'blue' },
-
-  { id: 't3-reg', day: 'Wed', title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' },
-  { id: 't3-rad', day: 'Wed', title: 'AI Intel Radar (Tess)', time: '06:00 SAST', theme: 'blue' },
-
-  { id: 't4-reg', day: 'Thu', title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' },
-  { id: 't4-rad', day: 'Thu', title: 'AI Intel Radar (Tess)', time: '06:00 SAST', theme: 'blue' },
-
-  { id: 't5-reg', day: 'Fri', title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' },
-  { id: 't5-rad', day: 'Fri', title: 'AI Intel Radar (Tess)', time: '06:00 SAST', theme: 'blue' },
-
-  { id: 't6-reg', day: 'Sat', title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' },
-  { id: 't6-rad', day: 'Sat', title: 'AI Intel Radar (Tess)', time: '06:00 SAST', theme: 'blue' },
-
-  { id: 't7-reg', day: 'Sun', title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' },
-  { id: 't7-rad', day: 'Sun', title: 'AI Intel Radar (Tess)', time: '06:00 SAST', theme: 'blue' }
-];
+const DEFAULT_SCHEDULED_TASKS = [];
+// Generate schedule matrix dynamically
+WEEKDAYS.forEach(day => {
+    DEFAULT_SCHEDULED_TASKS.push({ id: `t-runway-${day}`, day, title: 'Bounty Pool & Runway Audit', time: '06:30 SAST', theme: 'purple' });
+    DEFAULT_SCHEDULED_TASKS.push({ id: `t-rad-${day}`, day, title: 'New Bounty Scout (Tess)', time: '07:00 SAST', theme: 'blue' });
+    DEFAULT_SCHEDULED_TASKS.push({ id: `t-reg-${day}`, day, title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' });
+    DEFAULT_SCHEDULED_TASKS.push({ id: `t-pace-${day}`, day, title: 'View Floor & Pacing Check', time: '12:00 / 00:00 SAST', theme: 'emerald' });
+});
 
 export default function Tab05Calendar({ ws }) {
   const [alwaysRunning, setAlwaysRunning] = useState(DEFAULT_ALWAYS_RUNNING);
@@ -67,7 +54,7 @@ export default function Tab05Calendar({ ws }) {
         </div>
 
         <div className="always-running-container">
-          <span className="always-running-label">⚡ Always Running</span>
+          <span className="always-running-label">⚡ Active Cron Daemons</span>
           {alwaysRunning.length === 0 ? (
             <span className="running-pill" style={{ fontStyle: 'italic', opacity: 0.5 }}>
               ZERO-STATE // NO ACTIVE POLLING
@@ -85,7 +72,7 @@ export default function Tab05Calendar({ ws }) {
       {/* 7-DAY CALENDAR GRID */}
       <div className="calendar-week-grid">
         {WEEKDAYS.map(day => {
-          const dayTasks = getTasksForDay(day);
+          const dayTasks = getTasksForDay(day).sort((a,b) => a.time.localeCompare(b.time));
 
           return (
             <div key={day} className="calendar-day-col">
@@ -95,7 +82,7 @@ export default function Tab05Calendar({ ws }) {
                 <div className="zero-state-col">EMPTY</div>
               ) : (
                 dayTasks.map(task => (
-                  <div key={task.id} className={`routine-card theme-${task.theme || 'slate'}`}>
+                  <div key={task.id} className={`routine-card theme-${task.theme || 'slate'}`} style={{ borderLeftColor: task.theme === 'emerald' ? '#10b981' : task.theme === 'purple' ? '#a855f7' : '' }}>
                     <span className="routine-title">{task.title}</span>
                     <span className="routine-time">{task.time}</span>
                   </div>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: 'Lato', Helvetica, Arial, sans-serif;
+            background-color: #F7F3E8;
+            color: #4B2E05;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #E57C2B;
+        }
+
+        .header {
+            background-color: #4B2E05;
+            padding: 40px;
+            text-align: center;
+            color: #F7F3E8;
+        }
+
+        .content {
+            padding: 40px;
+            line-height: 1.6;
+        }
+
+        .footer {
+            background-color: #F7F3E8;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            font-style: italic;
+            color: #E57C2B;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #E57C2B;
+            color: #FFFFFF;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        h1 {
+            font-family: 'Montserrat', sans-serif;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 style="margin:0;">Chief Madothi Fund</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{donor_name}},</p>
+            <p>I hope this message finds you well. I am reaching out to share a sincere effort we are making on the
+                shores of Lake Malawi.</p>
+            <p>In Chembe Village, we believe in <strong>Ubuntu</strong>—the idea that "I am because we are." Our fund is
+                dedicated to ensuring that vulnerable children receive the nutrition and education they need to
+                flourish—one smile, one set of books, and one meal at a time.</p>
+            <p>We are currently looking for partners who share our vision of community empowerment. Your support could
+                help a child like <strong>Innocent</strong> stay in school and dream of a brighter future.</p>
+            <div style="text-align: center;">
+                <a href="{{website_url}}#donate" class="btn">Learn More About Our Mission</a>
+            </div>
+            <p style="margin-top: 30px;">Zikomo Kwambiri (Thank you very much),</p>
+            <p><strong>Mr. Robert R. Matewere</strong><br>Administrator, Chief Madothi Fund</p>
+        </div>
+        <div class="footer">
+            Ubuntu in Action – One smile, one set of books and one meal at a time.
+        </div>
+    </div>
+</body>
+
+</html>

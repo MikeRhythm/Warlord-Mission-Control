@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feeding & Sustainability - Chief Madothi Fund</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Lato:wght@400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        deepBrown: '#4B2E05',
+                        sunsetOrange: '#E57C2B',
+                        lightSand: '#F7F3E8',
+                        darkEarth: '#3E2723',
+                        forestGreen: '#2E4B28',
+                    },
+                    fontFamily: {
+                        sans: ['Lato', 'sans-serif'],
+                        montserrat: ['Montserrat', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .bg-sunset-glow {
+            background: radial-gradient(circle at 50% 50%, rgba(245, 222, 179, 0.15) 0%, rgba(255, 255, 255, 0) 70%);
+        }
+
+        .bg-texture-wicker {
+            background-image: url('../assets/pattern-wicker.jpg');
+            background-size: 150px;
+            mix-blend-mode: multiply;
+            opacity: 0.1;
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .african-weave-band {
+            height: 24px;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(to right, #1e1408 0%, #3E2723 10%, #5d4037 20%, #E57C2B 35%, #3E2723 50%, #8A9A5B 65%, #2E4B28 80%, #1e1408 90%, #0A1128 100%);
+            border-top: 2px solid #F9F9F9;
+            border-bottom: 4px solid #0A1128;
+        }
+    </style>
+</head>
+
+<div class="african-weave-band"></div>
+
+<div class="relative overflow-hidden min-h-screen">
+    <div class="absolute inset-0 bg-sunset-glow"></div>
+    <div class="absolute inset-0 bg-texture-wicker"></div>
+
+    <div class="max-w-4xl mx-auto px-6 py-16 relative z-10">
+        <a href="../index.html"
+            class="text-sunsetOrange font-bold mb-8 inline-block hover:underline flex items-center gap-2">
+            <span>←</span> Back to our Story
+        </a>
+
+        <h1 class="font-montserrat text-4xl md:text-6xl font-bold mb-8 text-darkEarth">Nourishing Future Leaders</h1>
+
+        <div class="prose prose-lg text-deepBrown/90 mb-12">
+            <p class="text-xl leading-relaxed">
+                A child cannot dream of the future if they are worried about their next meal. In Chembe Village, we
+                operate a heartfelt, community-led feeding program for 12 children who represent the village's brightest
+                hope.
+            </p>
+            <p class="text-xl leading-relaxed">
+                But our vision goes beyond immediate relief. We are working toward long-term sustainability by providing
+                families with **maize seeds and fertilizer**. This isn't just about feeding a child today; it's about
+                helping the whole community grow their way out of hunger.
+            </p>
+        </div>
+
+        <div class="bg-white/80 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-darkEarth/10">
+            <h2 class="font-montserrat text-2xl font-bold mb-6 text-darkEarth">Impact Through Sustainability</h2>
+            <ul class="space-y-4 font-medium">
+                <li class="flex justify-between border-b border-darkEarth/5 pb-3 italic"><span>Daily Nutritious Sima
+                        (Maize) & Protein</span> <span class="font-bold text-forestGreen">$122</span></li>
+                <li class="flex justify-between border-b border-darkEarth/5 pb-3 italic"><span>Fresh Milk & Essential
+                        Growth Nutrition</span> <span class="font-bold text-forestGreen">$48</span></li>
+                <li class="flex justify-between border-b border-darkEarth/5 pb-3 italic"><span>Sustainable Harvest
+                        Support (Seeds & Soil)</span> <span class="font-bold text-forestGreen">$81</span></li>
+                <li class="flex justify-between pt-4 font-black text-2xl text-darkEarth"><span>Total Annual
+                        Support</span> <span class="text-forestGreen">$251</span></li>
+            </ul>
+        </div>
+
+        <div class="mt-16 text-center">
+            <a href="../index.html#donate"
+                class="inline-block bg-forestGreen text-white px-12 py-6 rounded-2xl text-2xl font-black shadow-xl hover:bg-darkEarth transition">
+                Invest in Sustainability
+            </a>
+            <p class="mt-6 text-sm opacity-60 font-medium italic">Your contribution empowers families to become
+                self-sufficient.</p>
+        </div>
+    </div>
+</div>
+</body>
+
+</html>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { 
   CheckCircle2, Clock, PlayCircle, AlertCircle, ArrowRight, 
   Layers, Filter, Sparkles, Terminal, ShieldAlert, Check, X,
@@ -69,6 +69,32 @@ export default function Tab04TaskBoard({ ws }) {
   useEffect(() => {
     localStorage.setItem('MCNC_HERMES_KANBAN_TASKS', JSON.stringify(taskList));
   }, [taskList]);
+
+  // Listen for Automated Bounty Discovery broadcasts from Tab 11 (Cross-Tab Sync)
+  useEffect(() => {
+    const handleBountyDiscovered = (event) => {
+      const bounties = event.detail.bounties || [];
+      if (bounties.length > 0) {
+        setTaskList(prev => {
+          const newTasks = bounties.map((b, idx) => ({
+            id: `BTY-${Date.now()}-${idx}`,
+            project: 'BOUNTY ENGINE',
+            title: `Process Viral Campaign: ${b.title || b.id}`,
+            plan: `Autonomously discovered by Tess (Scraper). Ready for final hook alignment and FFmpeg rendering.`,
+            assignedDirector: 'SKYLA // MEDIA',
+            stage: 'AGENT BUILD',
+            status: 'BUILDING',
+            milestones: ['Extract transcript hooks', 'Download source MP4', 'Dispatch FFmpeg pipeline'],
+            timestamp: new Date().toISOString()
+          }));
+          return [...newTasks, ...prev];
+        });
+      }
+    };
+
+    window.addEventListener('mcnc-bounties-discovered', handleBountyDiscovered);
+    return () => window.removeEventListener('mcnc-bounties-discovered', handleBountyDiscovered);
+  }, []);
 
   // Fetch real project manifests from Port 8082 or fallback to local manifest cache
   const fetchProjectsFromPipeline = useCallback(async () => {
@@ -275,6 +301,7 @@ export default function Tab04TaskBoard({ ws }) {
             <option value="CHARLIE // DEV LEAD">CHARLIE // DEV LEAD</option>
             <option value="TESS // QUANT">TESS // QUANT</option>
             <option value="JACK // BACKEND">JACK // BACKEND</option>
+            <option value="SKYLA // MEDIA">SKYLA // MEDIA</option>
             <option value="ROXY // ARTWORK">ROXY // ARTWORK</option>
           </select>
           <button
@@ -438,6 +465,10 @@ export default function Tab04TaskBoard({ ws }) {
                 <span className="text-[#10b981]">STANDBY</span>
               </div>
               <div className="flex justify-between items-center text-[#ffb800]">
+                <span>SKYLA // MEDIA</span>
+                <span className="text-[#10b981]">STANDBY</span>
+              </div>
+              <div className="flex justify-between items-center text-[#ffb800]">
                 <span>JACK // BACKEND</span>
                 <span className="text-[#38bdf8] animate-pulse">ACTIVE 8082</span>
               </div>
@@ -527,6 +558,7 @@ function TaskCard({ task, onAdvance, isShipped }) {
     if (director.includes('CHARLIE')) return 'text-[#38bdf8] border-[#38bdf8]/40 bg-[#38bdf8]/10';
     if (director.includes('TESS')) return 'text-[#ffb800] border-[#ffb800]/40 bg-[#ffb800]/10';
     if (director.includes('JACK')) return 'text-[#a855f7] border-[#a855f7]/40 bg-[#a855f7]/10';
+    if (director.includes('SKYLA')) return 'text-[#fbbf24] border-[#fbbf24]/40 bg-[#fbbf24]/10';
     if (director.includes('ROXY')) return 'text-[#f43f5e] border-[#f43f5e]/40 bg-[#f43f5e]/10';
     return 'text-[#10b981] border-[#10b981]/40 bg-[#10b981]/10';
   };

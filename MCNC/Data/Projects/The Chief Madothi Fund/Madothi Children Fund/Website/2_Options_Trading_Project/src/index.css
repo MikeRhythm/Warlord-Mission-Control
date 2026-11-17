@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+:root {
+  --perspex-bg: #030712;
+  --perspex-glass: rgba(17, 24, 39, 0.7);
+  --perspex-border: rgba(255, 255, 255, 0.1);
+  --perspex-reflection: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
+  --call-glow: rgba(16, 185, 129, 0.5);
+  --put-glow: rgba(239, 68, 68, 0.5);
+}
+
+body {
+  background-color: var(--perspex-bg);
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(30, 58, 138, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(13, 148, 136, 0.1) 0%, transparent 50%);
+  min-height: 100-vh;
+  color: #f3f4f6;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism Panel (The Perspex Look) */
+.perspex-glass {
+  background: var(--perspex-glass);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid var(--perspex-border);
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+}
+
+/* Simulated High-Gloss Reflection */
+.perspex-glass::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: var(--perspex-reflection);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* CALL Button Plasma Glow */
+.btn-call {
+  position: relative;
+  background: rgba(16, 185, 129, 0.1);
+  border: 2px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-call.glow {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  box-shadow: 0 0 30px var(--call-glow), inset 0 0 10px var(--call-glow);
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* PUT Button Plasma Glow */
+.btn-put {
+  position: relative;
+  background: rgba(239, 68, 68, 0.1);
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-put.glow {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  box-shadow: 0 0 30px var(--put-glow), inset 0 0 10px var(--put-glow);
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* Animations */
+@keyframes pulse-glow {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+}
+
+.animate-plasma {
+  animation: pulse-glow 3s infinite ease-in-out;
+}

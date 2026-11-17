@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-11-04T14:18:02.792Z",
+  "project": "PEPTIDES",
+  "artifactPath": "PEPTIDES/Web_And_Social/index.html",
+  "critique": "[GRAPHICS STANDARD: ANTI-GRAVITY & KINETIC DEPTH]\n- Physics-based mouse-tilt 3D perspective on all primary cards (transform: perspective(1000px) rotateX/rotateY on hover).\n- Floating zero-g visual elements using subtle CSS keyframe levitation animations (@keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(1deg); } }).\n- Embed an interactive background canvas: subtle glowing particle mesh constellation or ambient animated noise shader that tracks mouse movement.\n- Backdrop-filter: blur(16px) with semi-transparent frosted glass layers, luminous subtle border sweeps (1px solid rgba(255,255,255,0.12)), and radial glow spotlights behind key metrics.\n- Multi-layered visual depth: Background canvas -> middle blurred glass cards -> foreground floating badges with crisp drop-shadows.",
+  "dispatchedFrom": "Tab09_Previews"
+}

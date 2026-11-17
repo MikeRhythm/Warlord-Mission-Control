@@ -1,0 +1,10 @@
+{
+  "hosting": {
+    "public": "c:\\Users\\Mike\\OneDrive\\Documents\\Madothi Children Fund\\Website\\new_design",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}
