@@ -1670,6 +1670,79 @@ function saveBountyLedger(data) {
     fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
+// ==========================================
+// PRIORITY BOUNTY DISCOVERY & TELEMETRY STATS OVERRIDE
+const BOUNTY_DATA_DIR = path.join(__dirname, 'Data', 'Projects', 'BOUNTY_ENGINE');
+// ==========================================
+app.post('/api/campaigns/discover', async (req, res) => {
+    try {
+        broadcast('TRACE', '[DISCOVERY] Dispatching Jack & Tess to sync open Vyro CPM campaigns...');
+        delete require.cache[require.resolve('./Bounty_Scraper')];
+        const { scrapeBounties } = require('./Bounty_Scraper');
+        const discovered = await scrapeBounties();
+
+        let ledger = { active: [] };
+        if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
+            try {
+                ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+                if (!Array.isArray(ledger.active)) ledger.active = [];
+            } catch (e) { ledger = { active: [] }; }
+        }
+
+        let addedCount = 0;
+        for (const item of discovered) {
+            if (!ledger.active.some(b => b.id === item.id)) {
+                ledger.active.push({
+                    ...item,
+                    sourcePath: '',
+                    createdAt: new Date().toISOString()
+                });
+                const campDir = path.join(BOUNTY_DATA_DIR, 'campaigns', item.id);
+                fs.mkdirSync(path.join(campDir, 'clips'), { recursive: true });
+                fs.mkdirSync(path.join(campDir, 'intake'), { recursive: true });
+                addedCount++;
+            }
+        }
+        fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
+        broadcast('TRACE', `[DISCOVERY COMPLETE] Tess synced ${ledger.active.length} active CPM bounties (${addedCount} newly added).`);
+        return res.json({ success: true, added: ledger.active.length, bounties: ledger.active });
+    } catch (err) {
+        broadcast('TRACE', `[DISCOVERY ERROR] ${err.message}`);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/bounties/update-stats', (req, res) => {
+    try {
+        const { id, totalClicks, dailyPostsUsed, poolStatus, runwayDays, cpmRate, viewFloor, mandatoryTags, hookHeadline, sourcePath } = req.body;
+        let ledger = { active: [] };
+        if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
+            ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+        }
+        ledger.active = (ledger.active || []).map(b => {
+            if (b.id === id) {
+                return {
+                    ...b,
+                    totalClicks: totalClicks !== undefined ? Number(totalClicks) : (b.totalClicks || 0),
+                    dailyPostsUsed: dailyPostsUsed !== undefined ? Number(dailyPostsUsed) : (b.dailyPostsUsed || 0),
+                    poolStatus: poolStatus !== undefined ? poolStatus : (b.poolStatus || 'ACTIVE // Open'),
+                    runwayDays: runwayDays !== undefined ? Number(runwayDays) : (b.runwayDays || 10),
+                    cpmRate: cpmRate !== undefined ? cpmRate : b.cpmRate,
+                    viewFloor: viewFloor !== undefined ? viewFloor : b.viewFloor,
+                    mandatoryTags: mandatoryTags !== undefined ? mandatoryTags : b.mandatoryTags,
+                    hookHeadline: hookHeadline !== undefined ? hookHeadline : b.hookHeadline,
+                    sourcePath: sourcePath !== undefined ? sourcePath : b.sourcePath
+                };
+            }
+            return b;
+        });
+        fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
+        return res.json({ success: true, active: ledger.active });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.get('/api/bounties', (req, res) => {
     res.json(getBountyLedger());
 });
@@ -1932,85 +2005,7 @@ app.post('/api/projects/purge', (req, res) => {
 // ==========================================
 const { scrapeBounties } = require('./Bounty_Scraper');
 
-app.post('/api/campaigns/discover', async (req, res) => {
-    try {
-        broadcast('TRACE', '[DISCOVERY] Dispatching Jack & Tess to scrape Whop & Vyro...');
-        const { scrapeBounties } = require('./Bounty_Scraper');
-        const rawText = await scrapeBounties();
 
-        const aiPrompt = `You are Tess, Quant Analyst for Echo Pod Media.
-Analyze the scraped marketplace text below from Whop Workforce and Vyro Campaigns.
-Extract all open video clipping / short-form content bounties that meet these rules:
-1. REJECT any campaign tagged "Locked for new posts", "Ended", or "Paused".
-2. Must be a video clipping, short-form content, or social posting task (ignore pure referral/ambassador sign-ups).
-3. Rate conversion: If Vyro lists "$2,000 PER 1M VIEWS", divide by 1,000 to get CPM ("$2.00"). Accept campaigns with CPM >= .50 OR fixed task payout >= $5.00 (format fixed payouts as e.g. "$7.00 Fixed").
-4. View Floor must be <= 5000 (use "1000" if unlisted or fixed payout).
-
-CRITICAL OUTPUT RULE: Return ONLY a raw valid JSON array with NO markdown, NO backticks, and NO commentary. Match this exact schema:
-[
-  {
-    "id": "bty_short_slug",
-    "title": "Platform // Campaign Name",
-    "cpmRate": "$2.00",
-    "viewFloor": "1000",
-    "mandatoryTags": "#shorts #viral",
-    "hookHeadline": "VIRAL HOOK HEADLINE"
-  }
-]
-If zero campaigns qualify, return [].
-
-SCRAPED DATA:
-${rawText}`;
-
-        const { reply } = await dispatchToBrain('Output a strict JSON array only. No markdown.', { text: aiPrompt, model: 'gemini-2.5-flash' });
-
-        const cleanedReply = reply.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const jsonMatch = cleanedReply.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) {
-            throw new Error(`Tess failed to parse valid targets. Raw reply: ${cleanedReply.substring(0, 120)}`);
-        }
-
-        const discovered = JSON.parse(jsonMatch[0]);
-        let addedCount = 0;
-
-        if (Array.isArray(discovered) && discovered.length > 0) {
-            let ledger = { active: [] };
-            if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
-                try {
-                    ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
-                    if (!Array.isArray(ledger.active)) ledger.active = [];
-                } catch (e) { ledger = { active: [] }; }
-            }
-
-            for (const item of discovered) {
-                const cleanId = (item.id || `bty_${Date.now()}_${addedCount}`).toLowerCase().replace(/[^a-z0-9_]/g, '_');
-                if (!ledger.active.some(b => b.id === cleanId || b.title === item.title)) {
-                    ledger.active.push({
-                        id: cleanId,
-                        title: item.title || cleanId,
-                        cpmRate: item.cpmRate || '$2.00',
-                        viewFloor: String(item.viewFloor || '1000'),
-                        mandatoryTags: item.mandatoryTags || '#shorts #viral',
-                        hookHeadline: item.hookHeadline || 'WATCH THIS NOW',
-                        sourcePath: '',
-                        createdAt: new Date().toISOString()
-                    });
-                    const campDir = path.join(BOUNTY_DATA_DIR, 'campaigns', cleanId);
-                    fs.mkdirSync(path.join(campDir, 'clips'), { recursive: true });
-                    fs.mkdirSync(path.join(campDir, 'intake'), { recursive: true });
-                    addedCount++;
-                }
-            }
-            fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
-        }
-
-        broadcast('TRACE', `[DISCOVERY COMPLETE] Tess approved ${addedCount} qualifying bounties.`);
-        res.json({ success: true, added: addedCount, bounties: discovered });
-    } catch (err) {
-        broadcast('TRACE', `[DISCOVERY ERROR] ${err.message}`);
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
 
 // ==========================================
 // MASTER DAEMON INITIALIZATION
@@ -2034,6 +2029,9 @@ server.listen(PORT, () => {
     console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });
+
+
+
 
 
 

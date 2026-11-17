@@ -1,3 +1,52 @@
 {
-  "active": []
+  "active": [
+    {
+      "id": "vyro_abc_scrubs",
+      "title": "ABC: Scrubs // Humorous Clips Only",
+      "platform": "Vyro",
+      "cpmRate": "$2.00",
+      "viewFloor": "1000",
+      "poolStatus": "ACTIVE // 88% Pool Left (~14 Days)",
+      "runwayDays": 14,
+      "totalClicks": 0,
+      "dailyPostsUsed": 0,
+      "dailyPostCap": 5,
+      "mandatoryTags": "#scrubs #abc #comedy #shorts #viral",
+      "hookHeadline": "THIS SCRUBS SCENE BROKE CHARACTER",
+      "sourcePath": "",
+      "createdAt": "2026-11-17T18:41:42.232Z"
+    },
+    {
+      "id": "vyro_the_drop",
+      "title": "The Drop // TikTok Edits",
+      "platform": "Vyro",
+      "cpmRate": "$2.00",
+      "viewFloor": "1000",
+      "poolStatus": "ACTIVE // 76% Pool Left (~10 Days)",
+      "runwayDays": 10,
+      "totalClicks": 0,
+      "dailyPostsUsed": 0,
+      "dailyPostCap": 5,
+      "mandatoryTags": "#thedrop #tiktokedits #shorts #viral",
+      "hookHeadline": "NOBODY EXPECTED THIS DROP MOMENT",
+      "sourcePath": "",
+      "createdAt": "2026-11-17T18:41:42.232Z"
+    },
+    {
+      "id": "vyro_the_lowdown",
+      "title": "The Lowdown // TikTok Edits",
+      "platform": "Vyro",
+      "cpmRate": "$2.00",
+      "viewFloor": "1000",
+      "poolStatus": "ACTIVE // 71% Pool Left (~9 Days)",
+      "runwayDays": 9,
+      "totalClicks": 0,
+      "dailyPostsUsed": 0,
+      "dailyPostCap": 5,
+      "mandatoryTags": "#thelowdown #edits #shorts #viral",
+      "hookHeadline": "THE LOWDOWN UNFILTERED TRUTH",
+      "sourcePath": "",
+      "createdAt": "2026-11-17T18:41:42.232Z"
+    }
+  ]
 }

@@ -7,15 +7,22 @@ export default function Tab11Campaigns() {
   const [bounties, setBounties] = useState([]);
   const [activeBountyId, setActiveBountyId] = useState('');
 
-  // Column 01 Form State
+  // Column 01 Form & Breakdown State
   const [campaignTitle, setCampaignTitle] = useState('');
-  const [cpmRate, setCpmRate] = useState('1.50');
+  const [cpmRate, setCpmRate] = useState('$2.00');
   const [viewFloor, setViewFloor] = useState('1000');
   const [sourceVideoPath, setSourceVideoPath] = useState('');
   const [hookHeadline, setHookHeadline] = useState('');
   const [startTime, setStartTime] = useState('00:00:00');
   const [endTime, setEndTime] = useState('00:01:00');
   const [mandatoryTags, setMandatoryTags] = useState('');
+
+  // Bounty Telemetry Breakdown State (Runway, Clicks, Daily Allocation)
+  const [poolStatus, setPoolStatus] = useState('ACTIVE // 88% Pool Left (~14 Days)');
+  const [runwayDays, setRunwayDays] = useState(14);
+  const [totalClicks, setTotalClicks] = useState(0);
+  const [dailyPostsUsed, setDailyPostsUsed] = useState(0);
+  const [dailyPostCap] = useState(5);
 
   // Hook Extractor, Discovery & War Room Spinner State
   const [transcriptDrawerOpen, setTranscriptDrawerOpen] = useState(false);
@@ -34,7 +41,6 @@ export default function Tab11Campaigns() {
 
   // Column 03 Disk Artifacts State
   const [artifacts, setArtifacts] = useState([]);
-  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   const addLog = (msg) => {
     setTelemetryLog(prev => [
@@ -43,7 +49,6 @@ export default function Tab11Campaigns() {
     ]);
   };
 
-  // Live Timer for War Room Radar Spinner
   useEffect(() => {
     let timer = null;
     if (isExtractingHooks || isDiscovering || pipelineState === 'RENDERING') {
@@ -72,11 +77,10 @@ export default function Tab11Campaigns() {
     { id: 'John Tanton - Proje', label: 'JOHN TANTON // PM BOOK', color: '#C5BD9F' }
   ];
 
-  // ZERO-STATE RESET FUNCTION
   const resetFormToZeroState = () => {
     setActiveBountyId('');
     setCampaignTitle('');
-    setCpmRate('1.50');
+    setCpmRate('$2.00');
     setViewFloor('1000');
     setSourceVideoPath('');
     setHookHeadline('');
@@ -84,8 +88,11 @@ export default function Tab11Campaigns() {
     setStartTime('00:00:00');
     setEndTime('00:01:00');
     setMandatoryTags('');
+    setPoolStatus('STANDBY // Select or Add Funnel');
+    setRunwayDays(0);
+    setTotalClicks(0);
+    setDailyPostsUsed(0);
     setArtifacts([]);
-    setIsCreatingNew(false);
   };
 
   const fetchBounties = async (preventAutoSelect = false) => {
@@ -96,8 +103,9 @@ export default function Tab11Campaigns() {
         const activeList = Array.isArray(data) ? data : (data.active || data.value || []);
         setBounties(activeList);
 
-        if (!preventAutoSelect && activeList.length > 0 && !activeBountyId) {
-          loadBountyIntoForm(activeList[0]);
+        if (!preventAutoSelect && activeList.length > 0) {
+          const current = activeList.find(b => b.id === activeBountyId) || activeList[0];
+          loadBountyIntoForm(current);
         } else if (activeList.length === 0) {
           resetFormToZeroState();
         }
@@ -116,16 +124,49 @@ export default function Tab11Campaigns() {
   const loadBountyIntoForm = (bounty) => {
     setActiveBountyId(bounty.id);
     setCampaignTitle(bounty.campaignTitle || bounty.title || bounty.name || '');
-    setCpmRate(bounty.cpmRate || bounty.cpm_rate || '1.50');
+    setCpmRate(bounty.cpmRate || bounty.cpm_rate || '$2.00');
     setViewFloor(bounty.viewFloor || bounty.view_floor || '1000');
-    setSourceVideoPath(bounty.sourceVideoPath || bounty.sourcePath || bounty.intake_file || '');
-    setHookHeadline(bounty.hookHeadline || bounty.hook_banner || '');
+    setSourceVideoPath(bounty.sourceVideoPath || bounty.sourcePath || '');
+    setHookHeadline(bounty.hookHeadline || '');
     setStartTime(bounty.startTime || '00:00:00');
     setEndTime(bounty.endTime || '00:01:00');
-    setMandatoryTags(bounty.mandatoryTags || bounty.tags || '');
-    setIsCreatingNew(false);
+    setMandatoryTags(bounty.mandatoryTags || '');
+    setPoolStatus(bounty.poolStatus || 'ACTIVE // 85% Pool Left (~12 Days)');
+    setRunwayDays(bounty.runwayDays !== undefined ? bounty.runwayDays : 12);
+    setTotalClicks(bounty.totalClicks || 0);
+    setDailyPostsUsed(bounty.dailyPostsUsed || 0);
     loadDiskArtifacts('BOUNTY_ENGINE', bounty.id);
-    addLog(`WORKSPACE: Loaded sub-funnel [${bounty.id}]`);
+    addLog(`WORKSPACE: Loaded [${bounty.title || bounty.id}] | Runway: ${bounty.runwayDays || 12}d | Allocation: ${bounty.dailyPostsUsed || 0}/5 posts`);
+  };
+
+  const syncBountyStats = async (overrides = {}) => {
+    if (!activeBountyId) return;
+    const payload = {
+      id: activeBountyId,
+      totalClicks: overrides.totalClicks !== undefined ? overrides.totalClicks : totalClicks,
+      dailyPostsUsed: overrides.dailyPostsUsed !== undefined ? overrides.dailyPostsUsed : dailyPostsUsed,
+      poolStatus: overrides.poolStatus !== undefined ? overrides.poolStatus : poolStatus,
+      runwayDays: overrides.runwayDays !== undefined ? overrides.runwayDays : runwayDays,
+      cpmRate,
+      viewFloor,
+      mandatoryTags,
+      hookHeadline,
+      sourcePath: sourceVideoPath
+    };
+
+    try {
+      const res = await fetch('http://localhost:8081/api/bounties/update-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.active) setBounties(data.active);
+      }
+    } catch (e) {
+      addLog(`SYNC ERROR: ${e.message}`);
+    }
   };
 
   const loadDiskArtifacts = async (projId, bId = '') => {
@@ -142,7 +183,6 @@ export default function Tab11Campaigns() {
       if (res.ok) {
         const data = await res.json();
         setArtifacts(data.artifacts || []);
-        addLog(`DISK SYNC: Loaded ${data.count || (data.artifacts ? data.artifacts.length : 0)} artifacts.`);
       }
     } catch (e) {
       addLog(`DISK ERROR: ${e.message}`);
@@ -150,19 +190,16 @@ export default function Tab11Campaigns() {
   };
 
   const handleTerminateJob = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     setIsExtractingHooks(false);
     setIsDiscovering(false);
     setPipelineState('IDLE');
     addLog('EMERGENCY BRAKE: Batch inference job terminated by Commander.');
   };
 
-  // AUTOMATED TESS & JACK BOUNTY DISCOVERY HANDLER
   const handleDiscoverBounties = async () => {
     setIsDiscovering(true);
-    addLog('DISCOVERY: Dispatching Jack & Tess to scrape Whop & Vyro...');
+    addLog('DISCOVERY: Dispatching Jack & Tess to scrape open Vyro CPM bounties...');
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -175,16 +212,16 @@ export default function Tab11Campaigns() {
       });
       const data = await res.json();
       if (data.success) {
-        addLog(`DISCOVERY COMPLETE: Tess approved ${data.added || 0} qualifying bounties.`);
-        await fetchBounties(false);
-        window.dispatchEvent(new CustomEvent('mcnc-bounties-discovered', { detail: { bounties: data.bounties } }));
+        const list = data.bounties || [];
+        setBounties(list);
+        if (list.length > 0) loadBountyIntoForm(list[0]);
+        addLog(`DISCOVERY COMPLETE: Tess synced ${list.length} active CPM bounties.`);
+        window.dispatchEvent(new CustomEvent('mcnc-bounties-discovered', { detail: { bounties: list } }));
       } else {
         addLog(`DISCOVERY FAILED: ${data.error || 'Scraper returned no targets.'}`);
       }
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        addLog(`DISCOVERY ERROR: ${err.message}`);
-      }
+      if (err.name !== 'AbortError') addLog(`DISCOVERY ERROR: ${err.message}`);
     } finally {
       setIsDiscovering(false);
     }
@@ -196,25 +233,18 @@ export default function Tab11Campaigns() {
       return;
     }
     setIsExtractingHooks(true);
-    addLog(`INTAKE: Processing intake stream for [${activeBountyId || 'NEW'}]...`);
+    addLog(`INTAKE: Maverick & Skyla extracting viral hook + SEO cluster for [${activeBountyId || 'NEW'}]...`);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      const [res] = await Promise.all([
-        fetch('http://localhost:8081/api/campaigns/bounty/find-hooks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bountyId: activeBountyId,
-            intakeInput: rawTranscript
-          }),
-          signal: controller.signal
-        }),
-        new Promise(r => setTimeout(r, 1200))
-      ]);
-
+      const res = await fetch('http://localhost:8081/api/campaigns/bounty/find-hooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bountyId: activeBountyId, intakeInput: rawTranscript }),
+        signal: controller.signal
+      });
       const data = await res.json();
       if (data.success && data.hook) {
         setHookHeadline(data.hook.hookHeadline || hookHeadline);
@@ -227,9 +257,7 @@ export default function Tab11Campaigns() {
         addLog(`HOOKS FAILED: ${data.error || 'Unknown parsing failure'}`);
       }
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        addLog(`INFERENCE ERROR: ${err.message}`);
-      }
+      if (err.name !== 'AbortError') addLog(`INFERENCE ERROR: ${err.message}`);
     } finally {
       setIsExtractingHooks(false);
     }
@@ -238,6 +266,10 @@ export default function Tab11Campaigns() {
   const handleRunPipeline = async () => {
     if (!sourceVideoPath) {
       addLog('PIPELINE REJECTED: Missing source video path.');
+      return;
+    }
+    if (dailyPostsUsed >= dailyPostCap) {
+      addLog(`ALLOCATION GATE: Daily 5-post limit reached for [${campaignTitle}]. Hold until next cycle.`);
       return;
     }
     setPipelineState('RENDERING');
@@ -259,7 +291,10 @@ export default function Tab11Campaigns() {
       const data = await res.json();
       if (data.success) {
         setPipelineState('COMPLETE');
-        addLog(`RENDER COMMITTED: Saved ${data.filename}`);
+        const nextPosts = Math.min(dailyPostCap, dailyPostsUsed + 1);
+        setDailyPostsUsed(nextPosts);
+        await syncBountyStats({ dailyPostsUsed: nextPosts });
+        addLog(`RENDER COMMITTED: Saved ${data.filename} | Daily Allocation: ${nextPosts}/${dailyPostCap}`);
         loadDiskArtifacts('BOUNTY_ENGINE', activeBountyId);
       } else {
         setPipelineState('FAILED');
@@ -271,159 +306,52 @@ export default function Tab11Campaigns() {
     }
   };
 
-  // ENHANCED ZERO-STATE PURGE HANDLER
+  const handleCreateNewFunnel = async () => {
+    const newId = `bty_custom_${Date.now().toString().slice(-4)}`;
+    const newBounty = {
+      id: newId,
+      title: 'New Custom Bounty',
+      cpmRate: '$2.00',
+      viewFloor: '1000',
+      poolStatus: 'ACTIVE // 100% Pool Left (~14 Days)',
+      runwayDays: 14,
+      totalClicks: 0,
+      dailyPostsUsed: 0,
+      dailyPostCap: 5,
+      mandatoryTags: '#shorts #viral #echopod',
+      hookHeadline: 'VIRAL HOOK HEADLINE'
+    };
+    const nextList = [...bounties, newBounty];
+    setBounties(nextList);
+    loadBountyIntoForm(newBounty);
+  };
+
   const handlePurgeBounty = async () => {
-    if (!window.confirm(`WARNING: This will permanently delete bounty [${activeBountyId}] and obliterate physical MP4 clips off disk. Proceed?`)) return;
-
+    if (!window.confirm(`WARNING: Permanently delete bounty [${activeBountyId}] and obliterate its physical MP4 clips off disk?`)) return;
     const targetId = activeBountyId;
-
     try {
-      const res = await fetch(`http://localhost:8081/api/bounties/${targetId}`, {
-        method: 'DELETE'
-      });
+      const res = await fetch(`http://localhost:8081/api/bounties/${targetId}`, { method: 'DELETE' });
       if (res.ok) {
         addLog(`PURGED: Obliterated ledger & disk files for [${targetId}]`);
-        setBounties(prev => prev.filter(b => b.id !== targetId));
-        resetFormToZeroState();
-        await fetchBounties(true);
-      } else {
-        const err = await res.json();
-        addLog(`PURGE FAILED: ${err.message || 'Server rejected purge'}`);
+        const remaining = bounties.filter(b => b.id !== targetId);
+        setBounties(remaining);
+        if (remaining.length > 0) loadBountyIntoForm(remaining[0]);
+        else resetFormToZeroState();
       }
     } catch (e) {
       addLog(`PURGE ERROR: ${e.message}`);
     }
   };
 
+  const totalDailyUsedAcrossAll = bounties.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
+  const estEarnings = ((totalClicks / 1000) * (parseFloat(String(cpmRate).replace(/[^0-9.]/g, '')) || 2.0)).toFixed(2);
+
   return (
     <div style={{
       backgroundColor: '#080a0c',
       color: '#C5BD9F',
-      minHeight: '100%',
-      padding: '16px',
-      fontFamily: 'monospace',
-      position: 'relative'
+      height: 'calc(100vh - 68px)', overflowY: 'auto', padding: '12px 16px 48px 16px', fontFamily: 'monospace', position: 'relative'
     }}>
-      {/* KEYFRAMES FOR WAR ROOM TRIPLE-ARC RADAR SPINNER */}
-      <style>{`
-        @keyframes warRoomSpinSlow {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes warRoomSpinReverse {
-          0% { transform: rotate(360deg); }
-          100% { transform: rotate(0deg); }
-        }
-        @keyframes warRoomSpinFast {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(720deg); }
-        }
-        @keyframes warRoomGlow {
-          0%, 100% { opacity: 0.75; text-shadow: 0 0 12px rgba(255, 184, 0, 0.55); }
-          50% { opacity: 1; text-shadow: 0 0 22px rgba(255, 184, 0, 0.95); }
-        }
-      `}</style>
-
-      {/* WAR ROOM INFERENCE SPINNER MODAL OVERLAY */}
-      {(isExtractingHooks || isDiscovering || pipelineState === 'RENDERING') && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(8, 10, 12, 0.92)',
-          backdropFilter: 'blur(10px)',
-          zIndex: 9999,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          {/* TRIPLE CONCENTRIC RADAR RINGS */}
-          <div style={{ position: 'relative', width: '150px', height: '150px', marginBottom: '28px' }}>
-            <svg viewBox="0 0 150 150" style={{
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-              animation: 'warRoomSpinSlow 2.6s linear infinite'
-            }}>
-              <circle cx="75" cy="75" r="64" fill="none" stroke="#10b981" strokeWidth="4" strokeLinecap="round" strokeDasharray="180 240" />
-            </svg>
-
-            <svg viewBox="0 0 150 150" style={{
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-              animation: 'warRoomSpinReverse 1.9s linear infinite'
-            }}>
-              <circle cx="75" cy="75" r="49" fill="none" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" strokeDasharray="130 200" />
-            </svg>
-
-            <svg viewBox="0 0 150 150" style={{
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-              animation: 'warRoomSpinFast 2.2s ease-in-out infinite'
-            }}>
-              <circle cx="75" cy="75" r="34" fill="none" stroke="#ffb800" strokeWidth="4" strokeLinecap="round" strokeDasharray="85 150" />
-            </svg>
-
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <span style={{ color: '#ffb800', fontSize: '18px', fontWeight: 'bold', marginBottom: '2px' }}>⚡</span>
-              <span style={{ color: '#38bdf8', fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px' }}>
-                {formatTimer(elapsedSeconds)}
-              </span>
-            </div>
-          </div>
-
-          <div style={{
-            color: '#ffb800',
-            fontSize: '15px',
-            fontWeight: 'bold',
-            letterSpacing: '3px',
-            marginBottom: '18px',
-            animation: 'warRoomGlow 1.5s infinite'
-          }}>
-            {isDiscovering
-              ? 'TESS & JACK SCANNING WHOP & VYRO BOUNTIES...'
-              : pipelineState === 'RENDERING'
-              ? 'EXECUTING FFMPEG 9:16 RENDER RUN...'
-              : 'EXECUTING WAR ROOM INFERENCE RUN...'}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '28px', fontSize: '12px', letterSpacing: '1.5px' }}>
-            <span style={{ color: '#94A3B8' }}>ENGINE:</span>
-            <span style={{
-              border: '1px solid #38bdf8',
-              backgroundColor: 'rgba(56, 189, 248, 0.08)',
-              color: '#38bdf8',
-              padding: '6px 14px',
-              borderRadius: '4px',
-              boxShadow: '0 0 12px rgba(56, 189, 248, 0.25)'
-            }}>
-              {isDiscovering ? 'PUPPETEER + TESS QUANT FILTER' : 'LOCAL / FREE CLUSTERS'}
-            </span>
-            <span style={{ color: '#475569' }}>|</span>
-            <span style={{ color: '#10b981', fontWeight: 'bold' }}>PROCESS IS LOCKED & RUNNING</span>
-          </div>
-
-          <button
-            onClick={handleTerminateJob}
-            style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid #ef4444',
-              color: '#fca5a5',
-              padding: '10px 28px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              letterSpacing: '2px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            TERMINATE BATCH JOB
-          </button>
-        </div>
-      )}
-
       {/* TOP DECK */}
       <div style={{
         display: 'flex',
@@ -458,12 +386,12 @@ export default function Tab11Campaigns() {
         </div>
 
         <div style={{ fontSize: '11px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <span>GLOBAL DAILY ALLOCATION: <strong style={{ color: totalDailyUsedAcrossAll >= 5 ? '#ef4444' : '#38bdf8' }}>{totalDailyUsedAcrossAll} / 5 POSTS TODAY</strong></span>
           <span>PORT 8081 DAEMON: <strong style={{ color: '#10b981' }}>READY</strong></span>
-          <span>WHISPER CLUSTER: <strong style={{ color: '#ffb800' }}>NIM ONLINE</strong></span>
         </div>
       </div>
 
-      {/* SUB-FUNNEL NAVIGATION BAR */}
+      {/* CLICKABLE BOUNTY SELECTOR BAR */}
       {selectedProjectId === 'BOUNTY_ENGINE' && (
         <div style={{
           display: 'flex',
@@ -473,37 +401,51 @@ export default function Tab11Campaigns() {
           backgroundColor: '#0d0f12',
           border: '1px solid #1f242d',
           borderRadius: '4px',
-          marginBottom: '16px'
+          marginBottom: '12px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '11px', color: '#94A3B8' }}>ACTIVE BOUNTIES:</span>
-            {bounties.map(b => (
-              <button
-                key={b.id}
-                onClick={() => loadBountyIntoForm(b)}
-                style={{
-                  backgroundColor: activeBountyId === b.id ? 'rgba(255, 184, 0, 0.15)' : '#14171c',
-                  border: activeBountyId === b.id ? '1px solid #ffb800' : '1px solid #1f242d',
-                  color: activeBountyId === b.id ? '#ffb800' : '#C5BD9F',
-                  padding: '5px 12px',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  borderRadius: '3px'
-                }}
-              >
-                {b.campaignTitle || b.title || b.name || b.id}
-              </button>
-            ))}
+            <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 'bold' }}>ACTIVE BOUNTIES ({bounties.length}):</span>
+            {bounties.map(b => {
+              const isSelected = activeBountyId === b.id;
+              const isDry = (b.poolStatus || '').includes('DRY');
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => loadBountyIntoForm(b)}
+                  style={{
+                    backgroundColor: isSelected ? 'rgba(255, 184, 0, 0.18)' : '#14171c',
+                    border: isSelected ? '1px solid #ffb800' : isDry ? '1px solid #ef4444' : '1px solid #262c36',
+                    color: isSelected ? '#ffb800' : isDry ? '#ef4444' : '#E2E8F0',
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    fontWeight: isSelected ? 'bold' : 'normal',
+                    cursor: 'pointer',
+                    borderRadius: '3px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <span>{b.title || b.id}</span>
+                  <span style={{
+                    fontSize: '9px',
+                    padding: '1px 5px',
+                    borderRadius: '2px',
+                    backgroundColor: isDry ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.18)',
+                    color: isDry ? '#ef4444' : '#10b981'
+                  }}>
+                    {b.cpmRate || '$2.00'} • {b.runwayDays !== undefined ? `${b.runwayDays}d` : '12d'}
+                  </span>
+                </button>
+              );
+            })}
             <button
-              onClick={() => {
-                resetFormToZeroState();
-                setIsCreatingNew(true);
-              }}
+              onClick={handleCreateNewFunnel}
               style={{
                 backgroundColor: '#1f242d',
-                border: 'none',
+                border: '1px solid #334155',
                 color: '#F8FAFC',
-                padding: '5px 10px',
+                padding: '6px 10px',
                 fontSize: '11px',
                 cursor: 'pointer',
                 borderRadius: '3px'
@@ -524,12 +466,126 @@ export default function Tab11Campaigns() {
               fontSize: '11px',
               fontWeight: 'bold',
               cursor: isDiscovering ? 'not-allowed' : 'pointer',
-              borderRadius: '3px',
-              letterSpacing: '0.5px'
+              borderRadius: '3px'
             }}
           >
-            {isDiscovering ? 'SCANNING WHOP & VYRO...' : '⚡ AUTO-DISCOVER BOUNTIES (TESS)'}
+            {isDiscovering ? 'SYNCING VYRO BOUNTIES...' : '⚡ AUTO-DISCOVER BOUNTIES (TESS)'}
           </button>
+        </div>
+      )}
+
+      {/* LIVE BOUNTY BREAKDOWN HUD (RUNWAY, CLICKS/VIEWS, DAILY 5-POST ALLOCATION) */}
+      {selectedProjectId === 'BOUNTY_ENGINE' && activeBountyId && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1.3fr 1fr 1fr 1fr',
+          gap: '12px',
+          marginBottom: '16px'
+        }}>
+          {/* CARD 1: POOL STATUS & RUNWAY */}
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '10px', color: '#94A3B8' }}>BOUNTY RUNWAY // POOL STATUS</span>
+              <button
+                onClick={() => {
+                  const nextDry = poolStatus.includes('DRY') ? 'ACTIVE // 85% Pool Left (~12 Days)' : 'POOL DRY // PURGE READY';
+                  const nextDays = nextDry.includes('DRY') ? 0 : 12;
+                  setPoolStatus(nextDry);
+                  setRunwayDays(nextDays);
+                  syncBountyStats({ poolStatus: nextDry, runwayDays: nextDays });
+                }}
+                style={{ background: 'none', border: '1px solid #334155', color: '#38bdf8', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}
+              >
+                TOGGLE DRY/ACTIVE
+              </button>
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: poolStatus.includes('DRY') ? '#ef4444' : '#10b981' }}>
+              {poolStatus}
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>
+              EST. TIME REMAINING: <strong style={{ color: '#E2E8F0' }}>{runwayDays} DAYS</strong> (06:30 SAST Cron Audited)
+            </div>
+          </div>
+
+          {/* CARD 2: CLICKS / VIEWS & EST PAYOUT */}
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '10px', color: '#94A3B8' }}>TOTAL CLICKS / VIEWS (@EchoPodMedia)</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  onClick={() => {
+                    const next = totalClicks + 250;
+                    setTotalClicks(next);
+                    syncBountyStats({ totalClicks: next });
+                  }}
+                  style={{ background: '#14171c', border: '1px solid #334155', color: '#10b981', fontSize: '9px', padding: '2px 5px', cursor: 'pointer' }}
+                >
+                  +250
+                </button>
+                <button
+                  onClick={() => {
+                    const next = totalClicks + 1000;
+                    setTotalClicks(next);
+                    syncBountyStats({ totalClicks: next });
+                  }}
+                  style={{ background: '#14171c', border: '1px solid #334155', color: '#ffb800', fontSize: '9px', padding: '2px 5px', cursor: 'pointer' }}
+                >
+                  +1K
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#fff' }}>
+              {totalClicks.toLocaleString()} CLICKS <span style={{ fontSize: '11px', color: '#10b981' }}>(${estEarnings} EST.)</span>
+            </div>
+            <div style={{ fontSize: '10px', color: totalClicks >= Number(viewFloor) ? '#10b981' : '#ffb800', marginTop: '4px' }}>
+              VIEW FLOOR: {Number(viewFloor).toLocaleString()} ({totalClicks >= Number(viewFloor) ? 'FLOOR CLEARED' : `${Math.max(0, Number(viewFloor) - totalClicks)} TO FLOOR`})
+            </div>
+          </div>
+
+          {/* CARD 3: DAILY ALLOCATION (5 POSTS / DAY CAP) */}
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '10px', color: '#94A3B8' }}>DAILY POST ALLOCATION (MAX 5/DAY)</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  onClick={() => {
+                    const next = Math.min(dailyPostCap, dailyPostsUsed + 1);
+                    setDailyPostsUsed(next);
+                    syncBountyStats({ dailyPostsUsed: next });
+                  }}
+                  style={{ background: '#14171c', border: '1px solid #334155', color: '#38bdf8', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}
+                >
+                  +1 POST
+                </button>
+                <button
+                  onClick={() => {
+                    setDailyPostsUsed(0);
+                    syncBountyStats({ dailyPostsUsed: 0 });
+                  }}
+                  style={{ background: '#14171c', border: '1px solid #334155', color: '#94A3B8', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}
+                >
+                  RESET
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', color: dailyPostsUsed >= dailyPostCap ? '#ef4444' : '#38bdf8' }}>
+              {dailyPostsUsed} / {dailyPostCap} POSTS DISPATCHED
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>
+              REMAINING TODAY: <strong style={{ color: '#10b981' }}>{Math.max(0, dailyPostCap - dailyPostsUsed)} SLOTS</strong> (YT / TikTok / IG)
+            </div>
+          </div>
+
+          {/* CARD 4: PAYOUT RATE & VERDICT */}
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '6px' }}>TESS QUANT VERDICT</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffb800' }}>
+              {cpmRate} CPM // {poolStatus.includes('DRY') ? 'PURGE NOW' : 'KEEP RUNNING'}
+            </div>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>
+              CLIENT: <strong style={{ color: '#fff' }}>{(campaignTitle || '').split('//')[0]}</strong>
+            </div>
+          </div>
         </div>
       )}
 
@@ -544,10 +600,7 @@ export default function Tab11Campaigns() {
           backgroundColor: '#0d0f12',
           border: '1px solid #1f242d',
           borderRadius: '4px',
-          padding: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
+          padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES</span>
@@ -555,10 +608,11 @@ export default function Tab11Campaigns() {
               <button
                 onClick={handlePurgeBounty}
                 style={{
-                  background: 'none',
-                  border: 'none',
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid #ef4444',
                   color: '#ef4444',
                   fontSize: '10px',
+                  padding: '3px 8px',
                   cursor: 'pointer'
                 }}
               >
@@ -573,6 +627,7 @@ export default function Tab11Campaigns() {
               type="text"
               value={campaignTitle}
               onChange={e => setCampaignTitle(e.target.value)}
+              onBlur={() => syncBountyStats()}
               placeholder="Target Video / Campaign Name"
               style={{
                 width: '100%',
@@ -593,7 +648,7 @@ export default function Tab11Campaigns() {
                 type="text"
                 value={cpmRate}
                 onChange={e => setCpmRate(e.target.value)}
-                placeholder="1.50"
+                onBlur={() => syncBountyStats()}
                 style={{
                   width: '100%',
                   backgroundColor: '#080a0c',
@@ -611,7 +666,7 @@ export default function Tab11Campaigns() {
                 type="text"
                 value={viewFloor}
                 onChange={e => setViewFloor(e.target.value)}
-                placeholder="1000"
+                onBlur={() => syncBountyStats()}
                 style={{
                   width: '100%',
                   backgroundColor: '#080a0c',
@@ -631,6 +686,7 @@ export default function Tab11Campaigns() {
               type="text"
               value={sourceVideoPath}
               onChange={e => setSourceVideoPath(e.target.value)}
+              onBlur={() => syncBountyStats()}
               placeholder="C:\Warlord_Inc\..."
               style={{
                 width: '100%',
@@ -664,6 +720,7 @@ export default function Tab11Campaigns() {
               type="text"
               value={hookHeadline}
               onChange={e => setHookHeadline(e.target.value)}
+              onBlur={() => syncBountyStats()}
               placeholder="High-retention viral headline"
               style={{
                 width: '100%',
@@ -677,7 +734,6 @@ export default function Tab11Campaigns() {
             />
           </div>
 
-          {/* DUAL INTAKE DRAWER */}
           {transcriptDrawerOpen && (
             <div style={{
               backgroundColor: '#14171c',
@@ -688,7 +744,6 @@ export default function Tab11Campaigns() {
               <label style={{ fontSize: '10px', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>
                 PASTE YOUTUBE URL OR TRANSCRIPT TEXT:
               </label>
-
               <textarea
                 rows={3}
                 disabled={isExtractingHooks}
@@ -705,7 +760,6 @@ export default function Tab11Campaigns() {
                   fontFamily: 'monospace'
                 }}
               />
-
               <button
                 onClick={handleExtractHooks}
                 disabled={isExtractingHooks}
@@ -722,7 +776,7 @@ export default function Tab11Campaigns() {
                   borderRadius: '2px'
                 }}
               >
-                PROCESS INTAKE & EXTRACT
+                PROCESS INTAKE & EXTRACT SEO HOOKS
               </button>
             </div>
           )}
@@ -765,12 +819,12 @@ export default function Tab11Campaigns() {
           </div>
 
           <div>
-            <label style={{ fontSize: '10px', color: '#94A3B8' }}>MANDATORY TAGS</label>
+            <label style={{ fontSize: '10px', color: '#94A3B8' }}>MANDATORY TAGS (SEO CLUSTER)</label>
             <input
               type="text"
               value={mandatoryTags}
               onChange={e => setMandatoryTags(e.target.value)}
-              placeholder="#mindset #shorts"
+              onBlur={() => syncBountyStats()}
               style={{
                 width: '100%',
                 backgroundColor: '#080a0c',
@@ -834,11 +888,11 @@ export default function Tab11Campaigns() {
               <div
                 key={index}
                 style={{
-                  color: log.includes('ERROR') || log.includes('FAILED') || log.includes('BRAKE')
+                  color: log.includes('ERROR') || log.includes('FAILED') || log.includes('BRAKE') || log.includes('GATE:')
                     ? '#ef4444'
                     : log.includes('HOOKS APPLIED') || log.includes('RENDER COMMITTED') || log.includes('DISCOVERY COMPLETE')
                     ? '#10b981'
-                    : log.includes('INFERENCE') || log.includes('INTAKE') || log.includes('DISPATCH') || log.includes('PURGED') || log.includes('DISCOVERY:')
+                    : log.includes('WORKSPACE') || log.includes('INTAKE') || log.includes('DISPATCH') || log.includes('PURGED') || log.includes('DISCOVERY:')
                     ? '#38bdf8'
                     : '#94A3B8'
                 }}
@@ -929,7 +983,7 @@ export default function Tab11Campaigns() {
                         cursor: 'pointer'
                       }}
                     >
-                      COPY DESC
+                      COPY SEO DESC
                     </button>
                   </div>
                 </div>
