@@ -264,45 +264,50 @@ export default function Tab11Campaigns() {
   };
 
   const handleRunPipeline = async () => {
-    if (!sourceVideoPath) {
-      addLog('PIPELINE REJECTED: Missing source video path.');
+    if (!activeBountyId) {
+      addLog('PIPELINE REJECTED: Select an active bounty first.');
       return;
     }
     if (dailyPostsUsed >= dailyPostCap) {
-      addLog(`ALLOCATION GATE: Daily 5-post limit reached for [${campaignTitle}]. Hold until next cycle.`);
+      addLog(`ALLOCATION GATE: Daily 5-post limit reached for [${campaignTitle}].`);
       return;
     }
     setPipelineState('RENDERING');
-    addLog(`RENDER DISPATCH: Cropping 9:16 and burning hook [${hookHeadline}]`);
+    addLog(`1-CLICK AUTO-PILOT: Jack harvesting YouTube MP4 -> Tess slicing 3 (30-60s) hooks -> Charlie rendering 9:16 -> Roxy staging uploads...`);
 
     try {
-      const res = await fetch('http://localhost:8081/api/campaigns/bounty/run', {
+      const res = await fetch('http://localhost:8081/api/campaigns/bounty/auto-execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bountyId: activeBountyId,
-          sourceFile: sourceVideoPath,
-          hookText: hookHeadline,
-          startTimestamp: startTime,
-          endTimestamp: endTime
+          bounty: {
+            id: activeBountyId,
+            title: campaignTitle,
+            cpmRate,
+            viewFloor,
+            hookHeadline,
+            mandatoryTags
+          }
         })
       });
 
       const data = await res.json();
       if (data.success) {
         setPipelineState('COMPLETE');
-        const nextPosts = Math.min(dailyPostCap, dailyPostsUsed + 1);
-        setDailyPostsUsed(nextPosts);
-        await syncBountyStats({ dailyPostsUsed: nextPosts });
-        addLog(`RENDER COMMITTED: Saved ${data.filename} | Daily Allocation: ${nextPosts}/${dailyPostCap}`);
+        if (data.sourceFile) setSourceVideoPath(data.sourceFile);
+        if (data.updatedBounty) {
+          setDailyPostsUsed(data.updatedBounty.dailyPostsUsed);
+        }
+        if (data.activeList) setBounties(data.activeList);
+        addLog(`AUTO-PILOT COMPLETE: 3 vertical shorts rendered, allocation updated (${data.updatedBounty?.dailyPostsUsed || 3}/5), and @EchoPodMedia upload studio launched.`);
         loadDiskArtifacts('BOUNTY_ENGINE', activeBountyId);
       } else {
         setPipelineState('FAILED');
-        addLog(`FFMPEG FAILED: ${data.error}`);
+        addLog(`AUTO-PILOT FAILED: ${data.error}`);
       }
     } catch (err) {
       setPipelineState('FAILED');
-      addLog(`RENDER ERROR: ${err.message}`);
+      addLog(`AUTO-PILOT ERROR: ${err.message}`);
     }
   };
 
@@ -851,7 +856,7 @@ export default function Tab11Campaigns() {
               marginTop: '8px'
             }}
           >
-            {pipelineState === 'RENDERING' ? 'RENDERING VERTICAL CLIP...' : 'DISPATCH FFMPEG CROP & RENDER'}
+            {pipelineState === 'RENDERING' ? 'AUTO-HARVESTING YT & RENDERING 3 SHORTS...' : '⚡ 1-CLICK AUTO-HARVEST, CUT 3 SHORTS & POST'}
           </button>
         </div>
 
@@ -995,4 +1000,5 @@ export default function Tab11Campaigns() {
     </div>
   );
 }
+
 

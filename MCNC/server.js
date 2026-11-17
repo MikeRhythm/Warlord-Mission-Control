@@ -1703,11 +1703,34 @@ app.post('/api/campaigns/discover', async (req, res) => {
                 addedCount++;
             }
         }
+        ledger.active = ledger.active.slice(0, 5);
         fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
         broadcast('TRACE', `[DISCOVERY COMPLETE] Tess synced ${ledger.active.length} active CPM bounties (${addedCount} newly added).`);
         return res.json({ success: true, added: ledger.active.length, bounties: ledger.active });
     } catch (err) {
         broadcast('TRACE', `[DISCOVERY ERROR] ${err.message}`);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/campaigns/bounty/auto-execute', async (req, res) => {
+    try {
+        const { bounty } = req.body;
+        if (!bounty || !bounty.id) {
+            return res.status(400).json({ success: false, error: 'Missing active bounty payload.' });
+        }
+        delete require.cache[require.resolve('./Auto_Bounty_Engine')];
+        const { autoExecuteBounty } = require('./Auto_Bounty_Engine');
+        const result = await autoExecuteBounty({
+            bounty,
+            broadcast,
+            dispatchToBrain,
+            bountyDataDir: BOUNTY_DATA_DIR,
+            ledgerFile: BOUNTY_LEDGER_FILE
+        });
+        return res.json({ success: true, ...result });
+    } catch (err) {
+        broadcast('TRACE', `[AUTO-EXECUTE ERROR] ${err.message}`);
         return res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1736,6 +1759,7 @@ app.post('/api/bounties/update-stats', (req, res) => {
             }
             return b;
         });
+        ledger.active = ledger.active.slice(0, 5);
         fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
         return res.json({ success: true, active: ledger.active });
     } catch (err) {
@@ -2029,6 +2053,8 @@ server.listen(PORT, () => {
     console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });
+
+
 
 
 
