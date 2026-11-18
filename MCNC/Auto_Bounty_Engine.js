@@ -34,6 +34,14 @@ function isBountyExpiredOrDry(b) {
     return false;
 }
 
+function resolveBountyPlatform(b) {
+    if (b && b.platform) return String(b.platform).trim();
+    const idStr = String((b && b.id) || '').toLowerCase();
+    const titleStr = String((b && b.title) || '').toLowerCase();
+    if (idStr.startsWith('whop_') || titleStr.includes('whop')) return 'Whop';
+    return 'Vyro';
+}
+
 function runCmd(cmd) {
     return new Promise((resolve, reject) => {
         exec(cmd, { maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
@@ -143,6 +151,7 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
 
     const targetBounty = (bounty && ledger.active.find(b => b.id === bounty.id)) || ledger.active[0];
     const cleanId = targetBounty.id;
+    const platform = resolveBountyPlatform(targetBounty);
 
     const DAILY_CAP = 5;
     const usedToday = ledger.active.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
@@ -160,7 +169,7 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
     }
 
     const clipsToCut = Math.min(3, remainingSlots);
-    logStep(`[GOVERNOR] ${remainingSlots} daily slot(s) open for ${today}. Dispatching ${clipsToCut} short(s) for "${targetBounty.title || cleanId}"...`);
+    logStep(`[GOVERNOR] ${remainingSlots} daily slot(s) open for ${today}. Dispatching ${clipsToCut} short(s) for [${platform.toUpperCase()}] "${targetBounty.title || cleanId}"...`);
 
     const campDir = path.join(bountyDataDir, 'campaigns', cleanId);
     const intakeDir = path.join(campDir, 'intake');
@@ -176,7 +185,10 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
     const sessionPath = path.resolve('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Chrome_Session');
     const cookieFile = path.join(bountyDataDir, 'yt_cookies.txt');
 
-    const searchTitle = (targetBounty.title || 'ABC Scrubs funny moments').replace('//', ' ').trim();
+    const searchTitle = (targetBounty.title || 'Viral funny moments')
+        .replace(/Whop Content Rewards\s*\/\//i, '')
+        .replace('//', ' ')
+        .trim();
     let existingDuration = fs.existsSync(sourceFile) ? await getMediaDurationSec(FFMPEG_BIN, sourceFile) : 0;
 
     if (!fs.existsSync(sourceFile) || fs.statSync(sourceFile).size < 100000 || existingDuration < 110) {
@@ -266,8 +278,12 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
         logStep(`[3/4 CHARLIE] Cut Short ${seg.index}/${clipsToCut}: ${outName} (${sizeKb} KB) -> VERIFIED`);
     }
 
-    logStep(`[4/4 ROXY] Pushing ${renderedClips.length} verified short(s) to @EchoPodMedia Studio...`);
-    let postStatus = 'STAGED IN STUDIO';
+    const portalUrl = platform.toLowerCase() === 'whop'
+        ? 'https://whop.com/content-rewards'
+        : 'https://app.vyro.com/add-posts';
+
+    logStep(`[4/4 ROXY] Pushing ${renderedClips.length} verified short(s) to @EchoPodMedia Studio + ${platform} portal...`);
+    let postStatus = `STAGED (${platform.toUpperCase()})`;
     let browser = null;
     try {
         browser = await puppeteer.launch({
@@ -290,7 +306,7 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
             const fileInput = await ytPage.$('input[type="file"]');
             if (fileInput && renderedClips[0]) {
                 await fileInput.uploadFile(renderedClips[0].path);
-                postStatus = 'UPLOADED TO YT STUDIO + STAGED';
+                postStatus = `YT STUDIO + ${platform.toUpperCase()} READY`;
             }
         }
 
@@ -302,14 +318,14 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
             await ttInput.uploadFile(renderedClips[0].path).catch(() => {});
         }
 
-        const vyroPage = await browser.newPage();
-        await vyroPage.goto('https://app.vyro.com/add-posts', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+        const rewardPage = await browser.newPage();
+        await rewardPage.goto(portalUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
 
         exec(`explorer.exe "${clipsDir}"`);
-        logStep(`[4/4 ROXY COMPLETE] Status: ${postStatus} | ${renderedClips.length} Short(s) ready in @EchoPodMedia Studio.`);
+        logStep(`[4/4 ROXY COMPLETE] Status: ${postStatus} | ${renderedClips.length} Short(s) ready for ${platform}.`);
     } catch (e) {
         exec(`explorer.exe "${clipsDir}"`);
-        logStep(`[4/4 ROXY COMPLETE] Clips folder opened (${e.message}). Ready to drop into Studio.`);
+        logStep(`[4/4 ROXY COMPLETE] Clips folder opened (${e.message}). Ready to drop into ${platform}.`);
     }
 
     let updatedBounty = null;
@@ -317,7 +333,7 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
     ledger.active = ledger.active.map(b => {
         if (b.id === cleanId) {
             const nextUsed = Math.min(DAILY_CAP, (Number(b.dailyPostsUsed) || 0) + renderedClips.length);
-            updatedBounty = { ...b, sourcePath: sourceFile, dailyPostsUsed: nextUsed };
+            updatedBounty = { ...b, platform, sourcePath: sourceFile, dailyPostsUsed: nextUsed };
             return updatedBounty;
         }
         return b;

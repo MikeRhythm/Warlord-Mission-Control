@@ -4,6 +4,7 @@ export default function Tab11Campaigns() {
   const [selectedProjectId, setSelectedProjectId] = useState('BOUNTY_ENGINE');
   const [bounties, setBounties] = useState([]);
   const [activeBountyId, setActiveBountyId] = useState('');
+  const [activePlatform, setActivePlatform] = useState('Vyro');
 
   const [campaignTitle, setCampaignTitle] = useState('');
   const [cpmRate, setCpmRate] = useState('$2.00');
@@ -27,7 +28,7 @@ export default function Tab11Campaigns() {
 
   const [telemetryLog, setTelemetryLog] = useState([
     '[INIT] Universal Campaigns & Action Station mounted.',
-    '[BRIDGE] Connected to Port 8081 execution conduits.'
+    '[BRIDGE] Connected to Port 8081 execution conduits (Vyro + Whop).'
   ]);
   const [pipelineState, setPipelineState] = useState('IDLE');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -45,6 +46,12 @@ export default function Tab11Campaigns() {
     return `C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\BOUNTY_ENGINE\\campaigns\\${bId}\\intake\\${bId}_source.mp4`;
   };
 
+  const detectPlatform = (b) => {
+    if (!b) return 'Vyro';
+    if (b.platform) return b.platform;
+    return String(b.id || '').toLowerCase().startsWith('whop_') ? 'Whop' : 'Vyro';
+  };
+
   const loadBountyIntoForm = (bounty) => {
     if (!bounty) return;
     const autoPath = (bounty.sourcePath && bounty.sourcePath.trim())
@@ -52,6 +59,7 @@ export default function Tab11Campaigns() {
       : getDefaultSourcePath(bounty.id);
 
     setActiveBountyId(bounty.id);
+    setActivePlatform(detectPlatform(bounty));
     setCampaignTitle(bounty.campaignTitle || bounty.title || bounty.name || '');
     setCpmRate(bounty.cpmRate || bounty.cpm_rate || '$2.00');
     setViewFloor(bounty.viewFloor || bounty.view_floor || '1000');
@@ -105,6 +113,7 @@ export default function Tab11Campaigns() {
               const target = updatedList.find(b => b.id === activeBountyId) || job.lastResult.updatedBounty;
               if (target) {
                 setActiveBountyId(target.id);
+                setActivePlatform(detectPlatform(target));
                 setDailyPostsUsed(target.dailyPostsUsed || 0);
                 setSourceVideoPath(target.sourcePath || getDefaultSourcePath(target.id));
               }
@@ -148,6 +157,7 @@ export default function Tab11Campaigns() {
     if (!activeBountyId) return;
     const payload = {
       id: activeBountyId,
+      platform: activePlatform,
       totalClicks: overrides.totalClicks !== undefined ? overrides.totalClicks : totalClicks,
       dailyPostsUsed: overrides.dailyPostsUsed !== undefined ? overrides.dailyPostsUsed : dailyPostsUsed,
       poolStatus: overrides.poolStatus !== undefined ? overrides.poolStatus : poolStatus,
@@ -243,6 +253,7 @@ export default function Tab11Campaigns() {
         body: JSON.stringify({
           bounty: activeBountyId ? {
             id: activeBountyId,
+            platform: activePlatform,
             title: campaignTitle,
             cpmRate,
             viewFloor,
@@ -260,11 +271,12 @@ export default function Tab11Campaigns() {
   };
 
   const handleCreateNewFunnel = () => {
-    const newId = `bty_custom_${Date.now().toString().slice(-4)}`;
+    const newId = `whop_custom_${Date.now().toString().slice(-4)}`;
     const newBounty = {
       id: newId,
-      title: 'New Custom Bounty',
-      cpmRate: '$2.00',
+      platform: 'Whop',
+      title: 'New Whop / Vyro Bounty',
+      cpmRate: '$2.50',
       viewFloor: '1000',
       poolStatus: 'ACTIVE // 100% Pool Left (~14 Days)',
       runwayDays: 14,
@@ -370,6 +382,8 @@ export default function Tab11Campaigns() {
             <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 'bold' }}>ACTIVE BOUNTIES ({bounties.length}/5):</span>
             {bounties.map(b => {
               const isSelected = activeBountyId === b.id;
+              const plat = detectPlatform(b);
+              const isWhop = plat.toLowerCase() === 'whop';
               return (
                 <button
                   key={b.id}
@@ -385,9 +399,19 @@ export default function Tab11Campaigns() {
                     borderRadius: '3px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: '6px'
                   }}
                 >
+                  <span style={{
+                    fontSize: '9px',
+                    padding: '1px 4px',
+                    borderRadius: '2px',
+                    fontWeight: 'bold',
+                    backgroundColor: isWhop ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 184, 0, 0.2)',
+                    color: isWhop ? '#38bdf8' : '#ffb800'
+                  }}>
+                    {plat.toUpperCase()}
+                  </span>
                   <span>{b.title || b.id}</span>
                   <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '2px', backgroundColor: 'rgba(16,185,129,0.18)', color: '#10b981' }}>
                     {b.cpmRate || '$2.00'} • {b.runwayDays !== undefined ? `${b.runwayDays}d` : '12d'}
@@ -437,7 +461,7 @@ export default function Tab11Campaigns() {
                 borderRadius: '3px'
               }}
             >
-              {isDiscovering ? 'SYNCING VYRO...' : '⚡ AUTO-DISCOVER BOUNTIES (TESS)'}
+              {isDiscovering ? 'SYNCING VYRO + WHOP...' : '⚡ AUTO-DISCOVER VYRO + WHOP (TESS)'}
             </button>
           </div>
         </div>
@@ -452,7 +476,7 @@ export default function Tab11Campaigns() {
               <span style={{ fontSize: '9px', color: '#10b981', border: '1px solid #1f242d', padding: '1px 5px' }}>AUTO-PURGE ON DRY</span>
             </div>
             <div style={{ fontSize: '13px', fontWeight: 'bold', color: poolStatus.includes('DRY') ? '#ef4444' : '#10b981' }}>{poolStatus}</div>
-            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>EST. TIME REMAINING: <strong style={{ color: '#E2E8F0' }}>{runwayDays} DAYS</strong></div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>PLATFORM: <strong style={{ color: activePlatform === 'Whop' ? '#38bdf8' : '#ffb800' }}>{activePlatform.toUpperCase()}</strong> • EST. REMAINING: <strong style={{ color: '#E2E8F0' }}>{runwayDays} DAYS</strong></div>
           </div>
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
@@ -483,7 +507,7 @@ export default function Tab11Campaigns() {
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
             <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '6px' }}>TESS QUANT VERDICT</div>
             <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffb800' }}>{cpmRate} CPM // {poolStatus.includes('DRY') ? 'AUTO-PURGING' : 'KEEP RUNNING'}</div>
-            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>CLIENT: <strong style={{ color: '#fff' }}>{(campaignTitle || '').split('//')[0]}</strong></div>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>NETWORK: <strong style={{ color: '#fff' }}>{activePlatform.toUpperCase()}</strong> • {(campaignTitle || '').split('//')[0]}</div>
           </div>
         </div>
       )}
@@ -493,7 +517,7 @@ export default function Tab11Campaigns() {
         {/* COLUMN 01: BOUNTY RULES */}
         <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES</span>
+            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES ({activePlatform.toUpperCase()})</span>
             {activeBountyId && (
               <button onClick={handlePurgeBounty} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '10px', padding: '3px 8px', cursor: 'pointer' }}>[ PURGE FUNNEL ]</button>
             )}
