@@ -19,7 +19,7 @@ export default function Tab11Campaigns() {
   const [runwayDays, setRunwayDays] = useState(14);
   const [totalClicks, setTotalClicks] = useState(0);
   const [dailyPostsUsed, setDailyPostsUsed] = useState(0);
-  const [dailyPostCap] = useState(5);
+  const [dailyPostCap] = useState(6);
 
   const [transcriptDrawerOpen, setTranscriptDrawerOpen] = useState(false);
   const [rawTranscript, setRawTranscript] = useState('');
@@ -359,7 +359,7 @@ export default function Tab11Campaigns() {
               AUTO-PILOT ACTIVE ({formatTimer(elapsedSeconds)})
             </span>
           )}
-          <span>GLOBAL DAILY ALLOCATION: <strong style={{ color: totalDailyUsedAcrossAll >= 5 ? '#ef4444' : '#38bdf8' }}>{totalDailyUsedAcrossAll} / 5 POSTS TODAY</strong></span>
+          <span>GLOBAL DAILY ALLOCATION: <strong style={{ color: totalDailyUsedAcrossAll >= 6 ? '#ef4444' : '#38bdf8' }}>{totalDailyUsedAcrossAll} / 6 POSTS TODAY</strong></span>
           <span>PORT 8081 DAEMON: <strong style={{ color: '#10b981' }}>READY</strong></span>
         </div>
       </div>
@@ -493,7 +493,7 @@ export default function Tab11Campaigns() {
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <span style={{ fontSize: '10px', color: '#94A3B8' }}>DAILY POST ALLOCATION (MAX 5/DAY)</span>
+              <span style={{ fontSize: '10px', color: '#94A3B8' }}>DAILY POST ALLOCATION (STEALTH CAP 6/DAY • 3/CAMPAIGN)</span>
               <span style={{ fontSize: '9px', color: '#38bdf8', border: '1px solid #1f242d', padding: '1px 5px' }}>CRON-GOVERNED</span>
             </div>
             <div style={{ fontSize: '15px', fontWeight: 'bold', color: totalDailyUsedAcrossAll >= dailyPostCap ? '#ef4444' : '#38bdf8' }}>{totalDailyUsedAcrossAll} / {dailyPostCap} POSTS DISPATCHED</div>
@@ -672,3 +672,4 @@ export default function Tab11Campaigns() {
     </div>
   );
 }
+

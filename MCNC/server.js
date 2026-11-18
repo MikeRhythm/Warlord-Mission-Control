@@ -130,7 +130,7 @@ function getBountyGovernorSnapshot() {
     }
     const isNewDay = ledger.lastDispatchDate !== today;
     const usedToday = isNewDay ? 0 : ledger.active.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
-    const openSlots = Math.max(0, 5 - usedToday);
+    const openSlots = Math.max(0, 6 - usedToday);
     const maxCurrentCpm = ledger.active.reduce((max, b) => {
         const val = parseFloat(String(b.cpmRate || '0').replace(/[^0-9.]/g, '')) || 0;
         return Math.max(max, val);
@@ -141,10 +141,10 @@ function getBountyGovernorSnapshot() {
 function buildCalendarSchedulePayload() {
     const snap = getBountyGovernorSnapshot();
     const governorStateLabel = snap.openSlots <= 0
-        ? 'SLEEPING (5/5 FULL)'
+        ? 'SLEEPING (6/6 STEALTH FULL)'
         : snap.activeCount === 0
         ? 'IDLE (NO FUNNELS)'
-        : `ACTIVE (${snap.openSlots}/5 SLOTS OPEN)`;
+        : `ACTIVE (${snap.openSlots}/6 SLOTS OPEN)`;
 
     const alwaysRunning = [
         { id: 'cron-registry', name: 'LLM Model Registry Sync', frequency: 'Every 6 Hours' },
@@ -186,16 +186,33 @@ function triggerBountyGovernor(bountyOverride = null, sourceTrigger = 'MANUAL') 
     }
 
     const snap = getBountyGovernorSnapshot();
-    if (!bountyOverride && snap.activeCount === 0) {
-        const msg = `[CRON / GOVERNOR] No active funnels in queue. Sleeping until Tess discovers a live bounty.`;
-        ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] ${msg}`, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
-        broadcast('TRACE', msg);
-        sendScheduleUpdate();
-        return { started: false, skipped: true, reason: 'NO_ACTIVE_FUNNELS', job: ACTIVE_BOUNTY_JOB };
+    if (!bountyOverride && snap.activeCount === 0 && snap.openSlots > 0) {
+        const scoutMsg = `[CRON / AUTO-SCOUT] Open slots detected (${snap.openSlots}/6) with empty queue. Dispatching Tess to hunt Vyro + Whop deals now...`;
+        ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] ${scoutMsg}`, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
+        broadcast('TRACE', scoutMsg);
+        (async () => {
+            try {
+                delete require.cache[require.resolve('./Bounty_Scraper')];
+                const { scrapeBounties } = require('./Bounty_Scraper');
+                const discovered = await scrapeBounties();
+                if (Array.isArray(discovered) && discovered.length > 0) {
+                    const freshLedger = {
+                        lastDispatchDate: new Date().toISOString().slice(0, 10),
+                        active: discovered.slice(0, 5).map(item => ({ ...item, dailyPostsUsed: 0, sourcePath: '', createdAt: new Date().toISOString() }))
+                    };
+                    fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(freshLedger, null, 2), 'utf8');
+                    sendScheduleUpdate();
+                    triggerBountyGovernor(freshLedger.active[0], 'AUTO-SCOUT-FULFILL');
+                }
+            } catch (err) {
+                broadcast('TRACE', `[AUTO-SCOUT ERROR] ${err.message}`);
+            }
+        })();
+        return { started: true, autoScouting: true, job: ACTIVE_BOUNTY_JOB };
     }
 
     if (snap.openSlots <= 0) {
-        const msg = `[CRON / DISPATCH GATE] 5 / 5 daily slots already used for ${snap.today}. Skipping media run until tomorrow.`;
+        const msg = `[CRON / DISPATCH GATE] 6 / 6 daily stealth slots already used for ${snap.today}. Skipping media run until tomorrow.`;
         ACTIVE_BOUNTY_JOB.status = 'COMPLETE';
         ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] ${msg}`, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
         broadcast('TRACE', msg);
@@ -260,7 +277,7 @@ cron.schedule('30 6 * * *', () => {
 cron.schedule('0 7 * * *', async () => {
     logTelemetry('CRON_RADAR', 'Running daily New Bounty Scout (Tess)...');
     const snap = getBountyGovernorSnapshot();
-    broadcast('TRACE', `[CRON DAEMON] 07:00 SAST: Tess scanning Vyro (Slots Open: ${snap.openSlots}/5 | Current Max CPM: $${snap.maxCurrentCpm.toFixed(2)}).`);
+    broadcast('TRACE', `[CRON DAEMON] 07:00 SAST: Tess scanning Vyro (Slots Open: ${snap.openSlots}/6 | Current Max CPM: $${snap.maxCurrentCpm.toFixed(2)}).`);
     try {
         delete require.cache[require.resolve('./Bounty_Scraper')];
         const { scrapeBounties } = require('./Bounty_Scraper');
@@ -293,14 +310,14 @@ cron.schedule('0 8-22/2 * * *', () => {
     const snap = getBountyGovernorSnapshot();
     sendScheduleUpdate();
     if (snap.openSlots <= 0) {
-        broadcast('TRACE', `[CRON SLEEP] Daily allocation full (${snap.usedToday}/5). Dispatch governor sleeping.`);
+        broadcast('TRACE', `[CRON SLEEP] Daily allocation full (${snap.usedToday}/6). Dispatch governor sleeping.`);
         return;
     }
     if (snap.activeCount === 0) {
         broadcast('TRACE', '[CRON SLEEP] No active funnels in queue. Dispatch governor sleeping.');
         return;
     }
-    logTelemetry('CRON_GOVERNOR', `Open slots detected (${snap.openSlots}/5). Triggering automated bounty dispatch.`);
+    logTelemetry('CRON_GOVERNOR', `Open slots detected (${snap.openSlots}/6). Triggering automated bounty dispatch.`);
     triggerBountyGovernor(null, 'CRON-CALENDAR');
 }, { timezone: 'Africa/Johannesburg' });
 
@@ -2197,3 +2214,4 @@ server.listen(PORT, () => {
     console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });
+

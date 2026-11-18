@@ -8,6 +8,10 @@ const YTDLP_BIN = fs.existsSync(path.join(WORKSPACE_DIR, 'yt-dlp.exe'))
     ? path.join(WORKSPACE_DIR, 'yt-dlp.exe')
     : 'yt-dlp';
 
+const GLOBAL_DAILY_CAP = 6;       // Safely under YouTube/TikTok 9-10/day spam threshold
+const PER_CAMPAIGN_DAILY_CAP = 3; // Safely inside Vyro starter per-campaign limit
+const MAX_CLIPS_PER_WINDOW = 2;   // Organic drip-feed per 2-hour cron window
+
 function resolveFfmpegBin(bountyDataDir) {
     const candidates = [
         bountyDataDir ? path.join(bountyDataDir, 'ffmpeg.exe') : '',
@@ -115,7 +119,7 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
     }
 
     if (ledger.lastDispatchDate !== today) {
-        logStep(`[GOVERNOR] New calendar day (${today}). Auto-resetting daily dispatch slots to 0/5...`);
+        logStep(`[GOVERNOR] New calendar day (${today}). Auto-resetting daily dispatch slots to 0/${GLOBAL_DAILY_CAP}...`);
         ledger.lastDispatchDate = today;
         ledger.active = ledger.active.map(item => ({ ...item, dailyPostsUsed: 0 }));
     }
@@ -145,31 +149,47 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
     fs.writeFileSync(ledgerFile, JSON.stringify(ledger, null, 2), 'utf8');
 
     if (ledger.active.length === 0) {
-        logStep(`[GOVERNOR IDLE] All funnels exhausted & purged. Waiting for Tess discovery or Calendar cron trigger.`);
+        logStep(`[GOVERNOR IDLE] All funnels exhausted & purged. Waiting for Tess auto-scout.`);
         return { sourceFile: '', renderedClips: [], updatedBounty: null, activeList: [], postStatus: 'ALL FUNNELS PURGED' };
     }
 
-    const targetBounty = (bounty && ledger.active.find(b => b.id === bounty.id)) || ledger.active[0];
-    const cleanId = targetBounty.id;
-    const platform = resolveBountyPlatform(targetBounty);
-
-    const DAILY_CAP = 5;
     const usedToday = ledger.active.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
-    const remainingSlots = Math.max(0, DAILY_CAP - usedToday);
+    const remainingGlobalSlots = Math.max(0, GLOBAL_DAILY_CAP - usedToday);
 
-    if (remainingSlots <= 0) {
-        logStep(`[CRON / DISPATCH GATE] 5 / 5 daily dispatches already completed for ${today}. Media rendering skipped until tomorrow's window.`);
+    if (remainingGlobalSlots <= 0) {
+        logStep(`[CRON / STEALTH GATE] ${GLOBAL_DAILY_CAP} / ${GLOBAL_DAILY_CAP} daily dispatches completed for ${today}. Staying below radar until tomorrow.`);
         return {
-            sourceFile: targetBounty.sourcePath || '',
+            sourceFile: ledger.active[0].sourcePath || '',
             renderedClips: [],
-            updatedBounty: targetBounty,
+            updatedBounty: ledger.active[0],
             activeList: ledger.active,
-            postStatus: 'DAILY CAP REACHED (5/5)'
+            postStatus: `DAILY STEALTH CAP REACHED (${GLOBAL_DAILY_CAP}/${GLOBAL_DAILY_CAP})`
         };
     }
 
-    const clipsToCut = Math.min(3, remainingSlots);
-    logStep(`[GOVERNOR] ${remainingSlots} daily slot(s) open for ${today}. Dispatching ${clipsToCut} short(s) for [${platform.toUpperCase()}] "${targetBounty.title || cleanId}"...`);
+    // Pick requested funnel if it still has per-campaign headroom (< 3/day), otherwise rotate to next open funnel
+    let targetBounty = (bounty && ledger.active.find(b => b.id === bounty.id && (Number(b.dailyPostsUsed) || 0) < PER_CAMPAIGN_DAILY_CAP))
+        || ledger.active.find(b => (Number(b.dailyPostsUsed) || 0) < PER_CAMPAIGN_DAILY_CAP);
+
+    if (!targetBounty) {
+        logStep(`[CRON / CAMPAIGN ROTATION] All queued funnels hit ${PER_CAMPAIGN_DAILY_CAP}/campaign today. Waiting for Tess to scout fresh campaign.`);
+        return {
+            sourceFile: ledger.active[0].sourcePath || '',
+            renderedClips: [],
+            updatedBounty: ledger.active[0],
+            activeList: ledger.active,
+            postStatus: 'ALL QUEUED FUNNELS AT CAMPAIGN CAP'
+        };
+    }
+
+    const cleanId = targetBounty.id;
+    const platform = resolveBountyPlatform(targetBounty);
+    const campaignUsed = Number(targetBounty.dailyPostsUsed) || 0;
+    const remainingCampaignSlots = Math.max(0, PER_CAMPAIGN_DAILY_CAP - campaignUsed);
+
+    // Drip-feed max 2 clips per 2-hour window so social algorithms never flag a burst
+    const clipsToCut = Math.min(MAX_CLIPS_PER_WINDOW, remainingGlobalSlots, remainingCampaignSlots);
+    logStep(`[GOVERNOR STEALTH] ${remainingGlobalSlots} global slot(s) open (${usedToday}/${GLOBAL_DAILY_CAP}). Drip-dispatching ${clipsToCut} short(s) for [${platform.toUpperCase()}] "${targetBounty.title || cleanId}" (${campaignUsed}/${PER_CAMPAIGN_DAILY_CAP} campaign cap)...`);
 
     const campDir = path.join(bountyDataDir, 'campaigns', cleanId);
     const intakeDir = path.join(campDir, 'intake');
@@ -234,33 +254,31 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
         logStep(`[1/4 JACK COMPLETE] Using local source MP4 (${srcMb} MB | ${Math.round(existingDuration)}s) -> ${path.basename(sourceFile)}`);
     }
 
+    // Offset slice windows by campaignUsed so later drip windows never cut duplicate timestamps
     const totalSec = existingDuration > 15 ? existingDuration : 150;
-    logStep(`[2/4 TESS] Probing ${Math.round(totalSec)}s source timeline for ${clipsToCut} vertical window(s)...`);
+    logStep(`[2/4 TESS] Probing ${Math.round(totalSec)}s timeline (offset #${campaignUsed + 1}) for ${clipsToCut} unique window(s)...`);
 
-    const hooks = [
-        `${(targetBounty.hookHeadline || 'WAIT FOR IT').substring(0, 34)} [1/${clipsToCut}]`,
-        `${(targetBounty.hookHeadline || 'UNREAL MOMENT').substring(0, 34)} [2/${clipsToCut}]`,
-        `${(targetBounty.hookHeadline || 'WATCH TILL END').substring(0, 34)} [3/${clipsToCut}]`
+    const allStartRatios = [0.06, 0.28, 0.52, 0.74];
+    const allHooks = [
+        `${(targetBounty.hookHeadline || 'WAIT FOR IT').substring(0, 34)} [PT 1]`,
+        `${(targetBounty.hookHeadline || 'UNREAL MOMENT').substring(0, 34)} [PT 2]`,
+        `${(targetBounty.hookHeadline || 'WATCH TILL END').substring(0, 34)} [PT 3]`,
+        `${(targetBounty.hookHeadline || 'NOBODY SAW THIS').substring(0, 34)} [PT 4]`
     ];
 
     const clipPlan = [];
-    if (totalSec >= 135) {
-        const starts = [8, Math.floor(totalSec * 0.36), Math.floor(totalSec * 0.68)];
-        const durations = [42, 45, 38];
-        for (let i = 0; i < clipsToCut; i++) {
-            const safeDur = Math.min(durations[i], Math.max(15, Math.floor(totalSec - starts[i] - 1)));
-            clipPlan.push({ index: i + 1, start: formatTimestamp(starts[i]), duration: safeDur, hook: hooks[i] });
-        }
-    } else {
-        const usableSec = Math.max(15, totalSec - 2);
-        const sliceDur = Math.max(10, Math.min(45, Math.floor(usableSec / clipsToCut)));
-        for (let i = 0; i < clipsToCut; i++) {
-            const startSec = Math.min(Math.floor(i * sliceDur), Math.max(0, Math.floor(totalSec - sliceDur - 1)));
-            const safeDur = Math.max(8, Math.min(sliceDur, Math.floor(totalSec - startSec)));
-            clipPlan.push({ index: i + 1, start: formatTimestamp(startSec), duration: safeDur, hook: hooks[i] });
-        }
+    for (let i = 0; i < clipsToCut; i++) {
+        const slotIdx = (campaignUsed + i) % allStartRatios.length;
+        const startSec = Math.min(Math.floor(totalSec * allStartRatios[slotIdx]), Math.max(0, Math.floor(totalSec - 25)));
+        const safeDur = Math.min(42, Math.max(12, Math.floor(totalSec - startSec - 1)));
+        clipPlan.push({
+            index: campaignUsed + i + 1,
+            start: formatTimestamp(startSec),
+            duration: safeDur,
+            hook: allHooks[slotIdx]
+        });
     }
-    logStep(`[2/4 TESS COMPLETE] ${clipsToCut} window(s) locked (${clipPlan.map(c => `${c.duration}s @ ${c.start}`).join(', ')}).`);
+    logStep(`[2/4 TESS COMPLETE] ${clipsToCut} unique window(s) locked (${clipPlan.map(c => `${c.duration}s @ ${c.start}`).join(', ')}).`);
 
     const renderedClips = [];
     for (const seg of clipPlan) {
@@ -271,18 +289,18 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
         const fileBytes = fs.existsSync(outPath) ? fs.statSync(outPath).size : 0;
         if (fileBytes < 50000) {
             if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
-            throw new Error(`FFmpeg produced an empty clip (${fileBytes} bytes) on Short ${seg.index}/${clipsToCut}.`);
+            throw new Error(`FFmpeg produced an empty clip (${fileBytes} bytes) on Short #${seg.index}.`);
         }
         const sizeKb = Math.round(fileBytes / 1024);
         renderedClips.push({ index: seg.index, name: outName, path: outPath, sizeKb, hook: seg.hook });
-        logStep(`[3/4 CHARLIE] Cut Short ${seg.index}/${clipsToCut}: ${outName} (${sizeKb} KB) -> VERIFIED`);
+        logStep(`[3/4 CHARLIE] Cut Short #${seg.index}: ${outName} (${sizeKb} KB) -> VERIFIED`);
     }
 
     const portalUrl = platform.toLowerCase() === 'whop'
         ? 'https://whop.com/content-rewards'
         : 'https://app.vyro.com/add-posts';
 
-    logStep(`[4/4 ROXY] Pushing ${renderedClips.length} verified short(s) to @EchoPodMedia Studio + ${platform} portal...`);
+    logStep(`[4/4 ROXY] Staging ${renderedClips.length} short(s) to @EchoPodMedia Studio + ${platform} portal...`);
     let postStatus = `STAGED (${platform.toUpperCase()})`;
     let browser = null;
     try {
@@ -332,7 +350,7 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
     ledger.lastDispatchDate = today;
     ledger.active = ledger.active.map(b => {
         if (b.id === cleanId) {
-            const nextUsed = Math.min(DAILY_CAP, (Number(b.dailyPostsUsed) || 0) + renderedClips.length);
+            const nextUsed = Math.min(PER_CAMPAIGN_DAILY_CAP, (Number(b.dailyPostsUsed) || 0) + renderedClips.length);
             updatedBounty = { ...b, platform, sourcePath: sourceFile, dailyPostsUsed: nextUsed };
             return updatedBounty;
         }
@@ -343,4 +361,4 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
     return { sourceFile, renderedClips, updatedBounty, activeList: ledger.active, postStatus };
 }
 
-module.exports = { autoExecuteBounty };
+module.exports = { autoExecuteBounty, GLOBAL_DAILY_CAP, PER_CAMPAIGN_DAILY_CAP };
