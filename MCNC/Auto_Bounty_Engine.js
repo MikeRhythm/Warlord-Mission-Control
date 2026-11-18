@@ -20,6 +20,20 @@ function resolveFfmpegBin(bountyDataDir) {
     return 'ffmpeg';
 }
 
+function getTodayKey() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function isBountyExpiredOrDry(b) {
+    if (!b) return true;
+    const status = String(b.poolStatus || '').toUpperCase();
+    if (status.includes('DRY') || status.includes('EXPIRED') || status.includes('PURGE')) return true;
+    const pctMatch = status.match(/(\d+(?:\.\d+)?)%/);
+    if (pctMatch && parseFloat(pctMatch[1]) <= 0) return true;
+    if (b.runwayDays !== undefined && Number(b.runwayDays) <= 0) return true;
+    return false;
+}
+
 function runCmd(cmd) {
     return new Promise((resolve, reject) => {
         exec(cmd, { maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
@@ -74,14 +88,80 @@ async function exportYouTubeCookies(sessionPath, cookieFile) {
             fs.writeFileSync(cookieFile, lines.join('\n'), 'utf8');
         }
     } catch (e) {
-        // Proceed with Android/iOS client extraction if browser profile is momentarily locked
     } finally {
         if (browser) await browser.close().catch(() => {});
     }
 }
 
 async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile }) {
-    const cleanId = bounty.id || 'vyro_active';
+    const today = getTodayKey();
+    let ledger = { lastDispatchDate: today, active: [] };
+    if (fs.existsSync(ledgerFile)) {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(ledgerFile, 'utf8'));
+            ledger = {
+                lastDispatchDate: parsed.lastDispatchDate || today,
+                active: Array.isArray(parsed.active) ? parsed.active : []
+            };
+        } catch (e) {}
+    }
+
+    if (ledger.lastDispatchDate !== today) {
+        logStep(`[GOVERNOR] New calendar day (${today}). Auto-resetting daily dispatch slots to 0/5...`);
+        ledger.lastDispatchDate = today;
+        ledger.active = ledger.active.map(item => ({ ...item, dailyPostsUsed: 0 }));
+    }
+
+    if (bounty && bounty.id) {
+        const exists = ledger.active.some(item => item.id === bounty.id);
+        if (exists) {
+            ledger.active = ledger.active.map(item => item.id === bounty.id ? { ...item, ...bounty } : item);
+        } else {
+            ledger.active.unshift({ ...bounty, dailyPostsUsed: 0 });
+        }
+    }
+
+    const survivingFunnels = [];
+    for (const item of ledger.active) {
+        if (isBountyExpiredOrDry(item)) {
+            const deadDir = path.join(bountyDataDir, 'campaigns', item.id);
+            if (fs.existsSync(deadDir)) {
+                fs.rmSync(deadDir, { recursive: true, force: true });
+            }
+            logStep(`[GOVERNOR PURGE] Funnel "${item.title || item.id}" ran out of pool/time. Purged disk artifacts & removed from queue.`);
+        } else {
+            survivingFunnels.push(item);
+        }
+    }
+    ledger.active = survivingFunnels;
+    fs.writeFileSync(ledgerFile, JSON.stringify(ledger, null, 2), 'utf8');
+
+    if (ledger.active.length === 0) {
+        logStep(`[GOVERNOR IDLE] All funnels exhausted & purged. Waiting for Tess discovery or Calendar cron trigger.`);
+        return { sourceFile: '', renderedClips: [], updatedBounty: null, activeList: [], postStatus: 'ALL FUNNELS PURGED' };
+    }
+
+    const targetBounty = (bounty && ledger.active.find(b => b.id === bounty.id)) || ledger.active[0];
+    const cleanId = targetBounty.id;
+
+    const DAILY_CAP = 5;
+    const usedToday = ledger.active.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
+    const remainingSlots = Math.max(0, DAILY_CAP - usedToday);
+
+    if (remainingSlots <= 0) {
+        logStep(`[CRON / DISPATCH GATE] 5 / 5 daily dispatches already completed for ${today}. Media rendering skipped until tomorrow's window.`);
+        return {
+            sourceFile: targetBounty.sourcePath || '',
+            renderedClips: [],
+            updatedBounty: targetBounty,
+            activeList: ledger.active,
+            postStatus: 'DAILY CAP REACHED (5/5)'
+        };
+    }
+
+    const clipsToCut = Math.min(3, remainingSlots);
+    logStep(`[GOVERNOR] ${remainingSlots} daily slot(s) open for ${today}. Dispatching ${clipsToCut} short(s) for "${targetBounty.title || cleanId}"...`);
+
     const campDir = path.join(bountyDataDir, 'campaigns', cleanId);
     const intakeDir = path.join(campDir, 'intake');
     const clipsDir = path.join(campDir, 'clips');
@@ -89,15 +169,14 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
     fs.mkdirSync(clipsDir, { recursive: true });
 
     const FFMPEG_BIN = resolveFfmpegBin(bountyDataDir);
-    const sourceFile = (bounty.sourcePath && bounty.sourcePath.trim().endsWith('.mp4'))
-        ? bounty.sourcePath.trim()
+    const sourceFile = (targetBounty.sourcePath && targetBounty.sourcePath.trim().endsWith('.mp4'))
+        ? targetBounty.sourcePath.trim()
         : path.join(intakeDir, `${cleanId}_source.mp4`);
 
     const sessionPath = path.resolve('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Chrome_Session');
     const cookieFile = path.join(bountyDataDir, 'yt_cookies.txt');
 
-    // STAGE 1: JACK AUTO-DOWNLOADS LONG-FORM SOURCE MP4 (>= 120s PREFERRED)
-    const searchTitle = (bounty.title || 'ABC Scrubs funny moments').replace('//', ' ').trim();
+    const searchTitle = (targetBounty.title || 'ABC Scrubs funny moments').replace('//', ' ').trim();
     let existingDuration = fs.existsSync(sourceFile) ? await getMediaDurationSec(FFMPEG_BIN, sourceFile) : 0;
 
     if (!fs.existsSync(sourceFile) || fs.statSync(sourceFile).size < 100000 || existingDuration < 110) {
@@ -143,36 +222,34 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
         logStep(`[1/4 JACK COMPLETE] Using local source MP4 (${srcMb} MB | ${Math.round(existingDuration)}s) -> ${path.basename(sourceFile)}`);
     }
 
-    // STAGE 2: TESS PROBES DURATION & LOCKS 3 GUARANTEED NON-EMPTY SEGMENTS
     const totalSec = existingDuration > 15 ? existingDuration : 150;
-    logStep(`[2/4 TESS] Probing ${Math.round(totalSec)}s source timeline for 3 vertical windows...`);
+    logStep(`[2/4 TESS] Probing ${Math.round(totalSec)}s source timeline for ${clipsToCut} vertical window(s)...`);
 
     const hooks = [
-        `${(bounty.hookHeadline || 'WAIT FOR IT').substring(0, 34)} [1/3]`,
-        `${(bounty.hookHeadline || 'UNREAL MOMENT').substring(0, 34)} [2/3]`,
-        `${(bounty.hookHeadline || 'WATCH TILL END').substring(0, 34)} [3/3]`
+        `${(targetBounty.hookHeadline || 'WAIT FOR IT').substring(0, 34)} [1/${clipsToCut}]`,
+        `${(targetBounty.hookHeadline || 'UNREAL MOMENT').substring(0, 34)} [2/${clipsToCut}]`,
+        `${(targetBounty.hookHeadline || 'WATCH TILL END').substring(0, 34)} [3/${clipsToCut}]`
     ];
 
     const clipPlan = [];
     if (totalSec >= 135) {
         const starts = [8, Math.floor(totalSec * 0.36), Math.floor(totalSec * 0.68)];
         const durations = [42, 45, 38];
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < clipsToCut; i++) {
             const safeDur = Math.min(durations[i], Math.max(15, Math.floor(totalSec - starts[i] - 1)));
             clipPlan.push({ index: i + 1, start: formatTimestamp(starts[i]), duration: safeDur, hook: hooks[i] });
         }
     } else {
         const usableSec = Math.max(15, totalSec - 2);
-        const sliceDur = Math.max(10, Math.min(45, Math.floor(usableSec / 3)));
-        for (let i = 0; i < 3; i++) {
+        const sliceDur = Math.max(10, Math.min(45, Math.floor(usableSec / clipsToCut)));
+        for (let i = 0; i < clipsToCut; i++) {
             const startSec = Math.min(Math.floor(i * sliceDur), Math.max(0, Math.floor(totalSec - sliceDur - 1)));
             const safeDur = Math.max(8, Math.min(sliceDur, Math.floor(totalSec - startSec)));
             clipPlan.push({ index: i + 1, start: formatTimestamp(startSec), duration: safeDur, hook: hooks[i] });
         }
     }
-    logStep(`[2/4 TESS COMPLETE] 3 windows locked (${clipPlan.map(c => `${c.duration}s @ ${c.start}`).join(', ')}).`);
+    logStep(`[2/4 TESS COMPLETE] ${clipsToCut} window(s) locked (${clipPlan.map(c => `${c.duration}s @ ${c.start}`).join(', ')}).`);
 
-    // STAGE 3: CHARLIE RENDERS ALL 3 VERTICAL 9:16 SHORTS WITH SIZE VERIFICATION
     const renderedClips = [];
     for (const seg of clipPlan) {
         const outName = `${cleanId}_short_${seg.index}_${Date.now().toString().slice(-4)}.mp4`;
@@ -182,15 +259,14 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
         const fileBytes = fs.existsSync(outPath) ? fs.statSync(outPath).size : 0;
         if (fileBytes < 50000) {
             if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
-            throw new Error(`FFmpeg produced an empty clip (${fileBytes} bytes) on Short ${seg.index}/3. Check source MP4 integrity.`);
+            throw new Error(`FFmpeg produced an empty clip (${fileBytes} bytes) on Short ${seg.index}/${clipsToCut}.`);
         }
         const sizeKb = Math.round(fileBytes / 1024);
         renderedClips.push({ index: seg.index, name: outName, path: outPath, sizeKb, hook: seg.hook });
-        logStep(`[3/4 CHARLIE] Cut Short ${seg.index}/3: ${outName} (${sizeKb} KB) -> VERIFIED`);
+        logStep(`[3/4 CHARLIE] Cut Short ${seg.index}/${clipsToCut}: ${outName} (${sizeKb} KB) -> VERIFIED`);
     }
 
-    // STAGE 4: ROXY & JACK AUTO-STAGE & UPLOAD TO @ECHOPODMEDIA CHANNELS
-    logStep(`[4/4 ROXY] Pushing 3 verified shorts to @EchoPodMedia (YouTube Studio / TikTok / Vyro)...`);
+    logStep(`[4/4 ROXY] Pushing ${renderedClips.length} verified short(s) to @EchoPodMedia Studio...`);
     let postStatus = 'STAGED IN STUDIO';
     let browser = null;
     try {
@@ -230,21 +306,17 @@ async function autoExecuteBounty({ bounty, logStep, bountyDataDir, ledgerFile })
         await vyroPage.goto('https://app.vyro.com/add-posts', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
 
         exec(`explorer.exe "${clipsDir}"`);
-        logStep(`[4/4 ROXY COMPLETE] Status: ${postStatus} | 3 Verified Shorts ready in @EchoPodMedia Studio.`);
+        logStep(`[4/4 ROXY COMPLETE] Status: ${postStatus} | ${renderedClips.length} Short(s) ready in @EchoPodMedia Studio.`);
     } catch (e) {
         exec(`explorer.exe "${clipsDir}"`);
         logStep(`[4/4 ROXY COMPLETE] Clips folder opened (${e.message}). Ready to drop into Studio.`);
     }
 
-    // STAGE 5: UPDATE LEDGER
-    let ledger = { active: [] };
-    if (fs.existsSync(ledgerFile)) {
-        ledger = JSON.parse(fs.readFileSync(ledgerFile, 'utf8'));
-    }
     let updatedBounty = null;
-    ledger.active = (ledger.active || []).map(b => {
+    ledger.lastDispatchDate = today;
+    ledger.active = ledger.active.map(b => {
         if (b.id === cleanId) {
-            const nextUsed = Math.min(5, (Number(b.dailyPostsUsed) || 0) + 3);
+            const nextUsed = Math.min(DAILY_CAP, (Number(b.dailyPostsUsed) || 0) + renderedClips.length);
             updatedBounty = { ...b, sourcePath: sourceFile, dailyPostsUsed: nextUsed };
             return updatedBounty;
         }

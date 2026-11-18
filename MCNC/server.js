@@ -95,54 +95,217 @@ const broadcast = (type, msg) => {
 };
 
 // ==========================================
-// BASE 1 AUTOMATED CRON DAEMONS (BOUNTIES)
+// BASE 1 AUTOMATED CRON DAEMONS (TAB 05 CALENDAR <-> BOUNTY GOVERNOR)
 // ==========================================
 const cron = require('node-cron');
 
-const activeCronJobs = [
-    { id: 'cron-registry', name: 'LLM Model Registry Sync', frequency: 'Every 6 Hours' },
-    { id: 'cron-runway', name: 'Bounty Pool & Runway Audit', frequency: 'Daily @ 06:30 SAST' },
-    { id: 'cron-radar', name: 'New Bounty Scout (Tess Gate)', frequency: 'Daily @ 07:00 SAST' },
-    { id: 'cron-pacing', name: 'View Floor & Pacing Check', frequency: 'Every 12 Hours' }
-];
+const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+const BOUNTY_CAMPAIGNS_DIR = path.join(BOUNTY_ROOT, 'campaigns');
+const BOUNTY_LEDGER_FILE = path.join(BOUNTY_ROOT, 'bounties_ledger.json');
+const BOUNTY_DATA_DIR = path.join(__dirname, 'Data', 'Projects', 'BOUNTY_ENGINE');
 
-// Daily 06:30 SAST - Bounty Pool & Runway Audit
-cron.schedule('30 6 * * *', () => {
-    logTelemetry('CRON_RUNWAY', 'Running daily Bounty Pool & Runway Audit...');
-    broadcast('TRACE', '[CRON DAEMON] 06:30 SAST: Executing Bounty Pool & Runway Audit.');
-    // TODO: Wire direct API check against Vyro/Whop remaining pools here
-}, { timezone: 'Africa/Johannesburg' });
+let ACTIVE_BOUNTY_JOB = {
+    running: false,
+    bountyId: '',
+    status: 'IDLE',
+    startedAt: null,
+    logs: [
+        '[INIT] Universal Campaigns & Action Station mounted.',
+        '[BRIDGE] Connected to Port 8081 execution conduits.'
+    ],
+    lastResult: null
+};
 
-// Daily 07:00 SAST - New Bounty Scout (Tess Radar)
-cron.schedule('0 7 * * *', async () => {
-    logTelemetry('CRON_RADAR', 'Running daily New Bounty Scout (Tess)...');
-    broadcast('TRACE', '[CRON DAEMON] 07:00 SAST: Tess scanning for fresh targets & episodes.');
-    try {
-        const { scrapeBounties } = require('./Bounty_Scraper');
-        await scrapeBounties();
-        broadcast('TRACE', '[CRON DAEMON] Scout complete. Targets queued for War Room review.');
-    } catch (e) {
-        broadcast('TRACE', `[CRON ERROR] Radar failed: ${e.message}`);
+function getBountyGovernorSnapshot() {
+    const today = new Date().toISOString().slice(0, 10);
+    let ledger = { lastDispatchDate: today, active: [] };
+    if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+            ledger = {
+                lastDispatchDate: parsed.lastDispatchDate || today,
+                active: Array.isArray(parsed.active) ? parsed.active : []
+            };
+        } catch (e) {}
     }
-}, { timezone: 'Africa/Johannesburg' });
+    const isNewDay = ledger.lastDispatchDate !== today;
+    const usedToday = isNewDay ? 0 : ledger.active.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
+    const openSlots = Math.max(0, 5 - usedToday);
+    const maxCurrentCpm = ledger.active.reduce((max, b) => {
+        const val = parseFloat(String(b.cpmRate || '0').replace(/[^0-9.]/g, '')) || 0;
+        return Math.max(max, val);
+    }, 0);
+    return { today, isNewDay, usedToday, openSlots, activeCount: ledger.active.length, maxCurrentCpm, ledger };
+}
 
-// Every 12 Hours - View Floor & Pacing Check
-cron.schedule('0 */12 * * *', () => {
-    logTelemetry('CRON_PACING', 'Running View Floor & Pacing Check...');
-    broadcast('TRACE', '[CRON DAEMON] 12HR CYCLE: Verifying view floors and posting caps.');
-    // TODO: Wire YouTube Data API / Instagram Graph API view floor checks here
-});
+function buildCalendarSchedulePayload() {
+    const snap = getBountyGovernorSnapshot();
+    const governorStateLabel = snap.openSlots <= 0
+        ? 'SLEEPING (5/5 FULL)'
+        : snap.activeCount === 0
+        ? 'IDLE (NO FUNNELS)'
+        : `ACTIVE (${snap.openSlots}/5 SLOTS OPEN)`;
+
+    const alwaysRunning = [
+        { id: 'cron-registry', name: 'LLM Model Registry Sync', frequency: 'Every 6 Hours' },
+        { id: 'cron-runway', name: 'Bounty Pool & Auto-Purge Audit', frequency: 'Daily @ 06:30 SAST' },
+        { id: 'cron-radar', name: `Tess Bounty Upgrade Scout (Max $${snap.maxCurrentCpm.toFixed(2)})`, frequency: 'Daily @ 07:00 SAST' },
+        { id: 'cron-governor', name: `Bounty Dispatch Governor [${governorStateLabel}]`, frequency: 'Every 2 Hours (08:00-22:00 SAST)' }
+    ];
+
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const todayName = weekdays[new Date().getDay()];
+    const scheduledTasks = [];
+
+    weekdays.forEach(day => {
+        scheduledTasks.push({ id: `t-runway-${day}`, day, title: 'Bounty Pool & Auto-Purge Audit', time: '06:30 SAST', theme: 'purple' });
+        scheduledTasks.push({ id: `t-rad-${day}`, day, title: 'Tess Bounty Upgrade Scout', time: '07:00 SAST', theme: 'blue' });
+        scheduledTasks.push({
+            id: `t-gov-${day}`,
+            day,
+            title: day === todayName ? `Bounty Governor (${governorStateLabel})` : 'Bounty Dispatch Governor (Slot-Gated)',
+            time: '08:00 - 22:00 SAST (2H)',
+            theme: day === todayName && snap.openSlots <= 0 ? 'slate' : 'emerald'
+        });
+        scheduledTasks.push({ id: `t-reg-${day}`, day, title: 'LLM Registry Sync', time: '00:00 / 06:00 / 12:00 / 18:00', theme: 'gold' });
+    });
+
+    return { type: 'SCHEDULE_UPDATE', alwaysRunning, scheduledTasks };
+}
 
 const sendScheduleUpdate = () => {
-    const payload = JSON.stringify({ type: 'SCHEDULE_UPDATE', alwaysRunning: activeCronJobs });
+    const payload = JSON.stringify(buildCalendarSchedulePayload());
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) client.send(payload);
     });
 };
 
+function triggerBountyGovernor(bountyOverride = null, sourceTrigger = 'MANUAL') {
+    if (ACTIVE_BOUNTY_JOB.running) {
+        return { started: false, alreadyRunning: true, job: ACTIVE_BOUNTY_JOB };
+    }
+
+    const snap = getBountyGovernorSnapshot();
+    if (!bountyOverride && snap.activeCount === 0) {
+        const msg = `[CRON / GOVERNOR] No active funnels in queue. Sleeping until Tess discovers a live bounty.`;
+        ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] ${msg}`, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
+        broadcast('TRACE', msg);
+        sendScheduleUpdate();
+        return { started: false, skipped: true, reason: 'NO_ACTIVE_FUNNELS', job: ACTIVE_BOUNTY_JOB };
+    }
+
+    if (snap.openSlots <= 0) {
+        const msg = `[CRON / DISPATCH GATE] 5 / 5 daily slots already used for ${snap.today}. Skipping media run until tomorrow.`;
+        ACTIVE_BOUNTY_JOB.status = 'COMPLETE';
+        ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] ${msg}`, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
+        broadcast('TRACE', msg);
+        sendScheduleUpdate();
+        return { started: false, skipped: true, reason: 'DAILY_CAP_FULL', job: ACTIVE_BOUNTY_JOB };
+    }
+
+    const target = bountyOverride || snap.ledger.active[0];
+    ACTIVE_BOUNTY_JOB = {
+        running: true,
+        bountyId: target ? target.id : '',
+        status: 'RUNNING',
+        startedAt: Date.now(),
+        logs: [`[${new Date().toLocaleTimeString()}] [${sourceTrigger} DISPATCH] Starting Self-Governing Bounty Update (${snap.openSlots} slot(s) open)...`],
+        lastResult: null
+    };
+
+    const logStep = (msg) => {
+        const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        ACTIVE_BOUNTY_JOB.logs = [entry, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
+        broadcast('TRACE', msg);
+    };
+
+    (async () => {
+        try {
+            delete require.cache[require.resolve('./Auto_Bounty_Engine')];
+            const { autoExecuteBounty } = require('./Auto_Bounty_Engine');
+            const result = await autoExecuteBounty({
+                bounty: target,
+                logStep,
+                bountyDataDir: BOUNTY_DATA_DIR,
+                ledgerFile: BOUNTY_LEDGER_FILE
+            });
+            ACTIVE_BOUNTY_JOB.running = false;
+            ACTIVE_BOUNTY_JOB.status = 'COMPLETE';
+            ACTIVE_BOUNTY_JOB.lastResult = result;
+            logStep(`[PIPELINE COMPLETE] ${result.renderedClips.length} Short(s) processed | Status: ${result.postStatus}`);
+            sendScheduleUpdate();
+        } catch (err) {
+            ACTIVE_BOUNTY_JOB.running = false;
+            ACTIVE_BOUNTY_JOB.status = 'FAILED';
+            logStep(`[PIPELINE FAILED] ${err.message}`);
+            sendScheduleUpdate();
+        }
+    })();
+
+    return { started: true, job: ACTIVE_BOUNTY_JOB };
+}
+
+// Daily 06:30 SAST - Bounty Pool & Auto-Purge Audit
+cron.schedule('30 6 * * *', () => {
+    logTelemetry('CRON_RUNWAY', 'Running daily Bounty Pool & Auto-Purge Audit...');
+    broadcast('TRACE', '[CRON DAEMON] 06:30 SAST: Auditing bounty pools & purging dry/expired funnels.');
+    const snap = getBountyGovernorSnapshot();
+    sendScheduleUpdate();
+    if (snap.openSlots > 0 && snap.activeCount > 0) {
+        triggerBountyGovernor(null, 'CRON-06:30');
+    }
+}, { timezone: 'Africa/Johannesburg' });
+
+// Daily 07:00 SAST - New Bounty Scout (Runs even at 5/5 if a better CPM bounty appears)
+cron.schedule('0 7 * * *', async () => {
+    logTelemetry('CRON_RADAR', 'Running daily New Bounty Scout (Tess)...');
+    const snap = getBountyGovernorSnapshot();
+    broadcast('TRACE', `[CRON DAEMON] 07:00 SAST: Tess scanning Vyro (Slots Open: ${snap.openSlots}/5 | Current Max CPM: $${snap.maxCurrentCpm.toFixed(2)}).`);
+    try {
+        delete require.cache[require.resolve('./Bounty_Scraper')];
+        const { scrapeBounties } = require('./Bounty_Scraper');
+        const discovered = await scrapeBounties();
+        const betterBounties = (discovered || []).filter(b => {
+            const cpm = parseFloat(String(b.cpmRate || '0').replace(/[^0-9.]/g, '')) || 0;
+            return cpm > snap.maxCurrentCpm || snap.activeCount < 5;
+        });
+        if (betterBounties.length > 0 && fs.existsSync(BOUNTY_LEDGER_FILE)) {
+            const ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+            ledger.active = Array.isArray(ledger.active) ? ledger.active : [];
+            for (const item of betterBounties) {
+                if (!ledger.active.some(existing => existing.id === item.id) && ledger.active.length < 5) {
+                    ledger.active.push({ ...item, dailyPostsUsed: 0, sourcePath: '', createdAt: new Date().toISOString() });
+                }
+            }
+            fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
+            broadcast('TRACE', `[CRON DAEMON] Tess queued ${betterBounties.length} high-value bounty target(s).`);
+            sendScheduleUpdate();
+        } else {
+            broadcast('TRACE', '[CRON DAEMON] No higher-CPM bounties found; keeping current lineup.');
+        }
+    } catch (e) {
+        broadcast('TRACE', `[CRON ERROR] Radar failed: ${e.message}`);
+    }
+}, { timezone: 'Africa/Johannesburg' });
+
+// Every 2 Hours (08:00 - 22:00 SAST) - Slot-Gated Bounty Dispatch Governor
+cron.schedule('0 8-22/2 * * *', () => {
+    const snap = getBountyGovernorSnapshot();
+    sendScheduleUpdate();
+    if (snap.openSlots <= 0) {
+        broadcast('TRACE', `[CRON SLEEP] Daily allocation full (${snap.usedToday}/5). Dispatch governor sleeping.`);
+        return;
+    }
+    if (snap.activeCount === 0) {
+        broadcast('TRACE', '[CRON SLEEP] No active funnels in queue. Dispatch governor sleeping.');
+        return;
+    }
+    logTelemetry('CRON_GOVERNOR', `Open slots detected (${snap.openSlots}/5). Triggering automated bounty dispatch.`);
+    triggerBountyGovernor(null, 'CRON-CALENDAR');
+}, { timezone: 'Africa/Johannesburg' });
+
 wss.on('connection', (ws) => {
-    // Inject schedule update immediately on new connection
-    ws.send(JSON.stringify({ type: 'SCHEDULE_UPDATE', alwaysRunning: activeCronJobs }));
+    ws.send(JSON.stringify(buildCalendarSchedulePayload()));
     ws.send(JSON.stringify({ type: 'TELEMETRY_CONNECTED' }));
     ws.on('message', (message) => { 
         try { 
@@ -174,7 +337,7 @@ function scaffoldProjectWorkspace(projectData) {
     const docsDir = path.join(DOCS_PATH, slug);
 
     const subDirs = [
-        '01_PRD', '02_LEGAL_STATUTORY', '03_FINANCE_TREASURY',
+        '01_PRD', '02_LEGAL_STATORY', '03_FINANCE_TREASURY',
         '04_MARKET_EXPANSION', '05_BRAND_COLLATERAL', '06_ASSETS_GRAPHICS',
         '07_SITE_TELEMETRY', '08_BIM_CAD', '09_MEETINGS_DECISIONS',
         'Web_And_Social', 'Assets_And_Artwork', 'Leads', 'Responses_And_Donations'
@@ -1627,10 +1790,6 @@ app.post('/api/qualify/artifact', async (req, res) => {
 // ==========================================
 // MULTI-BOUNTY LEDGER & SELF-HEALING AUTO-INIT
 // ==========================================
-const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-const BOUNTY_CAMPAIGNS_DIR = path.join(BOUNTY_ROOT, 'campaigns');
-const BOUNTY_LEDGER_FILE = path.join(BOUNTY_ROOT, 'bounties_ledger.json');
-
 function initBountyEngineOnBoot() {
     try {
         if (!fs.existsSync(BOUNTY_ROOT)) fs.mkdirSync(BOUNTY_ROOT, { recursive: true });
@@ -1641,7 +1800,6 @@ function initBountyEngineOnBoot() {
         if (!fs.existsSync(joyClipsDir)) fs.mkdirSync(joyClipsDir, { recursive: true });
         if (!fs.existsSync(joyIntakeDir)) fs.mkdirSync(joyIntakeDir, { recursive: true });
 
-        // Auto-migrate any clips from legacy flat folder into joy_101
         const legacyClipsDir = path.join(BOUNTY_ROOT, 'clips');
         if (fs.existsSync(legacyClipsDir)) {
             const files = fs.readdirSync(legacyClipsDir).filter(f => f.endsWith('.mp4'));
@@ -1651,9 +1809,9 @@ function initBountyEngineOnBoot() {
             try { fs.rmSync(legacyClipsDir, { recursive: true, force: true }); } catch (e) {}
         }
 
-        // Auto-seed bounties_ledger.json if missing or empty
-        if (!fs.existsSync(BOUNTY_LEDGER_FILE)) { fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify({active: []}, null, 2), 'utf8'); }
-        // Auto-seed stripped to maintain zero-state on empty ledger.
+        if (!fs.existsSync(BOUNTY_LEDGER_FILE)) {
+            fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify({ lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] }, null, 2), 'utf8');
+        }
     } catch (err) {
         console.error('[BOUNTY AUTO-INIT ERROR]', err.message);
     }
@@ -1672,7 +1830,6 @@ function saveBountyLedger(data) {
 
 // ==========================================
 // PRIORITY BOUNTY DISCOVERY & TELEMETRY STATS OVERRIDE
-const BOUNTY_DATA_DIR = path.join(__dirname, 'Data', 'Projects', 'BOUNTY_ENGINE');
 // ==========================================
 app.post('/api/campaigns/discover', async (req, res) => {
     try {
@@ -1681,12 +1838,12 @@ app.post('/api/campaigns/discover', async (req, res) => {
         const { scrapeBounties } = require('./Bounty_Scraper');
         const discovered = await scrapeBounties();
 
-        let ledger = { active: [] };
+        let ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] };
         if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
             try {
                 ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
                 if (!Array.isArray(ledger.active)) ledger.active = [];
-            } catch (e) { ledger = { active: [] }; }
+            } catch (e) { ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] }; }
         }
 
         let addedCount = 0;
@@ -1694,6 +1851,7 @@ app.post('/api/campaigns/discover', async (req, res) => {
             if (!ledger.active.some(b => b.id === item.id)) {
                 ledger.active.push({
                     ...item,
+                    dailyPostsUsed: 0,
                     sourcePath: '',
                     createdAt: new Date().toISOString()
                 });
@@ -1705,6 +1863,7 @@ app.post('/api/campaigns/discover', async (req, res) => {
         }
         ledger.active = ledger.active.slice(0, 5);
         fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
+        sendScheduleUpdate();
         broadcast('TRACE', `[DISCOVERY COMPLETE] Tess synced ${ledger.active.length} active CPM bounties (${addedCount} newly added).`);
         return res.json({ success: true, added: ledger.active.length, bounties: ledger.active });
     } catch (err) {
@@ -1712,20 +1871,6 @@ app.post('/api/campaigns/discover', async (req, res) => {
         return res.status(500).json({ success: false, error: err.message });
     }
 });
-
-
-
-let ACTIVE_BOUNTY_JOB = {
-    running: false,
-    bountyId: '',
-    status: 'IDLE',
-    startedAt: null,
-    logs: [
-        '[INIT] Universal Campaigns & Action Station mounted.',
-        '[BRIDGE] Connected to Port 8081 execution conduits.'
-    ],
-    lastResult: null
-};
 
 app.get('/api/campaigns/bounty/job-status', (req, res) => {
     res.json(ACTIVE_BOUNTY_JOB);
@@ -1738,58 +1883,15 @@ app.post('/api/campaigns/bounty/clear-logs', (req, res) => {
 });
 
 app.post('/api/campaigns/bounty/auto-execute', (req, res) => {
-    const { bounty } = req.body;
-    if (!bounty || !bounty.id) {
-        return res.status(400).json({ success: false, error: 'Missing active bounty payload.' });
-    }
-    if (ACTIVE_BOUNTY_JOB.running) {
-        return res.json({ success: true, alreadyRunning: true, job: ACTIVE_BOUNTY_JOB });
-    }
-
-    ACTIVE_BOUNTY_JOB = {
-        running: true,
-        bountyId: bounty.id,
-        status: 'RUNNING',
-        startedAt: Date.now(),
-        logs: [`[${new Date().toLocaleTimeString()}] [DISPATCH] Starting 1-Click Auto-Pilot for ${bounty.title}...`],
-        lastResult: null
-    };
-
-    const logStep = (msg) => {
-        const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        ACTIVE_BOUNTY_JOB.logs = [entry, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
-        broadcast('TRACE', msg);
-    };
-
-    // Run asynchronously in background so switching tabs in React never aborts the job
-    (async () => {
-        try {
-            delete require.cache[require.resolve('./Auto_Bounty_Engine')];
-            const { autoExecuteBounty } = require('./Auto_Bounty_Engine');
-            const result = await autoExecuteBounty({
-                bounty,
-                logStep,
-                bountyDataDir: BOUNTY_DATA_DIR,
-                ledgerFile: BOUNTY_LEDGER_FILE
-            });
-            ACTIVE_BOUNTY_JOB.running = false;
-            ACTIVE_BOUNTY_JOB.status = 'COMPLETE';
-            ACTIVE_BOUNTY_JOB.lastResult = result;
-            logStep(`[PIPELINE COMPLETE] 3 Shorts cut (${result.renderedClips.length}/3) | Post Status: ${result.postStatus}`);
-        } catch (err) {
-            ACTIVE_BOUNTY_JOB.running = false;
-            ACTIVE_BOUNTY_JOB.status = 'FAILED';
-            logStep(`[PIPELINE FAILED] ${err.message}`);
-        }
-    })();
-
-    return res.json({ success: true, started: true, job: ACTIVE_BOUNTY_JOB });
+    const bounty = req.body && req.body.bounty ? req.body.bounty : null;
+    const outcome = triggerBountyGovernor(bounty, 'UI-BUTTON');
+    return res.json({ success: true, ...outcome });
 });
 
 app.post('/api/bounties/update-stats', (req, res) => {
     try {
         const { id, totalClicks, dailyPostsUsed, poolStatus, runwayDays, cpmRate, viewFloor, mandatoryTags, hookHeadline, sourcePath } = req.body;
-        let ledger = { active: [] };
+        let ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] };
         if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
             ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
         }
@@ -1812,6 +1914,7 @@ app.post('/api/bounties/update-stats', (req, res) => {
         });
         ledger.active = ledger.active.slice(0, 5);
         fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
+        sendScheduleUpdate();
         return res.json({ success: true, active: ledger.active });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
@@ -1839,11 +1942,13 @@ app.post('/api/bounties', (req, res) => {
         mandatoryTags: mandatoryTags || '#Shorts',
         hookHeadline: hookHeadline || 'WATCH THIS',
         sourcePath: sourcePath || '',
+        dailyPostsUsed: 0,
         createdAt: new Date().toISOString()
     };
     
     ledger.active.push(newBounty);
     saveBountyLedger(ledger);
+    sendScheduleUpdate();
     
     const campDir = path.join(BOUNTY_CAMPAIGNS_DIR, safeId);
     fs.mkdirSync(path.join(campDir, 'clips'), { recursive: true });
@@ -1858,6 +1963,7 @@ app.delete('/api/bounties/:id', (req, res) => {
     const ledger = getBountyLedger();
     ledger.active = ledger.active.filter(b => b.id !== id);
     saveBountyLedger(ledger);
+    sendScheduleUpdate();
 
     const campDir = path.join(BOUNTY_CAMPAIGNS_DIR, id);
     if (fs.existsSync(campDir)) {
@@ -1900,14 +2006,12 @@ app.post('/api/campaigns/bounty/find-hooks', async (req, res) => {
         fs.mkdirSync(intakeDir, { recursive: true });
         fs.mkdirSync(clipsDir, { recursive: true });
 
-        // STAGE 1: SCRAPE TIMESTAMPED TRANSCRIPT
         broadcast('TRACE', `[AUTO-HARVEST 1/4] Extracting timestamped transcript for ${videoId}...`);
         const timestampedTranscript = await extractTimestampedTranscript(videoId);
         if (!timestampedTranscript || timestampedTranscript.length < 100) {
             return res.status(422).json({ success: false, error: 'Could not extract English captions from this YouTube video.' });
         }
 
-        // STAGE 2: AI VIRAL MOMENT SELECTION
         broadcast('TRACE', `[AUTO-HARVEST 2/4] Tess & Skyla analyzing transcript for top ${clipCount} viral moments...`);
         const aiPrompt = `You are a viral short-form video producer. Analyze the timestamped podcast transcript below and pick the ${clipCount} most emotionally gripping, controversial, funny, or high-retention moments.
 Each clip MUST be between 40 and 75 seconds long.
@@ -1938,7 +2042,6 @@ ${timestampedTranscript.slice(0, 45000)}`;
             return res.status(500).json({ success: false, error: 'No viral segments identified.' });
         }
 
-        // STAGE 3: DOWNLOAD SOURCE VIDEO VIA YT-DLP
         const sourceFile = path.join(intakeDir, `${videoId}.mp4`);
         if (!fs.existsSync(sourceFile)) {
             broadcast('TRACE', `[AUTO-HARVEST 3/4] Downloading 1080p source video via yt-dlp...`);
@@ -1948,7 +2051,6 @@ ${timestampedTranscript.slice(0, 45000)}`;
             broadcast('TRACE', `[AUTO-HARVEST 3/4] Cached source video found on disk. Skipping download.`);
         }
 
-        // STAGE 4: BATCH RENDER ALL CLIPS VIA FFMPEG
         const renderedFiles = [];
         for (let i = 0; i < clipsPlan.length; i++) {
             const item = clipsPlan[i];
@@ -2074,17 +2176,8 @@ app.post('/api/projects/purge', (req, res) => {
     }
 });
 
-
-// ==========================================
-// AUTONOMOUS BOUNTY DISCOVERY (TESS & JACK)
-// ==========================================
 const { scrapeBounties } = require('./Bounty_Scraper');
 
-
-
-// ==========================================
-// MASTER DAEMON INITIALIZATION
-// ==========================================
 const PORT = process.env.PORT || 8081;
 
 server.listen(PORT, () => {
@@ -2100,20 +2193,7 @@ server.listen(PORT, () => {
     console.log(`[DYNAMIC MEMORY ENGINE]  : 16 DIRECTORS (vault/Memory/)`);
     console.log(`[QUALIFICATION ENGINE]   : /api/qualify/artifact ACTIVE`);
     console.log(`[STAGE 2 AUTO-WRITER]    : ACTIVE (8192 Max Tokens Enabled)`);
-    console.log(`[CAMPAIGN ENGINE]        : 1-CLICK AUTO-HARVEST + BATCH RENDER ACTIVE`);
+    console.log(`[CAMPAIGN ENGINE]        : SELF-GOVERNING BOUNTY + CALENDAR CRON ACTIVE`);
     console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-

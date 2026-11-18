@@ -5,7 +5,6 @@ export default function Tab11Campaigns() {
   const [bounties, setBounties] = useState([]);
   const [activeBountyId, setActiveBountyId] = useState('');
 
-  // Column 01 Form & Breakdown State
   const [campaignTitle, setCampaignTitle] = useState('');
   const [cpmRate, setCpmRate] = useState('$2.00');
   const [viewFloor, setViewFloor] = useState('1000');
@@ -15,20 +14,17 @@ export default function Tab11Campaigns() {
   const [endTime, setEndTime] = useState('00:01:00');
   const [mandatoryTags, setMandatoryTags] = useState('');
 
-  // Breakdown Telemetry State
   const [poolStatus, setPoolStatus] = useState('ACTIVE // 88% Pool Left (~14 Days)');
   const [runwayDays, setRunwayDays] = useState(14);
   const [totalClicks, setTotalClicks] = useState(0);
   const [dailyPostsUsed, setDailyPostsUsed] = useState(0);
   const [dailyPostCap] = useState(5);
 
-  // Hook Drawer & Discovery
   const [transcriptDrawerOpen, setTranscriptDrawerOpen] = useState(false);
   const [rawTranscript, setRawTranscript] = useState('');
   const [isExtractingHooks, setIsExtractingHooks] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
 
-  // Persistent Background Job & Telemetry State (Survives Tab Switching)
   const [telemetryLog, setTelemetryLog] = useState([
     '[INIT] Universal Campaigns & Action Station mounted.',
     '[BRIDGE] Connected to Port 8081 execution conduits.'
@@ -44,7 +40,6 @@ export default function Tab11Campaigns() {
     { id: 'John Tanton - Proje', label: 'JOHN TANTON // PM BOOK', color: '#C5BD9F' }
   ];
 
-  // Auto-construct deterministic source path for any bounty ID
   const getDefaultSourcePath = (bId) => {
     if (!bId) return '';
     return `C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\BOUNTY_ENGINE\\campaigns\\${bId}\\intake\\${bId}_source.mp4`;
@@ -87,7 +82,6 @@ export default function Tab11Campaigns() {
     } catch (e) {}
   };
 
-  // Poll backend job state continuously so switching tabs never collapses progress or spinner
   useEffect(() => {
     let active = true;
     const pollJob = async () => {
@@ -105,10 +99,17 @@ export default function Tab11Campaigns() {
             setElapsedSeconds(0);
           }
           if (job.status === 'COMPLETE' && job.lastResult && job.lastResult.activeList) {
-            setBounties(job.lastResult.activeList.slice(0, 5));
-            if (job.lastResult.updatedBounty && job.lastResult.updatedBounty.id === activeBountyId) {
-              setDailyPostsUsed(job.lastResult.updatedBounty.dailyPostsUsed);
-              setSourceVideoPath(job.lastResult.updatedBounty.sourcePath || getDefaultSourcePath(activeBountyId));
+            const updatedList = job.lastResult.activeList.slice(0, 5);
+            setBounties(updatedList);
+            if (job.lastResult.updatedBounty) {
+              const target = updatedList.find(b => b.id === activeBountyId) || job.lastResult.updatedBounty;
+              if (target) {
+                setActiveBountyId(target.id);
+                setDailyPostsUsed(target.dailyPostsUsed || 0);
+                setSourceVideoPath(target.sourcePath || getDefaultSourcePath(target.id));
+              }
+            } else if (updatedList.length > 0) {
+              loadBountyIntoForm(updatedList[0]);
             }
             loadDiskArtifacts('BOUNTY_ENGINE', job.bountyId || activeBountyId);
           }
@@ -228,27 +229,29 @@ export default function Tab11Campaigns() {
     }
   };
 
-  const handleRunPipeline = async () => {
-    if (!activeBountyId || pipelineState === 'RUNNING') return;
+  const handleUpdateDailyDispatches = async () => {
+    if (pipelineState === 'RUNNING') return;
     setPipelineState('RUNNING');
     setElapsedSeconds(1);
     const resolvedSource = sourceVideoPath || getDefaultSourcePath(activeBountyId);
-    setSourceVideoPath(resolvedSource);
+    if (resolvedSource) setSourceVideoPath(resolvedSource);
 
     try {
       await fetch('http://localhost:8081/api/campaigns/bounty/auto-execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bounty: {
+          bounty: activeBountyId ? {
             id: activeBountyId,
             title: campaignTitle,
             cpmRate,
             viewFloor,
             hookHeadline,
             mandatoryTags,
+            poolStatus,
+            runwayDays,
             sourcePath: resolvedSource
-          }
+          } : null
         })
       });
     } catch (err) {
@@ -291,6 +294,7 @@ export default function Tab11Campaigns() {
   };
 
   const totalDailyUsedAcrossAll = bounties.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
+  const remainingGlobalSlots = Math.max(0, dailyPostCap - totalDailyUsedAcrossAll);
   const estEarnings = ((totalClicks / 1000) * (parseFloat(String(cpmRate).replace(/[^0-9.]/g, '')) || 2.0)).toFixed(2);
   const formatTimer = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
@@ -348,7 +352,7 @@ export default function Tab11Campaigns() {
         </div>
       </div>
 
-      {/* TOP 5 BOUNTY BUTTON BAR */}
+      {/* TOP 5 BOUNTY BUTTON BAR + MASTER UPDATE TRIGGER */}
       {selectedProjectId === 'BOUNTY_ENGINE' && (
         <div style={{
           display: 'flex',
@@ -358,7 +362,9 @@ export default function Tab11Campaigns() {
           backgroundColor: '#0d0f12',
           border: '1px solid #1f242d',
           borderRadius: '4px',
-          marginBottom: '12px'
+          marginBottom: '12px',
+          gap: '10px',
+          flexWrap: 'wrap'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 'bold' }}>ACTIVE BOUNTIES ({bounties.length}/5):</span>
@@ -399,22 +405,41 @@ export default function Tab11Campaigns() {
             )}
           </div>
 
-          <button
-            onClick={handleDiscoverBounties}
-            disabled={isDiscovering}
-            style={{
-              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid #10b981',
-              color: '#10b981',
-              padding: '6px 14px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              cursor: isDiscovering ? 'not-allowed' : 'pointer',
-              borderRadius: '3px'
-            }}
-          >
-            {isDiscovering ? 'SYNCING VYRO...' : '⚡ AUTO-DISCOVER BOUNTIES (TESS)'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={handleUpdateDailyDispatches}
+              disabled={pipelineState === 'RUNNING'}
+              style={{
+                backgroundColor: pipelineState === 'RUNNING' ? '#1f242d' : '#ffb800',
+                border: pipelineState === 'RUNNING' ? '1px solid #ffb800' : 'none',
+                color: pipelineState === 'RUNNING' ? '#ffb800' : '#080a0c',
+                padding: '7px 16px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: pipelineState === 'RUNNING' ? 'not-allowed' : 'pointer',
+                borderRadius: '3px'
+              }}
+            >
+              {pipelineState === 'RUNNING' ? `UPDATING (${formatTimer(elapsedSeconds)})...` : '⚡ UPDATE DAILY DISPATCHES'}
+            </button>
+
+            <button
+              onClick={handleDiscoverBounties}
+              disabled={isDiscovering}
+              style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid #10b981',
+                color: '#10b981',
+                padding: '6px 14px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: isDiscovering ? 'not-allowed' : 'pointer',
+                borderRadius: '3px'
+              }}
+            >
+              {isDiscovering ? 'SYNCING VYRO...' : '⚡ AUTO-DISCOVER BOUNTIES (TESS)'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -424,18 +449,7 @@ export default function Tab11Campaigns() {
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <span style={{ fontSize: '10px', color: '#94A3B8' }}>BOUNTY RUNWAY // POOL STATUS</span>
-              <button
-                onClick={() => {
-                  const nextDry = poolStatus.includes('DRY') ? 'ACTIVE // 85% Pool Left (~12 Days)' : 'POOL DRY // PURGE READY';
-                  const nextDays = nextDry.includes('DRY') ? 0 : 12;
-                  setPoolStatus(nextDry);
-                  setRunwayDays(nextDays);
-                  syncBountyStats({ poolStatus: nextDry, runwayDays: nextDays });
-                }}
-                style={{ background: 'none', border: '1px solid #334155', color: '#38bdf8', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}
-              >
-                TOGGLE DRY/ACTIVE
-              </button>
+              <span style={{ fontSize: '9px', color: '#10b981', border: '1px solid #1f242d', padding: '1px 5px' }}>AUTO-PURGE ON DRY</span>
             </div>
             <div style={{ fontSize: '13px', fontWeight: 'bold', color: poolStatus.includes('DRY') ? '#ef4444' : '#10b981' }}>{poolStatus}</div>
             <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>EST. TIME REMAINING: <strong style={{ color: '#E2E8F0' }}>{runwayDays} DAYS</strong></div>
@@ -456,18 +470,19 @@ export default function Tab11Campaigns() {
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <span style={{ fontSize: '10px', color: '#94A3B8' }}>DAILY POST ALLOCATION (MAX 5/DAY)</span>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button onClick={() => { const n = Math.min(dailyPostCap, dailyPostsUsed + 1); setDailyPostsUsed(n); syncBountyStats({ dailyPostsUsed: n }); }} style={{ background: '#14171c', border: '1px solid #334155', color: '#38bdf8', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}>+1 POST</button>
-                <button onClick={() => { setDailyPostsUsed(0); syncBountyStats({ dailyPostsUsed: 0 }); }} style={{ background: '#14171c', border: '1px solid #334155', color: '#94A3B8', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}>RESET</button>
-              </div>
+              <span style={{ fontSize: '9px', color: '#38bdf8', border: '1px solid #1f242d', padding: '1px 5px' }}>CRON-GOVERNED</span>
             </div>
-            <div style={{ fontSize: '15px', fontWeight: 'bold', color: dailyPostsUsed >= dailyPostCap ? '#ef4444' : '#38bdf8' }}>{dailyPostsUsed} / {dailyPostCap} POSTS DISPATCHED</div>
-            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>REMAINING TODAY: <strong style={{ color: '#10b981' }}>{Math.max(0, dailyPostCap - dailyPostsUsed)} SLOTS</strong></div>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', color: totalDailyUsedAcrossAll >= dailyPostCap ? '#ef4444' : '#38bdf8' }}>{totalDailyUsedAcrossAll} / {dailyPostCap} POSTS DISPATCHED</div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>
+              {remainingGlobalSlots > 0
+                ? <>OPEN SLOTS TODAY: <strong style={{ color: '#10b981' }}>{remainingGlobalSlots} SLOTS</strong></>
+                : <strong style={{ color: '#ffb800' }}>CRON SLEEPING UNTIL NEW DAY / BETTER BOUNTY</strong>}
+            </div>
           </div>
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
             <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '6px' }}>TESS QUANT VERDICT</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffb800' }}>{cpmRate} CPM // {poolStatus.includes('DRY') ? 'PURGE NOW' : 'KEEP RUNNING'}</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffb800' }}>{cpmRate} CPM // {poolStatus.includes('DRY') ? 'AUTO-PURGING' : 'KEEP RUNNING'}</div>
             <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>CLIENT: <strong style={{ color: '#fff' }}>{(campaignTitle || '').split('//')[0]}</strong></div>
           </div>
         </div>
@@ -537,7 +552,7 @@ export default function Tab11Campaigns() {
           </div>
 
           <button
-            onClick={handleRunPipeline}
+            onClick={handleUpdateDailyDispatches}
             disabled={pipelineState === 'RUNNING'}
             style={{
               backgroundColor: pipelineState === 'RUNNING' ? '#1f242d' : '#ffb800',
@@ -557,15 +572,15 @@ export default function Tab11Campaigns() {
             {pipelineState === 'RUNNING' ? (
               <>
                 <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #ffb800', borderTopColor: 'transparent', borderRadius: '50%', animation: 'mcncSpin 0.8s linear infinite' }} />
-                <span>RUNNING AUTO-PILOT ({formatTimer(elapsedSeconds)}) — SAFE TO SWITCH TABS</span>
+                <span>UPDATING DAILY DISPATCHES ({formatTimer(elapsedSeconds)})</span>
               </>
             ) : (
-              '⚡ 1-CLICK AUTO-HARVEST, CUT 3 SHORTS & POST'
+              '⚡ UPDATE DAILY DISPATCHES'
             )}
           </button>
         </div>
 
-        {/* COLUMN 02: CLINICAL TELEMETRY FEED WITH CLEAR SCREEN BUTTON */}
+        {/* COLUMN 02: CLINICAL TELEMETRY FEED */}
         <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>02 // TELEMETRY</span>
@@ -587,11 +602,11 @@ export default function Tab11Campaigns() {
               <div
                 key={index}
                 style={{
-                  color: log.includes('FAILED') || log.includes('ERROR')
+                  color: log.includes('FAILED') || log.includes('ERROR') || log.includes('PURGE')
                     ? '#ef4444'
-                    : log.includes('COMPLETE') || log.includes('SAVED') || log.includes('UPLOADED')
+                    : log.includes('COMPLETE') || log.includes('SAVED') || log.includes('UPLOADED') || log.includes('VERIFIED')
                     ? '#10b981'
-                    : log.includes('[1/4') || log.includes('[2/4') || log.includes('[3/4') || log.includes('[4/4') || log.includes('[DISPATCH]')
+                    : log.includes('[1/4') || log.includes('[2/4') || log.includes('[3/4') || log.includes('[4/4') || log.includes('[GOVERNOR') || log.includes('[CRON')
                     ? '#38bdf8'
                     : '#94A3B8'
                 }}
