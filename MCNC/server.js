@@ -2197,6 +2197,8 @@ const { scrapeBounties } = require('./Bounty_Scraper');
 
 const PORT = process.env.PORT || 8081;
 
+require('./Auth_Middleware')(app, DATA_PATH);
+
 server.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
@@ -2237,3 +2239,4 @@ app.post('/api/campaigns/artifacts/delete', (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+

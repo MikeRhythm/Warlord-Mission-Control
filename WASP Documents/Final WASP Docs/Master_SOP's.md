@@ -248,3 +248,5 @@ TARGET RUNTIME: BASE 1 (AGENT COUNCILS, RUNNERS & PIPELINES)
     1. Consolidate all mutations into a single self-contained atomic script that performs all writes and backups in one pass; OR
     2. Deliver Step 1 exclusively, halt execution, and wait for Mike's verification before emitting Step 2.
 - **Zero Ambiguity:** Never leave the operator guessing which part was executed or forcing a scroll-up hunt.
+### Rolling Single-Snapshot Amendment (SOP 12.1)
+- **Mandate:** Whenever a new .bak_<timestamp> pre-execution snapshot is created for a target file, all older .bak_* snapshots for that exact file must be deleted immediately. Only the single most recent backup snapshot may remain on disk to prevent directory bloat.
