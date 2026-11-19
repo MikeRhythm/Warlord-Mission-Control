@@ -11,7 +11,7 @@ const AUTH_DB_PATH = path.join(DATA_DIR, 'MCNC_Auth.db');
 const TENANTS_ROOT = path.join(DATA_DIR, 'Tenants');
 const MASTER_PROJECTS_ROOT = path.join(DATA_DIR, 'Projects');
 const MASTER_CHATS_ROOT = path.join(DATA_DIR, 'Chats');
-const VALID_TENANTS = ['Mike', 'Adine', 'Claire'];
+const VALID_TENANTS = ['Mike', 'Adine', 'Claire', 'Egmond'];
 
 const SECRET_SEED = process.env.MCNC_AUTH_SECRET || process.env.API_KEY || 'MCNC_RHYTHM_SOVEREIGN_BASE1_KEY_2026';
 const SIGNING_KEY = crypto.createHash('sha256').update(SECRET_SEED).digest();
@@ -126,3 +126,4 @@ function checkTenantQuota(req, res, next) {
 }
 
 module.exports = { resolveTenantContext, checkTenantQuota };
+

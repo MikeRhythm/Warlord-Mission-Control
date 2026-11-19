@@ -8,7 +8,7 @@ const { DatabaseSync } = require('node:sqlite');
 module.exports = function registerAuthAndTenants(app, DATA_PATH) {
     const AUTH_DB_PATH = path.join(DATA_PATH, 'MCNC_Auth.db');
     const TENANTS_ROOT = path.join(DATA_PATH, 'Tenants');
-    const VALID_TENANTS = ['Mike', 'Adine', 'Claire'];
+    const VALID_TENANTS = ['Mike', 'Adine', 'Claire', 'Egmond'];
 
     // Derive deterministic signing secret from .env JWT_SECRET or machine fallback
     const SECRET_SEED = process.env.MCNC_AUTH_SECRET || process.env.API_KEY || 'MCNC_RHYTHM_SOVEREIGN_BASE1_KEY_2026';
@@ -424,5 +424,6 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
 
     console.log('[AUTH & TENANT ENGINE]   : /api/auth/* & /api/tenant/bounties MOUNTED (Mike/Adine/Claire)');
 };
+
 
 

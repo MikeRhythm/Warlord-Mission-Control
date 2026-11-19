@@ -6,9 +6,443 @@
     const TARGET_TENANT_KEY = 'mcnc_target_tenant';
 
     // Resolve API base: localhost:8081 when running on Vite dev port 5173, otherwise same origin
-    const API_BASE = (window.location.port === '5173') ? 'http://localhost:8081' : '';
+    const API_BASE = (window.location.port === '5173') ? '${API_BASE}' : '';
 
     // Allowed tab labels for Collaborators (Adine & Claire)
+        // MCNC_CONTEXT_HELP_V2: Universal [?] Micro-Tooltips on Buttons, Inputs, Selects, Textareas & Checkboxes
+    const HELP_DICTIONARY = {
+        // --- 01 EXEC ---
+        '+ NEW': {
+            title: 'Create New Workspace Thread',
+            what: 'Starts a fresh, blank conversation thread under your selected project.',
+            why: 'Keeps each topic separate so your AI Chief remembers exact context without mixing ideas.'
+        },
+        '+ NEW CHAT': {
+            title: 'Start New Conversation',
+            what: 'Opens an active chat thread where you can type instructions or brainstorm.',
+            why: 'Master Chat is a read-only summary ledger; all live work happens inside sub-chats.'
+        },
+        'SUBMIT': {
+            title: 'Send Instruction to AI Team',
+            what: 'Dispatches your typed message (and any attached screenshot/file) to your selected AI engine.',
+            why: 'Generates an immediate structured response, plan, or draft right in your workspace.'
+        },
+        'AUTO-ROUTE LLM': {
+            title: 'Smart Engine Selector',
+            what: 'Automatically picks the best AI engine for your message (Included Standard vs. Pro).',
+            why: 'Protects your AI Compute Credits by using free engines for simple tasks and Pro models only when needed.'
+        },
+        'CREATE PROMPT': {
+            title: 'AI Prompt Polisher',
+            what: 'Rewrites a rough, everyday sentence into a clear, detailed instruction.',
+            why: 'Gives you much better results without needing any prompt-writing experience.'
+        },
+        'PUSH TO WAR ROOM': {
+            title: 'Send Idea to Production (02 War Room)',
+            what: 'Transfers your brainstormed idea from 01 EXEC into 02 WAR ROOM.',
+            why: 'Turns a casual chat idea into a structured project blueprint and deliverable asset.'
+        },
+        'REFINE': {
+            title: 'Improve & Tighten Draft',
+            what: 'Asks your AI Directors to review and upgrade the current output.',
+            why: 'Polishes rough drafts into clean, client-ready material in one click.'
+        },
+        'COPY ALL': {
+            title: 'Copy Full Output',
+            what: 'Copies the entire conversation or generated deliverable to your clipboard.',
+            why: 'Lets you paste your finished work straight into emails, docs, or social posts.'
+        },
+        'PRUNE CRAP': {
+            title: 'Clean Up Noise',
+            what: 'Strips out redundant filler and keeps only the essential, actionable points.',
+            why: 'Saves reading time and keeps your project workspace crisp.'
+        },
+        'CLS': {
+            title: 'Clear Screen View',
+            what: 'Clears the visible terminal window without deleting your saved project files.',
+            why: 'Gives you a clean visual slate when starting a fresh thought.'
+        },
+        'ALL STOP': {
+            title: 'Emergency Stop',
+            what: 'Immediately halts any active AI generation or background task.',
+            why: 'Saves credits and lets you redirect the system right away if you change your mind.'
+        },
+        'VOICE BRIEF': {
+            title: 'Listen to Audio Summary',
+            what: 'Reads out an executive voice briefing of your current workspace status.',
+            why: 'Lets you catch up hands-free instead of reading long blocks of text.'
+        },
+        'CHROME MIC': {
+            title: 'Voice-to-Text Input',
+            what: 'Turns on your microphone so you can speak your instructions instead of typing.',
+            why: 'Fastest way to capture ideas naturally in plain speech.'
+        },
+        'ATTACH FILE': {
+            title: 'Upload Reference File or Screenshot',
+            what: 'Attaches an image, PDF, or document to your prompt.',
+            why: 'Allows your AI team to inspect screenshots, briefs, or examples directly.'
+        },
+
+        // --- 02 WAR ROOM ---
+        'STAGE 1: PRD': {
+            title: 'Stage 1: Project Blueprint (PRD)',
+            what: 'Switches the War Room to planning and strategy mode.',
+            why: 'Defines what you are building, who it is for, and the exact steps before creating assets.'
+        },
+        'STAGE 2: HTML': {
+            title: 'Stage 2: Deliverable Build',
+            what: 'Switches the War Room to full asset and code generation mode.',
+            why: 'Produces the actual working page, script, or campaign asset from your blueprint.'
+        },
+        'RUN SOLO': {
+            title: 'Run Single Specialist Director',
+            what: 'Runs only that specific AI specialist instead of the entire 4-step board.',
+            why: 'Faster and uses fewer credits when you only need one quick review or tweak.'
+        },
+        'RUN ARTIFACT BUILD': {
+            title: 'Build Full Project Deliverable',
+            what: 'Runs your selected AI Directors in sequence to produce the complete asset.',
+            why: 'Combines strategy, writing, refinement, and quality check into one finished output.'
+        },
+        'INITIATE DIR': {
+            title: 'Assign Lead Director',
+            what: 'Wakes up the specialist Director best suited for your active project.',
+            why: 'Ensures the right persona (Creative, Strategy, or Technical) leads the task.'
+        },
+        'AUTHORIZED': {
+            title: 'Execution Gate Status',
+            what: 'Confirms your workspace is authorized and has sufficient credits/storage to run.',
+            why: 'Prevents half-finished runs or unexpected account limits.'
+        },
+        'STAGE 2 SCAFFOLD': {
+            title: 'Generate Starter Structure',
+            what: 'Creates the foundational folder and file layout for your deliverable.',
+            why: 'Ensures every generated file lands in the right place automatically.'
+        },
+
+        // --- 03 PROJECTS ---
+        '+ NEW PROJECT INTAKE': {
+            title: 'Create New Private Project',
+            what: 'Creates a brand-new, isolated project workspace with organized subfolders.',
+            why: 'Keeps all files, plans, and clips for each venture separated and easy to find.'
+        },
+        'VIEW PILLARS & DAEMONS': {
+            title: 'Inspect Project Structure',
+            what: 'Opens the internal folders, pillars, and automated helpers attached to this project.',
+            why: 'Shows you every asset created inside the project at a glance.'
+        },
+        'ALL': {
+            title: 'Show All Projects',
+            what: 'Displays both active and archived projects in your workspace.',
+            why: 'Gives you a complete view of everything you have ever created.'
+        },
+        'ACTIVE': {
+            title: 'Filter Active Projects',
+            what: 'Shows only projects currently in progress.',
+            why: 'Keeps your board focused on what you are working on right now.'
+        },
+        'ARCHIVED': {
+            title: 'Filter Archived Projects',
+            what: 'Shows completed or paused projects stored safely out of the way.',
+            why: 'Declutters your main screen without permanently deleting past work.'
+        },
+
+        // --- 11 CAMPAIGNS & 12 REVIEW ---
+        'DISCOVER': {
+            title: 'Scan Live Bounty Campaigns',
+            what: 'Searches supported clipping platforms for open, funded campaigns.',
+            why: 'Shows payout rates ($ per 1,000 views) and rules before you start clipping.'
+        },
+        'FIND HOOKS': {
+            title: 'AI Viral Hook Finder',
+            what: 'Scans a long video or topic to pinpoint the highest-attention 30–60 second moments.',
+            why: 'Finds the exact clips most likely to hit minimum view payouts.'
+        },
+        'AUTO-EXECUTE': {
+            title: 'Automated Clipping Pipeline',
+            what: 'Runs the end-to-end clipping workflow (hook detection, vertical crop, and captions).',
+            why: 'Turns raw source video into ready-to-upload Shorts with minimal manual editing.'
+        },
+        'CLEAR LOGS': {
+            title: 'Clear Activity Log',
+            what: 'Resets the on-screen status log for your current campaign run.',
+            why: 'Makes it easy to spot fresh status updates on your next run.'
+        },
+        'APPROVE': {
+            title: 'Approve Deliverable',
+            what: 'Marks this generated item as approved and ready for publishing or export.',
+            why: 'Moves verified work forward in your pipeline.'
+        },
+        'REJECT': {
+            title: 'Request Revision',
+            what: 'Flags the item as needing changes so it is not published prematurely.',
+            why: 'Keeps quality control tight before anything goes live.'
+        }
+    };
+
+    const CLIENT_ENGINE_LABELS = {
+        'TIER 1: OLLAMA (LOCAL)': 'STANDARD ENGINE // INCLUDED (FREE)',
+        'TIER 2: HARVESTED CLUSTERS (FREE)': 'FAST CLOUD ENGINE // INCLUDED (FREE)',
+        'TIER 3: OPENROUTER (ELITE)': 'ELITE PRO ENGINE // USES CREDITS',
+        'TIER 4: KAGGLE T4 (CLOUD COMPUTE)': 'HEAVY MEDIA COMPUTE // STANDBY'
+    };
+
+    function describeFormControl(el) {
+        const tag = el.tagName.toLowerCase();
+        const type = (el.type || '').toLowerCase();
+        const placeholder = (el.placeholder || '').trim();
+        const name = (el.name || el.id || '').trim();
+        const aria = (el.getAttribute('aria-label') || '').trim();
+        const parentText = (el.closest('label') ? el.closest('label').textContent : '').trim();
+        const hint = (aria || placeholder || parentText || name || 'this field').replace(/\s+/g, ' ').slice(0, 80);
+
+        if (type === 'checkbox' || type === 'radio') {
+            return {
+                title: 'Option Toggle: ' + (hint || 'Selection'),
+                what: `Checking or unchecking "${hint}" turns this specific option ON or OFF for your next action.`,
+                why: 'Lets you customize how your AI Directors process or filter this step before running.'
+            };
+        }
+        if (tag === 'select') {
+            return {
+                title: 'Dropdown Selector: ' + (hint || 'Choose Option'),
+                what: `Choose one of the available options from "${hint}" to target the right project, mode, or workflow.`,
+                why: 'Directs your instruction or asset output to the exact destination you selected.'
+            };
+        }
+        if (tag === 'textarea') {
+            return {
+                title: 'Instruction & Content Box',
+                what: placeholder
+                    ? `Type or paste your request here (${placeholder}).`
+                    : 'Type your goal, idea, script, or revision notes in plain English.',
+                why: 'Your AI Directors use everything entered here to build or refine your deliverable.'
+            };
+        }
+        if (type === 'url' || /url|link|youtube|http/i.test(hint)) {
+            return {
+                title: 'Source Link / URL Input',
+                what: 'Paste the full web link (for example, a YouTube video or campaign link) into this box.',
+                why: 'Allows the system to fetch, analyze, or clip the exact source content automatically.'
+            };
+        }
+        if (type === 'number') {
+            return {
+                title: 'Numeric Value: ' + hint,
+                what: `Enter a number for ${hint}.`,
+                why: 'Controls limits, durations, or quantities for this specific operation.'
+            };
+        }
+        return {
+            title: 'Input Field: ' + hint,
+            what: placeholder
+                ? `Enter the requested detail here: "${placeholder}".`
+                : `Type the required text or name for ${hint}.`,
+            why: 'Provides the exact label, search term, or parameter needed to complete this action.'
+        };
+    }
+
+    function describeGenericButton(btn) {
+        const label = (btn.textContent || btn.title || 'Action Button').replace(/\?/g, '').trim();
+        return {
+            title: 'Action: ' + (label || 'Control'),
+            what: `Triggers the "${label}" action inside your current workspace tab.`,
+            why: 'Executes this step immediately using your active project and selected settings.'
+        };
+    }
+
+    function injectHelpStyles() {
+        if (document.getElementById('mcnc-help-styles')) return;
+        const s = document.createElement('style');
+        s.id = 'mcnc-help-styles';
+        s.textContent = `
+            .mcnc-q-badge {
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 15px; height: 15px; min-width: 15px; margin-left: 5px;
+                border-radius: 50%; border: 1px solid #DAA520;
+                background: rgba(255, 184, 0, 0.16); color: #ffb800;
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+                font-size: 10px; font-weight: 800; line-height: 1;
+                cursor: pointer; vertical-align: middle;
+                transition: all 0.15s ease;
+                user-select: none;
+            }
+            .mcnc-q-badge:hover {
+                background: #ffb800; color: #080a0c; transform: scale(1.14);
+            }
+            #mcnc-q-popover {
+                position: fixed; z-index: 99999; width: 325px; padding: 14px;
+                background: rgba(13, 15, 18, 0.98);
+                backdrop-filter: blur(12px);
+                border: 1px solid #DAA520; border-radius: 6px;
+                box-shadow: 0 14px 36px rgba(0,0,0,0.92);
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+                display: none;
+            }
+            .mcnc-q-pop-title {
+                color: #ffb800; font-size: 11px; font-weight: 800;
+                text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;
+                display: flex; justify-content: space-between; align-items: center; gap: 8px;
+            }
+            .mcnc-q-pop-row {
+                font-size: 11px; color: #E2E8F0; line-height: 1.45; margin-bottom: 7px;
+            }
+            .mcnc-q-pop-tag {
+                color: #38bdf8; font-weight: 700; text-transform: uppercase; font-size: 10px;
+            }
+            #mcnc-quickstart-bar {
+                position: fixed; bottom: 10px; right: 14px; z-index: 99985;
+                background: rgba(13, 15, 18, 0.95);
+                border: 1px solid #1f242d; border-left: 3px solid #ffb800;
+                border-radius: 5px; padding: 8px 12px;
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+                font-size: 10px; color: #C5BD9F;
+                display: flex; align-items: center; gap: 10px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.75);
+            }
+            .mcnc-qs-step { color: #E2E8F0; }
+            .mcnc-qs-step b { color: #ffb800; }
+        `;
+        document.head.appendChild(s);
+    }
+
+    function createQBadge(getInfoFn) {
+        const q = document.createElement('span');
+        q.className = 'mcnc-q-badge';
+        q.textContent = '?';
+        q.title = 'Click to see what this does and why it is needed';
+        q.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showHelpPopover(q, getInfoFn());
+        });
+        return q;
+    }
+
+    function showHelpPopover(anchorEl, info) {
+        let pop = document.getElementById('mcnc-q-popover');
+        if (!pop) {
+            pop = document.createElement('div');
+            pop.id = 'mcnc-q-popover';
+            document.body.appendChild(pop);
+            document.addEventListener('click', (e) => {
+                if (!pop.contains(e.target) && !e.target.classList.contains('mcnc-q-badge')) {
+                    pop.style.display = 'none';
+                }
+            });
+        }
+        pop.innerHTML = `
+            <div class="mcnc-q-pop-title">
+                <span>${info.title}</span>
+                <span style="cursor:pointer;color:#94A3B8;" onclick="document.getElementById('mcnc-q-popover').style.display='none'">[X]</span>
+            </div>
+            <div class="mcnc-q-pop-row"><span class="mcnc-q-pop-tag">What happens / What to enter:</span> ${info.what}</div>
+            <div class="mcnc-q-pop-row" style="margin-bottom:0;"><span class="mcnc-q-pop-tag">Why it matters:</span> ${info.why}</div>
+        `;
+        const rect = anchorEl.getBoundingClientRect();
+        const left = Math.min(window.innerWidth - 340, Math.max(12, rect.left));
+        const top = (rect.bottom + 165 > window.innerHeight) ? Math.max(12, rect.top - 160) : (rect.bottom + 8);
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+        pop.style.display = 'block';
+    }
+
+    function applyContextualHelpAndClientLabels(user) {
+        injectHelpStyles();
+        const activeTenant = getTargetTenant();
+        const isClientView = (user && (user.role !== 'EXEC_ADMIN' || activeTenant !== 'Mike'));
+
+        // 1. Attach [?] micro-help badges to ALL action buttons (skipping top navigation tabs & auth HUD buttons)
+        document.querySelectorAll('button').forEach((btn) => {
+            if (btn.dataset.mcncHelpBound) return;
+            if (btn.closest('#mcnc-floating-hud') || btn.closest('#mcnc-login-overlay') || btn.closest('#mcnc-usage-drawer') || btn.closest('#mcnc-invite-modal') || btn.closest('#mcnc-pwd-modal')) return;
+            const rawText = (btn.textContent || '').trim().toUpperCase();
+            if (!rawText || /^\d{2}\s+/.test(rawText)) return; // Skip numbered top-bar tabs (01 EXEC, etc.)
+            if (btn.offsetParent === null) return; // Skip hidden buttons
+
+            btn.dataset.mcncHelpBound = '1';
+            const matchedKey = Object.keys(HELP_DICTIONARY).find((k) => rawText === k || rawText.includes(k));
+            const q = createQBadge(() => matchedKey ? HELP_DICTIONARY[matchedKey] : describeGenericButton(btn));
+            btn.appendChild(q);
+        });
+
+        // 2. Attach [?] micro-help badges to ALL visible form inputs, textareas, dropdowns & checkboxes
+        document.querySelectorAll('input, textarea, select').forEach((field) => {
+            if (field.dataset.mcncHelpBound) return;
+            if (field.type === 'hidden' || field.type === 'file') return;
+            if (field.closest('#mcnc-floating-hud') || field.closest('#mcnc-login-overlay') || field.closest('#mcnc-usage-drawer') || field.closest('#mcnc-invite-modal') || field.closest('#mcnc-pwd-modal')) return;
+            if (field.offsetParent === null) return;
+
+            field.dataset.mcncHelpBound = '1';
+            const q = createQBadge(() => describeFormControl(field));
+            const labelParent = field.closest('label');
+            if (labelParent) {
+                labelParent.appendChild(q);
+            } else if (field.parentElement) {
+                field.insertAdjacentElement('afterend', q);
+            }
+        });
+
+        // 3. Plain-English Engine Labels & Quick-Start Guide Bar for Collaborators
+        if (isClientView) {
+            document.querySelectorAll('button, div, span').forEach((el) => {
+                if (el.children.length === 0) {
+                    const txt = (el.textContent || '').trim().toUpperCase();
+                    if (CLIENT_ENGINE_LABELS[txt]) {
+                        el.textContent = CLIENT_ENGINE_LABELS[txt];
+                    }
+                }
+            });
+
+            if (!sessionStorage.getItem('mcnc_hide_qs') && !document.getElementById('mcnc-quickstart-bar')) {
+                const bar = document.createElement('div');
+                bar.id = 'mcnc-quickstart-bar';
+                bar.innerHTML = `
+                    <span class="mcnc-qs-step"><b>1.</b> Brainstorm in 01 EXEC</span>
+                    <span>→</span>
+                    <span class="mcnc-qs-step"><b>2.</b> Build in 02 WAR ROOM</span>
+                    <span>→</span>
+                    <span class="mcnc-qs-step"><b>3.</b> Clip & Earn in 11 CAMPAIGNS</span>
+                    <span style="color:#94A3B8;">(Click any <b style="color:#ffb800;">[?]</b> for instant help)</span>
+                    <button type="button" id="mcnc-qs-close" class="mcnc-hud-btn" style="padding:2px 6px;">HIDE</button>
+                `;
+                document.body.appendChild(bar);
+                document.getElementById('mcnc-qs-close').addEventListener('click', () => {
+                    sessionStorage.setItem('mcnc_hide_qs', '1');
+                    bar.remove();
+                });
+            }
+        }
+    }
+
+        // MCNC_PWD_EYE_V1: Inject SHOW/HIDE toggle onto every password field
+    function attachPasswordToggles() {
+        document.querySelectorAll('input[type="password"]').forEach((inp) => {
+            if (inp.dataset.mcncEyeBound) return;
+            inp.dataset.mcncEyeBound = '1';
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'position:relative;width:100%;';
+            inp.parentNode.insertBefore(wrap, inp);
+            wrap.appendChild(inp);
+            inp.style.paddingRight = '56px';
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = 'SHOW';
+            btn.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:1px solid #2b313c;color:#94A3B8;font-size:10px;font-family:"JetBrains Mono",Consolas,monospace;padding:3px 6px;border-radius:3px;cursor:pointer;z-index:2;';
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const isHidden = inp.type === 'password';
+                inp.type = isHidden ? 'text' : 'password';
+                btn.textContent = isHidden ? 'HIDE' : 'SHOW';
+                btn.style.color = isHidden ? '#ffb800' : '#94A3B8';
+                btn.style.borderColor = isHidden ? '#DAA520' : '#2b313c';
+            });
+            wrap.appendChild(btn);
+        });
+    }
+    setInterval(attachPasswordToggles, 400);
+
     const COLLABORATOR_ALLOWED_TABS = ['01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD', '05 CALENDAR', '06 MEMORY', '11 CAMPAIGNS', '12 REVIEW'];
 
     function getToken() {
@@ -212,7 +646,8 @@
 
     function applyAuthenticatedState(user) {
         enforceCollaboratorTabs(user);
-        setTimeout(() => enforceCollaboratorTabs(user), 400);
+        setTimeout(() => { enforceCollaboratorTabs(user); applyContextualHelpAndClientLabels(user); }, 400);
+        setInterval(() => applyContextualHelpAndClientLabels(user), 900);
 
         let hud = document.getElementById('mcnc-floating-hud');
         if (!hud) {
@@ -590,6 +1025,10 @@
         bootAuthGate();
     }
 })();
+
+
+
+
 
 
 

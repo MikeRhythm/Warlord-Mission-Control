@@ -1,4 +1,5 @@
-﻿require('dotenv').config();
+﻿const { creditMeterMiddleware } = require('./Credit_Meter');
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -2338,6 +2339,7 @@ app.post('/api/campaigns/artifacts/delete', (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 
 
