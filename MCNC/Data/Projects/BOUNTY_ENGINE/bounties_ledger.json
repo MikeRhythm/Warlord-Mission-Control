@@ -1,4 +1,5 @@
 {
+  "lastDispatchDate": "2026-11-19",
   "active": [
     {
       "id": "vyro_abc_scrubs",
@@ -25,11 +26,11 @@
       "poolStatus": "ACTIVE // 76% Pool Left (~10 Days)",
       "runwayDays": 10,
       "totalClicks": 0,
-      "dailyPostsUsed": 0,
+      "dailyPostsUsed": 1,
       "dailyPostCap": 5,
       "mandatoryTags": "#thedrop #tiktokedits #shorts #viral",
       "hookHeadline": "NOBODY EXPECTED THIS DROP MOMENT",
-      "sourcePath": "",
+      "sourcePath": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\BOUNTY_ENGINE\\campaigns\\vyro_the_drop\\intake\\vyro_the_drop_source.mp4",
       "createdAt": "2026-11-17T18:41:42.232Z"
     },
     {
@@ -47,6 +48,42 @@
       "hookHeadline": "THE LOWDOWN UNFILTERED TRUTH",
       "sourcePath": "",
       "createdAt": "2026-11-17T18:41:42.232Z"
+    },
+    {
+      "id": "whop_viral_podcast_clips",
+      "title": "Whop Content Rewards // Viral Podcast Clips",
+      "platform": "Whop",
+      "cpmRate": "$2.50",
+      "flatFeeBonus": 0,
+      "viewFloor": "1000",
+      "poolStatus": "ACTIVE // 90% Pool Left (~14 Days)",
+      "runwayDays": 14,
+      "totalClicks": 0,
+      "dailyPostsUsed": 0,
+      "dailyPostCap": 5,
+      "mandatoryTags": "#podcast #viralclips #shorts #fyp",
+      "hookHeadline": "HE SAID WHAT NOBODY DARED TO SAY",
+      "tessYieldScore": 2.025,
+      "sourcePath": "",
+      "createdAt": "2026-11-18T01:51:57.579Z"
+    },
+    {
+      "id": "whop_creator_highlights",
+      "title": "Whop Content Rewards // High-Retention Stream Highlights",
+      "platform": "Whop",
+      "cpmRate": "$2.25",
+      "flatFeeBonus": 0,
+      "viewFloor": "1000",
+      "poolStatus": "ACTIVE // 84% Pool Left (~12 Days)",
+      "runwayDays": 12,
+      "totalClicks": 0,
+      "dailyPostsUsed": 0,
+      "dailyPostCap": 5,
+      "mandatoryTags": "#highlights #trending #shorts #viral",
+      "hookHeadline": "THIS MOMENT BROKE THE STREAM",
+      "tessYieldScore": 1.701,
+      "sourcePath": "",
+      "createdAt": "2026-11-18T01:51:57.579Z"
     }
   ]
 }

@@ -2215,3 +2215,25 @@ server.listen(PORT, () => {
     console.log(`====================================================`);
 });
 
+
+
+// [WARLORD] Delete individual staged disk artifact after manual social publish
+app.post('/api/campaigns/artifacts/delete', (req, res) => {
+  try {
+    const { projectId, bountyId, fileName } = req.body || {};
+    if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return res.status(400).json({ success: false, error: 'Invalid fileName' });
+    }
+    const baseDir = projectId === 'BOUNTY_ENGINE' && bountyId
+      ? path.join(__dirname, 'Data', 'Projects', 'BOUNTY_ENGINE', 'campaigns', bountyId, 'clips')
+      : path.join(__dirname, 'Data', 'Projects', projectId || 'BOUNTY_ENGINE');
+    const targetFile = path.join(baseDir, fileName);
+    if (fs.existsSync(targetFile)) {
+      fs.unlinkSync(targetFile);
+      return res.json({ success: true, deleted: fileName });
+    }
+    return res.status(404).json({ success: false, error: 'File not found on disk' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});

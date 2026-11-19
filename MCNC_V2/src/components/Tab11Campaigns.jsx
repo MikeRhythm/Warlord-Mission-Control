@@ -25,6 +25,8 @@ export default function Tab11Campaigns() {
   const [rawTranscript, setRawTranscript] = useState('');
   const [isExtractingHooks, setIsExtractingHooks] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [copiedFlash, setCopiedFlash] = useState({});
+  const [copiedHistory, setCopiedHistory] = useState({});
 
   const [telemetryLog, setTelemetryLog] = useState([
     '[INIT] Universal Campaigns & Action Station mounted.',
@@ -50,6 +52,79 @@ export default function Tab11Campaigns() {
     if (!b) return 'Vyro';
     if (b.platform) return b.platform;
     return String(b.id || '').toLowerCase().startsWith('whop_') ? 'Whop' : 'Vyro';
+  };
+
+  const toSentenceCase = (str) => {
+    const clean = String(str || '').trim().toLowerCase();
+    if (!clean) return '';
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+  };
+
+  const buildOrganicTitle = (artName, idx) => {
+    const brandRaw = (campaignTitle || '').split('//')[0].replace(/Whop Content Rewards/i, '').trim();
+    const hookClean = toSentenceCase((hookHeadline || '').replace(/\[.*?\]/g, '').trim());
+    const clipMatch = String(artName || '').match(/short_(\d+)/i);
+    const clipNum = clipMatch ? Number(clipMatch[1]) : (idx + 1);
+
+    const angles = [
+      hookClean ? `${hookClean} 😂 #shorts` : `${brandRaw || 'This'} moment had everyone losing it 😂 #shorts`,
+      hookClean ? `Wait till the end of this ${brandRaw || 'clip'} 👀 #shorts` : `Nobody saw this coming in ${brandRaw || 'this clip'} 👀 #shorts`,
+      hookClean ? `Still can't believe they kept a straight face 💀 #shorts` : `Peak ${brandRaw || 'comedy'} energy right here 💀 #shorts`
+    ];
+    return angles[(clipNum - 1) % angles.length];
+  };
+
+  const buildCreativeSeoDesc = (artName, idx) => {
+    const organicTitle = buildOrganicTitle(artName, idx).replace(/\s*#shorts\s*$/i, '').trim();
+    const brandRaw = (campaignTitle || '').split('//')[0].replace(/Whop Content Rewards/i, '').trim();
+    const tags = (mandatoryTags || '#shorts #viral').trim();
+    const ctas = [
+      'Wait until the final seconds — rate this moment 1–10 in the comments 👇',
+      'Would you have kept a straight face here? Drop your take below 👇',
+      'Tag someone who needs to see this clip today 🔥'
+    ];
+    const ctaLine = ctas[idx % ctas.length];
+    return `${organicTitle}${brandRaw ? ` (${brandRaw})` : ''}\n\n${ctaLine}\n\n${tags}`;
+  };
+
+  const triggerCopyWithFeedback = async (key, text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopiedFlash(prev => ({ ...prev, [key]: true }));
+    setCopiedHistory(prev => ({ ...prev, [key]: true }));
+    setTimeout(() => {
+      setCopiedFlash(prev => ({ ...prev, [key]: false }));
+    }, 2000);
+  };
+
+  const handleDeleteArtifact = async (fileName) => {
+    if (!window.confirm(`Delete published clip [${fileName}] from disk?`)) return;
+    try {
+      const res = await fetch('http://localhost:8081/api/campaigns/artifacts/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: selectedProjectId,
+          bountyId: activeBountyId,
+          fileName
+        })
+      });
+      if (res.ok) {
+        setArtifacts(prev => prev.filter(a => a.name !== fileName));
+      } else {
+        alert('Could not delete file on backend — make sure START_WASP.bat was restarted to load the delete endpoint.');
+      }
+    } catch (e) {
+      alert('Bridge connection error while deleting artifact.');
+    }
   };
 
   const loadBountyIntoForm = (bounty) => {
@@ -282,7 +357,7 @@ export default function Tab11Campaigns() {
       runwayDays: 14,
       totalClicks: 0,
       dailyPostsUsed: 0,
-      dailyPostCap: 5,
+      dailyPostCap: 6,
       sourcePath: getDefaultSourcePath(newId),
       mandatoryTags: '#shorts #viral #echopod',
       hookHeadline: 'VIRAL HOOK HEADLINE'
@@ -652,19 +727,78 @@ export default function Tab11Campaigns() {
             {artifacts.length === 0 ? (
               <div style={{ color: '#64748B', fontSize: '11px', textAlign: 'center', marginTop: '20px' }}>No physical artifacts found in workspace.</div>
             ) : (
-              artifacts.map(art => (
-                <div key={art.id || art.name} style={{ backgroundColor: '#080a0c', border: '1px solid #1f242d', padding: '10px', borderRadius: '3px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>{art.name}</span>
-                    <span style={{ color: '#10b981', fontSize: '10px' }}>{art.sizeKb || art.size || '0'} KB</span>
+              artifacts.map((art, idx) => {
+                const artKey = art.id || art.name || String(idx);
+                const titleFlashing = !!copiedFlash[`title_${artKey}`];
+                const titleEverCopied = !!copiedHistory[`title_${artKey}`];
+                const descFlashing = !!copiedFlash[`desc_${artKey}`];
+                const descEverCopied = !!copiedHistory[`desc_${artKey}`];
+                const previewTitle = buildOrganicTitle(art.name, idx);
+                return (
+                  <div key={artKey} style={{ backgroundColor: '#080a0c', border: '1px solid #1f242d', padding: '10px', borderRadius: '3px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '8px' }}>
+                      <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{art.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <span style={{ color: '#10b981', fontSize: '10px' }}>{art.sizeKb || art.size || '0'} KB</span>
+                        <button
+                          onClick={() => handleDeleteArtifact(art.name)}
+                          title="Delete published clip from disk"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.45)',
+                            color: '#ef4444',
+                            fontSize: '10px',
+                            padding: '1px 5px',
+                            cursor: 'pointer',
+                            borderRadius: '2px',
+                            lineHeight: 1.2
+                          }}
+                        >
+                          DEL
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#ffb800', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      TITLE: {previewTitle}
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '8px' }}>MODIFIED: {art.modified || 'N/A'} | STATE: {art.status || 'SYNCED'}</div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => triggerCopyWithFeedback(`title_${artKey}`, previewTitle)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: titleFlashing ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
+                          border: titleFlashing ? '1px solid #10b981' : '1px solid #1f242d',
+                          color: titleFlashing ? '#10b981' : '#94A3B8',
+                          fontWeight: titleFlashing ? 'bold' : 'normal',
+                          fontSize: '10px',
+                          padding: '5px',
+                          cursor: 'pointer',
+                          borderRadius: '2px'
+                        }}
+                      >
+                        {titleFlashing ? '✓ COPIED TITLE' : (titleEverCopied ? '✓ COPY TITLE' : 'COPY TITLE')}
+                      </button>
+                      <button
+                        onClick={() => triggerCopyWithFeedback(`desc_${artKey}`, buildCreativeSeoDesc(art.name, idx))}
+                        style={{
+                          flex: 1,
+                          backgroundColor: descFlashing ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
+                          border: descFlashing ? '1px solid #10b981' : '1px solid #1f242d',
+                          color: descFlashing ? '#10b981' : '#94A3B8',
+                          fontWeight: descFlashing ? 'bold' : 'normal',
+                          fontSize: '10px',
+                          padding: '5px',
+                          cursor: 'pointer',
+                          borderRadius: '2px'
+                        }}
+                      >
+                        {descFlashing ? '✓ COPIED SEO' : (descEverCopied ? '✓ COPY SEO DESC' : 'COPY SEO DESC')}
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '8px' }}>MODIFIED: {art.modified || 'N/A'} | STATE: {art.status || 'SYNCED'}</div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => navigator.clipboard.writeText(campaignTitle)} style={{ flex: 1, backgroundColor: '#14171c', border: '1px solid #1f242d', color: '#94A3B8', fontSize: '10px', padding: '4px', cursor: 'pointer' }}>COPY TITLE</button>
-                    <button onClick={() => navigator.clipboard.writeText(`${hookHeadline}\n\n${mandatoryTags}`)} style={{ flex: 1, backgroundColor: '#14171c', border: '1px solid #1f242d', color: '#94A3B8', fontSize: '10px', padding: '4px', cursor: 'pointer' }}>COPY SEO DESC</button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -672,4 +806,3 @@ export default function Tab11Campaigns() {
     </div>
   );
 }
-
