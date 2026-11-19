@@ -390,6 +390,39 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
+    
+    // 8. Live Tenant Usage & Billing Telemetry (Disk, Credits, Tokens, Renders)
+    const { getTenantUsage, topUpTenantCredits } = require('./Credit_Meter');
+
+    app.get('/api/auth/usage', requireAuth, (req, res) => {
+        try {
+            const targetTenant = req.mcncAuth.effectiveTenant || req.mcncAuth.tenantId;
+            const usage = getTenantUsage(targetTenant);
+            return res.json({ success: true, usage });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // 9. Admin Credit Top-Up & Plan Upgrade Endpoint (EXEC_ADMIN only)
+    app.post('/api/auth/topup', requireAuth, (req, res) => {
+        if (req.mcncAuth.role !== 'EXEC_ADMIN') {
+            return res.status(403).json({ success: false, error: 'Executive Admin required' });
+        }
+        const { tenantId, addUsd, newQuotaMb, planTier } = req.body || {};
+        if (!tenantId) {
+            return res.status(400).json({ success: false, error: 'tenantId is required' });
+        }
+        try {
+            const usage = topUpTenantCredits(String(tenantId).trim(), addUsd, newQuotaMb, planTier);
+            logAudit(req.mcncAuth.userId, tenantId, 'CREDIT_TOPUP', `+${addUsd || 0} / ${newQuotaMb || 'same'}MB`);
+            return res.json({ success: true, usage });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
     console.log('[AUTH & TENANT ENGINE]   : /api/auth/* & /api/tenant/bounties MOUNTED (Mike/Adine/Claire)');
 };
+
 

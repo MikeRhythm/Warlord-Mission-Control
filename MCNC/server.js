@@ -1657,7 +1657,7 @@ function autoPersistCodeArtifact(projectName, replyText) {
 // ==========================================
 // CHAT & HEALTH
 // ==========================================
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', creditMeterMiddleware, async (req, res) => {
     const __tCtx = resolveTenantContext(req);
     const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
     const PROJECTS_PATH = __tCtx.projectsRoot;
@@ -2338,5 +2338,6 @@ app.post('/api/campaigns/artifacts/delete', (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 

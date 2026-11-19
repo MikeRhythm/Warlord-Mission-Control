@@ -9,6 +9,195 @@
     const API_BASE = (window.location.port === '5173') ? 'http://localhost:8081' : '';
 
     // Allowed tab labels for Collaborators (Adine & Claire)
+        // MCNC_CONTEXT_HELP_V1: Inline [?] Micro-Tooltips, Quick-Start Ribbon & Plain-English Client Labels
+    const HELP_DICTIONARY = {
+        '+ NEW': {
+            title: 'Create New Workspace Thread',
+            what: 'Starts a fresh, blank conversation thread under your project.',
+            why: 'Keeps each idea or task organized separately so your AI Chief remembers exact context.'
+        },
+        '+ NEW CHAT': {
+            title: 'Start New Conversation',
+            what: 'Opens a clean prompt box to brainstorm or ask your AI team for help.',
+            why: 'Master Chat is a read-only summary log; active work happens inside sub-chats.'
+        },
+        'AUTO-ROUTE LLM': {
+            title: 'Smart Engine Selector',
+            what: 'Automatically picks the best AI brain for your message (Free Standard vs. Elite Pro).',
+            why: 'Saves your AI Compute Credits by using free engines for simple tasks and Pro models only when needed.'
+        },
+        'CREATE PROMPT': {
+            title: 'Prompt Polisher',
+            what: 'Turns a rough, casual sentence into a structured instruction for your AI team.',
+            why: 'Gets much sharper, higher-quality plans and content without needing prompt-engineering skills.'
+        },
+        'PUSH TO WAR ROOM': {
+            title: 'Promote Idea to Execution',
+            what: 'Sends your brainstormed concept from 01 EXEC straight into 02 WAR ROOM.',
+            why: 'Moves your idea from casual chat into structured project planning and asset creation.'
+        },
+        '+ NEW PROJECT INTAKE': {
+            title: 'Create a New Project Folder',
+            what: 'Sets up a dedicated project container with organized folders on your private workspace.',
+            why: 'Everything you generate—scripts, images, plans, and clips—stays neatly grouped in one place.'
+        },
+        'RUN ARTIFACT BUILD (STAGE 2)': {
+            title: 'Generate Deliverable Asset',
+            what: 'Instructs your AI Directors to build the full plan, page, or script for your active project.',
+            why: 'Produces a complete, review-ready deliverable you can inspect in 09 PREVIEWS or 12 REVIEW.'
+        },
+        'DISCOVER': {
+            title: 'Scan Active Bounty Campaigns',
+            what: 'Searches supported clipping platforms for live paid campaigns matching your niche.',
+            why: 'Shows current payout rates ($ per 1,000 views) and rules before you spend time editing clips.'
+        }
+    };
+
+    const CLIENT_ENGINE_LABELS = {
+        'TIER 1: OLLAMA (LOCAL)': 'STANDARD ENGINE // INCLUDED (FREE)',
+        'TIER 2: HARVESTED CLUSTERS (FREE)': 'FAST CLOUD ENGINE // INCLUDED (FREE)',
+        'TIER 3: OPENROUTER (ELITE)': 'ELITE PRO ENGINE // USES CREDITS',
+        'TIER 4: KAGGLE T4 (CLOUD COMPUTE)': 'HEAVY MEDIA COMPUTE // STANDBY'
+    };
+
+    function injectHelpStyles() {
+        if (document.getElementById('mcnc-help-styles')) return;
+        const s = document.createElement('style');
+        s.id = 'mcnc-help-styles';
+        s.textContent = `
+            .mcnc-q-badge {
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 15px; height: 15px; margin-left: 5px;
+                border-radius: 50%; border: 1px solid #DAA520;
+                background: rgba(255, 184, 0, 0.14); color: #ffb800;
+                font-size: 10px; font-weight: 800; line-height: 1;
+                cursor: pointer; vertical-align: middle;
+                transition: all 0.15s ease;
+            }
+            .mcnc-q-badge:hover {
+                background: #ffb800; color: #080a0c; transform: scale(1.12);
+            }
+            #mcnc-q-popover {
+                position: fixed; z-index: 99999; width: 310px; padding: 14px;
+                background: rgba(13, 15, 18, 0.98);
+                backdrop-filter: blur(12px);
+                border: 1px solid #DAA520; border-radius: 6px;
+                box-shadow: 0 14px 36px rgba(0,0,0,0.92);
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+                display: none;
+            }
+            .mcnc-q-pop-title {
+                color: #ffb800; font-size: 11px; font-weight: 800;
+                text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;
+                display: flex; justify-content: space-between; align-items: center;
+            }
+            .mcnc-q-pop-row {
+                font-size: 11px; color: #E2E8F0; line-height: 1.45; margin-bottom: 7px;
+            }
+            .mcnc-q-pop-tag {
+                color: #38bdf8; font-weight: 700; text-transform: uppercase; font-size: 10px;
+            }
+            #mcnc-quickstart-bar {
+                position: fixed; bottom: 10px; right: 14px; z-index: 99985;
+                background: rgba(13, 15, 18, 0.95);
+                border: 1px solid #1f242d; border-left: 3px solid #ffb800;
+                border-radius: 5px; padding: 8px 12px;
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+                font-size: 10px; color: #C5BD9F;
+                display: flex; align-items: center; gap: 10px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.75);
+            }
+            .mcnc-qs-step { color: #E2E8F0; }
+            .mcnc-qs-step b { color: #ffb800; }
+        `;
+        document.head.appendChild(s);
+    }
+
+    function showHelpPopover(anchorEl, info) {
+        let pop = document.getElementById('mcnc-q-popover');
+        if (!pop) {
+            pop = document.createElement('div');
+            pop.id = 'mcnc-q-popover';
+            document.body.appendChild(pop);
+            document.addEventListener('click', (e) => {
+                if (!pop.contains(e.target) && !e.target.classList.contains('mcnc-q-badge')) {
+                    pop.style.display = 'none';
+                }
+            });
+        }
+        pop.innerHTML = `
+            <div class="mcnc-q-pop-title">
+                <span>${info.title}</span>
+                <span style="cursor:pointer;color:#94A3B8;" onclick="document.getElementById('mcnc-q-popover').style.display='none'">[X]</span>
+            </div>
+            <div class="mcnc-q-pop-row"><span class="mcnc-q-pop-tag">What it does:</span> ${info.what}</div>
+            <div class="mcnc-q-pop-row" style="margin-bottom:0;"><span class="mcnc-q-pop-tag">Why it matters:</span> ${info.why}</div>
+        `;
+        const rect = anchorEl.getBoundingClientRect();
+        const left = Math.min(window.innerWidth - 330, Math.max(12, rect.left));
+        const top = (rect.bottom + 150 > window.innerHeight) ? Math.max(12, rect.top - 145) : (rect.bottom + 8);
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+        pop.style.display = 'block';
+    }
+
+    function applyContextualHelpAndClientLabels(user) {
+        injectHelpStyles();
+        const activeTenant = getTargetTenant();
+        const isClientView = (user && (user.role !== 'EXEC_ADMIN' || activeTenant !== 'Mike'));
+
+        // 1. Attach [?] micro-help badges to matching buttons & controls
+        document.querySelectorAll('button').forEach((btn) => {
+            if (btn.dataset.mcncHelpBound) return;
+            const rawText = (btn.textContent || '').trim().toUpperCase();
+            const matchedKey = Object.keys(HELP_DICTIONARY).find((k) => rawText === k || rawText.includes(k));
+            if (matchedKey) {
+                btn.dataset.mcncHelpBound = '1';
+                const q = document.createElement('span');
+                q.className = 'mcnc-q-badge';
+                q.textContent = '?';
+                q.title = 'Click for quick explanation';
+                q.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showHelpPopover(q, HELP_DICTIONARY[matchedKey]);
+                });
+                btn.appendChild(q);
+            }
+        });
+
+        // 2. Plain-English Engine Labels & Quick-Start Guide Bar for Collaborators
+        if (isClientView) {
+            document.querySelectorAll('button, div, span').forEach((el) => {
+                if (el.children.length === 0) {
+                    const txt = (el.textContent || '').trim().toUpperCase();
+                    if (CLIENT_ENGINE_LABELS[txt]) {
+                        el.textContent = CLIENT_ENGINE_LABELS[txt];
+                    }
+                }
+            });
+
+            if (!sessionStorage.getItem('mcnc_hide_qs') && !document.getElementById('mcnc-quickstart-bar')) {
+                const bar = document.createElement('div');
+                bar.id = 'mcnc-quickstart-bar';
+                bar.innerHTML = `
+                    <span class="mcnc-qs-step"><b>1.</b> Brainstorm in 01 EXEC</span>
+                    <span>→</span>
+                    <span class="mcnc-qs-step"><b>2.</b> Build in 02 WAR ROOM</span>
+                    <span>→</span>
+                    <span class="mcnc-qs-step"><b>3.</b> Clip & Earn in 11 CAMPAIGNS</span>
+                    <span style="color:#94A3B8;">(Click any <b style="color:#ffb800;">[?]</b> for help)</span>
+                    <button type="button" id="mcnc-qs-close" class="mcnc-hud-btn" style="padding:2px 6px;">HIDE</button>
+                `;
+                document.body.appendChild(bar);
+                document.getElementById('mcnc-qs-close').addEventListener('click', () => {
+                    sessionStorage.setItem('mcnc_hide_qs', '1');
+                    bar.remove();
+                });
+            }
+        }
+    }
+
     const COLLABORATOR_ALLOWED_TABS = ['01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD', '05 CALENDAR', '06 MEMORY', '11 CAMPAIGNS', '12 REVIEW'];
 
     function getToken() {
@@ -212,7 +401,8 @@
 
     function applyAuthenticatedState(user) {
         enforceCollaboratorTabs(user);
-        setTimeout(() => enforceCollaboratorTabs(user), 400);
+        setTimeout(() => { enforceCollaboratorTabs(user); applyContextualHelpAndClientLabels(user); }, 400);
+        setInterval(() => applyContextualHelpAndClientLabels(user), 900);
 
         let hud = document.getElementById('mcnc-floating-hud');
         if (!hud) {
@@ -233,7 +423,7 @@
         }
 
         hud.innerHTML = `
-            <span class="mcnc-hud-badge ${isOverride ? 'admin-override' : ''}">
+            <span id="mcnc-usage-trigger" class="mcnc-hud-badge ${isOverride ? 'admin-override' : ''}" style="cursor:pointer;" title="Click to open Usage & Billing HUD">
                 ${isOverride ? 'ADMIN OVERRIDE: ' + activeTenant : 'OPERATOR: ' + user.username}
             </span>
             ${switcherHtml}
@@ -263,10 +453,124 @@
                 document.getElementById('mcnc-invite-modal').style.display = 'flex';
             });
         }
+                const usageTrigger = document.getElementById('mcnc-usage-trigger');
+        if (usageTrigger) {
+            usageTrigger.addEventListener('click', () => openUsageDrawer(user));
+        }
         ensurePasswordModal();
         document.getElementById('mcnc-pwd-open-btn').addEventListener('click', () => {
             document.getElementById('mcnc-pwd-modal').style.display = 'flex';
         });
+    }
+
+        async function openUsageDrawer(user) {
+        let drawer = document.getElementById('mcnc-usage-drawer');
+        if (!drawer) {
+            drawer = document.createElement('div');
+            drawer.id = 'mcnc-usage-drawer';
+            drawer.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(8,10,12,0.88);display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",Consolas,monospace;';
+            document.body.appendChild(drawer);
+        }
+        drawer.style.display = 'flex';
+        drawer.innerHTML = '<div class="mcnc-auth-card"><div class="mcnc-auth-title">LOADING TELEMETRY...</div></div>';
+
+        try {
+            const res = await window.fetch(API_BASE + '/api/auth/usage');
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load usage');
+            const u = data.usage;
+
+            const diskPct = Math.min(100, Math.round((u.diskUsedMb / Math.max(1, u.diskQuotaMb)) * 100));
+            const diskColor = diskPct >= 95 ? '#ef4444' : (diskPct >= 80 ? '#f59e0b' : '#10b981');
+            const renderPct = Math.min(100, Math.round((u.rendersUsed / Math.max(1, u.rendersLimit)) * 100));
+            const creditDisplay = u.role === 'EXEC_ADMIN' && u.tenantId === 'Mike' ? 'UNLIMITED (ADMIN)' : '$' + u.creditBalanceUsd.toFixed(2);
+
+            const adminTopUpHtml = user.role === 'EXEC_ADMIN' ? `
+                <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1f242d;">
+                    <div class="mcnc-auth-label" style="color:#38bdf8;">ADMIN QUICK TOP-UP (${u.tenantId.toUpperCase()})</div>
+                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                        <input id="mcnc-topup-usd" class="mcnc-auth-input" type="number" step="5" value="20" style="margin-bottom:0;" placeholder="Add $" />
+                        <input id="mcnc-topup-mb" class="mcnc-auth-input" type="number" step="500" value="${u.diskQuotaMb}" style="margin-bottom:0;" placeholder="Quota MB" />
+                    </div>
+                    <button id="mcnc-topup-submit" type="button" class="mcnc-auth-btn" style="background:#38bdf8;">APPLY TOP-UP</button>
+                    <div id="mcnc-topup-msg" class="mcnc-auth-err"></div>
+                </div>
+            ` : `
+                <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1f242d;">
+                    <div style="color:#94A3B8;font-size:11px;margin-bottom:10px;">Need more storage, renders, or premium Claude/Grok compute credits?</div>
+                    <button type="button" class="mcnc-auth-btn" onclick="alert('Contact Mike to top up your MCNC Credits or upgrade to Pro Tier.');">REQUEST CREDIT TOP-UP</button>
+                </div>
+            `;
+
+            drawer.innerHTML = `
+                <div class="mcnc-auth-card" style="max-width:430px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                        <div class="mcnc-auth-title" style="margin:0;">USAGE & BILLING // ${u.tenantId.toUpperCase()}</div>
+                        <span class="mcnc-hud-badge" style="color:#ffb800;border-color:#DAA520;">${u.planTier}</span>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;color:#C5BD9F;margin-bottom:4px;">
+                            <span>DISK STORAGE</span>
+                            <span>${u.diskUsedMb} MB / ${u.diskQuotaMb} MB (${diskPct}%)</span>
+                        </div>
+                        <div style="height:6px;background:#14171c;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${diskPct}%;background:${diskColor};"></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;color:#C5BD9F;margin-bottom:4px;">
+                            <span>AI COMPUTE CREDITS</span>
+                            <span style="color:#10b981;font-weight:700;">${creditDisplay}</span>
+                        </div>
+                        <div style="font-size:10px;color:#94A3B8;">Spent this cycle: $${u.creditsUsedUsd.toFixed(4)} | Tokens metered: ${u.totalTokensUsed.toLocaleString()}</div>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;color:#C5BD9F;margin-bottom:4px;">
+                            <span>MEDIA RENDER QUOTA</span>
+                            <span>${u.rendersUsed} / ${u.rendersLimit} CLIPS</span>
+                        </div>
+                        <div style="height:6px;background:#14171c;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${renderPct}%;background:#ffb800;"></div>
+                        </div>
+                    </div>
+
+                    ${adminTopUpHtml}
+
+                    <button id="mcnc-usage-close" type="button" class="mcnc-hud-btn" style="width:100%;margin-top:12px;padding:8px;">CLOSE</button>
+                </div>
+            `;
+
+            document.getElementById('mcnc-usage-close').addEventListener('click', () => {
+                drawer.style.display = 'none';
+            });
+
+            const topUpBtn = document.getElementById('mcnc-topup-submit');
+            if (topUpBtn) {
+                topUpBtn.addEventListener('click', async () => {
+                    const msgEl = document.getElementById('mcnc-topup-msg');
+                    const addUsd = Number(document.getElementById('mcnc-topup-usd').value || 0);
+                    const newQuotaMb = Number(document.getElementById('mcnc-topup-mb').value || u.diskQuotaMb);
+                    const r = await window.fetch(API_BASE + '/api/auth/topup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tenantId: u.tenantId, addUsd, newQuotaMb })
+                    });
+                    const d = await r.json();
+                    if (r.ok && d.success) {
+                        msgEl.style.color = '#10b981';
+                        msgEl.textContent = 'Updated! Refreshing telemetry...';
+                        setTimeout(() => openUsageDrawer(user), 700);
+                    } else {
+                        msgEl.textContent = d.error || 'Top-up failed';
+                    }
+                });
+            }
+        } catch (err) {
+            drawer.innerHTML = `<div class="mcnc-auth-card"><div class="mcnc-auth-err">${err.message}</div><button type="button" class="mcnc-hud-btn" style="margin-top:10px;" onclick="document.getElementById('mcnc-usage-drawer').style.display='none'">CLOSE</button></div>`;
+        }
     }
 
     function ensurePasswordModal() {
@@ -476,5 +780,7 @@
         bootAuthGate();
     }
 })();
+
+
 
 

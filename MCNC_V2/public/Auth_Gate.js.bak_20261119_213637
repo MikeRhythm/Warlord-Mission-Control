@@ -233,11 +233,11 @@
         }
 
         hud.innerHTML = `
-            <span class="mcnc-hud-badge ${isOverride ? 'admin-override' : ''}">
+            <span id="mcnc-usage-trigger" class="mcnc-hud-badge ${isOverride ? 'admin-override' : ''}" style="cursor:pointer;" title="Click to open Usage & Billing HUD">
                 ${isOverride ? 'ADMIN OVERRIDE: ' + activeTenant : 'OPERATOR: ' + user.username}
             </span>
             ${switcherHtml}
-            <button id="mcnc-pwd-open-btn" class="mcnc-hud-btn" type="button">PASSWORD</button>
+            ${user.role === "EXEC_ADMIN" ? `<button id="mcnc-invite-open-btn" class="mcnc-hud-btn" type="button" style="border-color:#DAA520;color:#ffb800;">+ INVITE</button>` : ""}<button id="mcnc-pwd-open-btn" class="mcnc-hud-btn" type="button">PASSWORD</button>
             <button id="mcnc-logout-btn" class="mcnc-hud-btn" type="button">LOGOUT</button>
         `;
 
@@ -256,10 +256,131 @@
             window.location.reload();
         });
 
+                const invBtn = document.getElementById('mcnc-invite-open-btn');
+        if (invBtn) {
+            ensureInviteModal();
+            invBtn.addEventListener('click', () => {
+                document.getElementById('mcnc-invite-modal').style.display = 'flex';
+            });
+        }
+                const usageTrigger = document.getElementById('mcnc-usage-trigger');
+        if (usageTrigger) {
+            usageTrigger.addEventListener('click', () => openUsageDrawer(user));
+        }
         ensurePasswordModal();
         document.getElementById('mcnc-pwd-open-btn').addEventListener('click', () => {
             document.getElementById('mcnc-pwd-modal').style.display = 'flex';
         });
+    }
+
+        async function openUsageDrawer(user) {
+        let drawer = document.getElementById('mcnc-usage-drawer');
+        if (!drawer) {
+            drawer = document.createElement('div');
+            drawer.id = 'mcnc-usage-drawer';
+            drawer.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(8,10,12,0.88);display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",Consolas,monospace;';
+            document.body.appendChild(drawer);
+        }
+        drawer.style.display = 'flex';
+        drawer.innerHTML = '<div class="mcnc-auth-card"><div class="mcnc-auth-title">LOADING TELEMETRY...</div></div>';
+
+        try {
+            const res = await window.fetch(API_BASE + '/api/auth/usage');
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load usage');
+            const u = data.usage;
+
+            const diskPct = Math.min(100, Math.round((u.diskUsedMb / Math.max(1, u.diskQuotaMb)) * 100));
+            const diskColor = diskPct >= 95 ? '#ef4444' : (diskPct >= 80 ? '#f59e0b' : '#10b981');
+            const renderPct = Math.min(100, Math.round((u.rendersUsed / Math.max(1, u.rendersLimit)) * 100));
+            const creditDisplay = u.role === 'EXEC_ADMIN' && u.tenantId === 'Mike' ? 'UNLIMITED (ADMIN)' : '$' + u.creditBalanceUsd.toFixed(2);
+
+            const adminTopUpHtml = user.role === 'EXEC_ADMIN' ? `
+                <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1f242d;">
+                    <div class="mcnc-auth-label" style="color:#38bdf8;">ADMIN QUICK TOP-UP (${u.tenantId.toUpperCase()})</div>
+                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                        <input id="mcnc-topup-usd" class="mcnc-auth-input" type="number" step="5" value="20" style="margin-bottom:0;" placeholder="Add $" />
+                        <input id="mcnc-topup-mb" class="mcnc-auth-input" type="number" step="500" value="${u.diskQuotaMb}" style="margin-bottom:0;" placeholder="Quota MB" />
+                    </div>
+                    <button id="mcnc-topup-submit" type="button" class="mcnc-auth-btn" style="background:#38bdf8;">APPLY TOP-UP</button>
+                    <div id="mcnc-topup-msg" class="mcnc-auth-err"></div>
+                </div>
+            ` : `
+                <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1f242d;">
+                    <div style="color:#94A3B8;font-size:11px;margin-bottom:10px;">Need more storage, renders, or premium Claude/Grok compute credits?</div>
+                    <button type="button" class="mcnc-auth-btn" onclick="alert('Contact Mike to top up your MCNC Credits or upgrade to Pro Tier.');">REQUEST CREDIT TOP-UP</button>
+                </div>
+            `;
+
+            drawer.innerHTML = `
+                <div class="mcnc-auth-card" style="max-width:430px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                        <div class="mcnc-auth-title" style="margin:0;">USAGE & BILLING // ${u.tenantId.toUpperCase()}</div>
+                        <span class="mcnc-hud-badge" style="color:#ffb800;border-color:#DAA520;">${u.planTier}</span>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;color:#C5BD9F;margin-bottom:4px;">
+                            <span>DISK STORAGE</span>
+                            <span>${u.diskUsedMb} MB / ${u.diskQuotaMb} MB (${diskPct}%)</span>
+                        </div>
+                        <div style="height:6px;background:#14171c;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${diskPct}%;background:${diskColor};"></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;color:#C5BD9F;margin-bottom:4px;">
+                            <span>AI COMPUTE CREDITS</span>
+                            <span style="color:#10b981;font-weight:700;">${creditDisplay}</span>
+                        </div>
+                        <div style="font-size:10px;color:#94A3B8;">Spent this cycle: $${u.creditsUsedUsd.toFixed(4)} | Tokens metered: ${u.totalTokensUsed.toLocaleString()}</div>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;color:#C5BD9F;margin-bottom:4px;">
+                            <span>MEDIA RENDER QUOTA</span>
+                            <span>${u.rendersUsed} / ${u.rendersLimit} CLIPS</span>
+                        </div>
+                        <div style="height:6px;background:#14171c;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${renderPct}%;background:#ffb800;"></div>
+                        </div>
+                    </div>
+
+                    ${adminTopUpHtml}
+
+                    <button id="mcnc-usage-close" type="button" class="mcnc-hud-btn" style="width:100%;margin-top:12px;padding:8px;">CLOSE</button>
+                </div>
+            `;
+
+            document.getElementById('mcnc-usage-close').addEventListener('click', () => {
+                drawer.style.display = 'none';
+            });
+
+            const topUpBtn = document.getElementById('mcnc-topup-submit');
+            if (topUpBtn) {
+                topUpBtn.addEventListener('click', async () => {
+                    const msgEl = document.getElementById('mcnc-topup-msg');
+                    const addUsd = Number(document.getElementById('mcnc-topup-usd').value || 0);
+                    const newQuotaMb = Number(document.getElementById('mcnc-topup-mb').value || u.diskQuotaMb);
+                    const r = await window.fetch(API_BASE + '/api/auth/topup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tenantId: u.tenantId, addUsd, newQuotaMb })
+                    });
+                    const d = await r.json();
+                    if (r.ok && d.success) {
+                        msgEl.style.color = '#10b981';
+                        msgEl.textContent = 'Updated! Refreshing telemetry...';
+                        setTimeout(() => openUsageDrawer(user), 700);
+                    } else {
+                        msgEl.textContent = d.error || 'Top-up failed';
+                    }
+                });
+            }
+        } catch (err) {
+            drawer.innerHTML = `<div class="mcnc-auth-card"><div class="mcnc-auth-err">${err.message}</div><button type="button" class="mcnc-hud-btn" style="margin-top:10px;" onclick="document.getElementById('mcnc-usage-drawer').style.display='none'">CLOSE</button></div>`;
+        }
     }
 
     function ensurePasswordModal() {
@@ -321,7 +442,128 @@
         });
     }
 
+        function ensureInviteModal() {
+        if (document.getElementById('mcnc-invite-modal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'mcnc-invite-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(8,10,12,0.88);display:none;align-items:center;justify-content:center;font-family:"JetBrains Mono",Consolas,monospace;';
+        modal.innerHTML = `
+            <div class="mcnc-auth-card">
+                <div class="mcnc-auth-title">GENERATE CLIENT INVITE LINK</div>
+                <div class="mcnc-auth-sub">Creates a single-use onboarding link with a 100% clean-slate workspace.</div>
+                <form id="mcnc-invite-form">
+                    <label class="mcnc-auth-label" for="mcnc-inv-name">Client / Tenant Name (e.g. Adine)</label>
+                    <input id="mcnc-inv-name" class="mcnc-auth-input" type="text" placeholder="Adine" required />
+                    <label class="mcnc-auth-label" for="mcnc-inv-email">Client Email (Optional)</label>
+                    <input id="mcnc-inv-email" class="mcnc-auth-input" type="email" placeholder="adine@example.com" />
+                    <label class="mcnc-auth-label" for="mcnc-inv-quota">Storage Quota (MB)</label>
+                    <input id="mcnc-inv-quota" class="mcnc-auth-input" type="number" value="500" min="100" required />
+                    <div style="display:flex;gap:8px;">
+                        <button type="submit" class="mcnc-auth-btn">GENERATE LINK</button>
+                        <button type="button" id="mcnc-inv-cancel" class="mcnc-hud-btn" style="padding:10px 14px;">CLOSE</button>
+                    </div>
+                    <input id="mcnc-inv-output" class="mcnc-auth-input" type="text" readonly style="margin-top:12px;display:none;color:#10b981;border-color:#10b981;" />
+                    <div id="mcnc-inv-msg" class="mcnc-auth-err"></div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('mcnc-inv-cancel').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        document.getElementById('mcnc-invite-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('mcnc-inv-msg');
+            const outEl = document.getElementById('mcnc-inv-output');
+            msgEl.textContent = '';
+            const tenantName = document.getElementById('mcnc-inv-name').value.trim();
+            const email = document.getElementById('mcnc-inv-email').value.trim();
+            const quotaMb = Number(document.getElementById('mcnc-inv-quota').value || 500);
+
+            try {
+                const res = await window.fetch(API_BASE + '/api/auth/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tenantName, email, quotaMb })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    msgEl.textContent = data.error || 'Failed to generate invite.';
+                    return;
+                }
+                const inviteUrl = window.location.origin + '/?invite=' + encodeURIComponent(data.inviteToken);
+                outEl.style.display = 'block';
+                outEl.value = inviteUrl;
+                outEl.select();
+                if (navigator.clipboard) navigator.clipboard.writeText(inviteUrl).catch(() => {});
+                msgEl.style.color = '#10b981';
+                msgEl.textContent = 'Invite link generated & copied to clipboard!';
+            } catch (err) {
+                msgEl.textContent = 'Error: ' + err.message;
+            }
+        });
+    }
+
+    function renderInviteClaimOverlay(inviteToken) {
+        clearSession();
+        const overlay = document.createElement('div');
+        overlay.id = 'mcnc-login-overlay';
+        overlay.innerHTML = `
+            <div class="mcnc-auth-card">
+                <div class="mcnc-auth-title">WELCOME TO MCNC // CLAIM PROFILE</div>
+                <div class="mcnc-auth-sub">Set up your private workspace credentials to begin.</div>
+                <form id="mcnc-claim-form">
+                    <label class="mcnc-auth-label" for="mcnc-claim-user">Choose Your Username</label>
+                    <input id="mcnc-claim-user" class="mcnc-auth-input" type="text" placeholder="Adine" required />
+                    <label class="mcnc-auth-label" for="mcnc-claim-pass">Create Password (Min 8 Chars)</label>
+                    <input id="mcnc-claim-pass" class="mcnc-auth-input" type="password" minlength="8" required />
+                    <label class="mcnc-auth-label" for="mcnc-claim-ai">Name Your Lead AI Chief (Optional)</label>
+                    <input id="mcnc-claim-ai" class="mcnc-auth-input" type="text" placeholder="e.g. Monty, Nova, Atlas" />
+                    <button type="submit" class="mcnc-auth-btn">ACTIVATE MY WORKSPACE</button>
+                    <div id="mcnc-claim-err" class="mcnc-auth-err"></div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('mcnc-claim-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const errEl = document.getElementById('mcnc-claim-err');
+            errEl.textContent = '';
+            const username = document.getElementById('mcnc-claim-user').value.trim();
+            const password = document.getElementById('mcnc-claim-pass').value;
+            const customDirectorName = document.getElementById('mcnc-claim-ai').value.trim();
+
+            try {
+                const res = await originalFetch(API_BASE + '/api/auth/accept-invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inviteToken, username, password, customDirectorName })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    errEl.textContent = data.error || 'Could not claim invite.';
+                    return;
+                }
+                window.history.replaceState({}, document.title, '/');
+                sessionStorage.setItem(TOKEN_KEY, data.token);
+                sessionStorage.setItem(USER_KEY, JSON.stringify(data.user));
+                sessionStorage.setItem(TARGET_TENANT_KEY, data.user.tenantId);
+                overlay.remove();
+                applyAuthenticatedState(data.user);
+            } catch (err) {
+                errEl.textContent = 'Error: ' + err.message;
+            }
+        });
+    }
+
     async function bootAuthGate() {
+        injectStyles();
+        const params = new URLSearchParams(window.location.search);
+        const inviteParam = params.get('invite');
+        if (inviteParam) { renderInviteClaimOverlay(inviteParam); return; }
         injectStyles();
         const token = getToken();
         const user = getUser();
@@ -348,4 +590,6 @@
         bootAuthGate();
     }
 })();
+
+
 
