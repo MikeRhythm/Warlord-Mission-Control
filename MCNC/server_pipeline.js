@@ -14,11 +14,13 @@ const { exec } = require('child_process');
 
 const app = express();
 const PORT = 8082;
+const { resolveTenantContext, checkTenantQuota } = require('./Tenant_Scope_Resolver');
 
 // Middleware
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use('/api/projects', checkTenantQuota);
 
 // Base System Paths (Strictly grounded in C:\Warlord_Inc\Warlord_WASP\MCNC)
 const BASE_MCNC = path.resolve('C:\\Warlord_Inc\\Warlord_WASP\\MCNC');
@@ -62,6 +64,9 @@ if (!fs.existsSync(STATE_LEDGER)) {
 // ----------------------------------------------------------------------------
 
 app.get('/api/health', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   return res.json({
     status: 'ONLINE',
     pillar: 2,
@@ -97,6 +102,9 @@ app.all('/api/heartbeat', (req, res) => {
 // ----------------------------------------------------------------------------
 
 app.get(['/api/projects', '/api/projects/list', '/api/projects/all'], (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     if (!fs.existsSync(PROJECTS_ROOT)) {
       return res.json({ success: true, projects: [] });
@@ -176,6 +184,9 @@ app.get(['/api/projects', '/api/projects/list', '/api/projects/all'], (req, res)
 
 // Create / Provision Project on Disk
 app.post('/api/projects/create', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const { projectName, subdirectories, prdPayload } = req.body;
     if (!projectName) {
@@ -246,6 +257,9 @@ app.post('/api/projects/create', (req, res) => {
 // ----------------------------------------------------------------------------
 
 app.get('/api/chats/all', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const catalog = {};
     const discoveredProjects = new Set(['General_Chats']);
@@ -309,6 +323,9 @@ app.get('/api/chats/all', (req, res) => {
 });
 
 app.get('/api/chats/master', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const prj = req.query.project || 'General_Chats';
     const masterPath = path.join(CHATS_ROOT, prj, 'Master_Ledger.md');
@@ -323,6 +340,9 @@ app.get('/api/chats/master', (req, res) => {
 });
 
 app.get('/api/chats/load', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const { project, id } = req.query;
     const targetFile = path.join(CHATS_ROOT, project || 'General_Chats', `${id}.json`);
@@ -337,6 +357,9 @@ app.get('/api/chats/load', (req, res) => {
 });
 
 app.post('/api/chats/save', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const { project, id, title, messages } = req.body;
     const prjDir = path.join(CHATS_ROOT, project || 'General_Chats');
@@ -372,6 +395,9 @@ app.delete('/api/chats/delete', (req, res) => {
 });
 
 app.post('/api/chats/archive', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const { project, chatId, title, summary } = req.body;
     const prjDir = path.join(CHATS_ROOT, project || 'General_Chats');
@@ -394,6 +420,9 @@ app.post('/api/chats/archive', (req, res) => {
 // ----------------------------------------------------------------------------
 
 app.get('/api/previews/list', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     if (!fs.existsSync(PROJECTS_ROOT)) {
       return res.json({ projects: [], artifacts: [] });
@@ -438,6 +467,9 @@ app.get('/api/previews/list', (req, res) => {
 });
 
 app.get('/api/previews/content', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const relPath = req.query.path;
     if (!relPath) return res.status(400).send('Path parameter missing');
@@ -468,6 +500,9 @@ app.get('/api/previews/content', (req, res) => {
 });
 
 app.post('/api/previews/action', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const { action, project, artifactPath, critique, timestamp } = req.body;
     const ts = timestamp || new Date().toISOString();
@@ -523,13 +558,16 @@ const server =
 // NUCLEAR PURGE & OBSIDIAN ARCHIVE CONTROLLERS
 // ==========================================
 app.post('/api/projects/purge', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
     try {
         const { projectName } = req.body;
         if (!projectName) return res.status(400).json({ success: false, error: 'Project name required.' });
 
         const safeSlug = projectName.toString().trim().replace(/[<>:"\/\\|?*]+/g, '');
         const targets = [
-            path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects', safeSlug),
+            path.join(PROJECTS_ROOT, safeSlug),
             path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Chats', safeSlug),
             path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Docs', safeSlug)
         ];
@@ -552,12 +590,15 @@ app.post('/api/projects/purge', (req, res) => {
 });
 
 app.post('/api/projects/archive-obsidian', (req, res) => {
+  const __tenantCtx = resolveTenantContext(req);
+  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
+  const CHATS_ROOT = __tenantCtx.chatsRoot;
     try {
         const { projectName } = req.body;
         if (!projectName) return res.status(400).json({ success: false, error: 'Project name required.' });
 
         const safeSlug = projectName.toString().trim().replace(/[<>:"\/\\|?*]+/g, '');
-        const srcProj = path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects', safeSlug);
+        const srcProj = path.join(PROJECTS_ROOT, safeSlug);
         const srcChat = path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Chats', safeSlug);
         
         const archiveRoot = 'C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\Archive';

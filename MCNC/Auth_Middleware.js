@@ -275,5 +275,121 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
+    
+    // 6. Admin One-Click Invite Link Generator (EXEC_ADMIN only)
+    app.post('/api/auth/invite', requireAuth, (req, res) => {
+        if (req.mcncAuth.role !== 'EXEC_ADMIN') {
+            return res.status(403).json({ success: false, error: 'Executive Admin required' });
+        }
+        const { tenantName, email, quotaMb } = req.body || {};
+        const cleanTenant = String(tenantName || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+        if (!cleanTenant) {
+            return res.status(400).json({ success: false, error: 'tenantName is required (e.g., Adine)' });
+        }
+
+        const inviteToken = signToken({
+            purpose: 'MCNC_INVITE',
+            tenantId: cleanTenant,
+            email: String(email || '').trim(),
+            quotaMb: Number(quotaMb || 500)
+        }, 7 * 24 * 3600); // Valid for 7 days
+
+        logAudit(req.mcncAuth.userId, cleanTenant, 'INVITE_CREATED', email || cleanTenant);
+        return res.json({
+            success: true,
+            tenantName: cleanTenant,
+            inviteToken
+        });
+    });
+
+    // 7. Public Invite Verification & Profile Claim Endpoint
+    app.post('/api/auth/accept-invite', (req, res) => {
+        const { inviteToken, username, password, customDirectorName } = req.body || {};
+        const claims = verifyToken(inviteToken);
+        if (!claims || claims.purpose !== 'MCNC_INVITE') {
+            return res.status(400).json({ success: false, error: 'Invalid or expired invitation link' });
+        }
+        const cleanUser = String(username || claims.tenantId).trim();
+        if (!cleanUser || !password || String(password).length < 8) {
+            return res.status(400).json({ success: false, error: 'Username and password (min 8 chars) required' });
+        }
+
+        const tenantId = claims.tenantId;
+        const tenantBase = path.join(TENANTS_ROOT, tenantId);
+        ['Projects', 'Projects\\BOUNTY_ENGINE', 'Chats', 'Memory', 'Bounty_Clipping'].forEach((sub) => {
+            const full = path.join(tenantBase, sub);
+            if (!fs.existsSync(full)) fs.mkdirSync(full, { recursive: true });
+        });
+
+        // Initialize clean-slate Bounty_Ledger.db if missing
+        const ledgerPath = path.join(tenantBase, 'Bounty_Clipping', 'Bounty_Ledger.db');
+        const ledgerDb = new DatabaseSync(ledgerPath);
+        ledgerDb.exec(`
+            CREATE TABLE IF NOT EXISTS Bounties (
+                Bounty_ID TEXT PRIMARY KEY,
+                Platform TEXT,
+                Campaign_Name TEXT,
+                Target_Channels TEXT,
+                Clip_URL TEXT,
+                Status TEXT,
+                Views INTEGER DEFAULT 0,
+                Payout_USD REAL DEFAULT 0,
+                Updated_At TEXT
+            );
+        `);
+        ledgerDb.close();
+
+        const { salt, hash } = hashNewPassword(String(password));
+        const aliases = customDirectorName ? JSON.stringify({ monty: String(customDirectorName).trim() }) : '{}';
+
+        let db;
+        try {
+            db = new DatabaseSync(AUTH_DB_PATH);
+            const existing = db.prepare('SELECT User_ID FROM Users WHERE Tenant_ID = ?').get(tenantId);
+            let userId;
+            if (existing) {
+                userId = existing.User_ID;
+                db.prepare('UPDATE Users SET Username = ?, Password_Hash = ?, Password_Salt = ?, Agent_Aliases_JSON = ? WHERE User_ID = ?')
+                  .run(cleanUser, hash, salt, aliases, userId);
+            } else {
+                userId = `USR_${tenantId.toUpperCase()}_${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+                db.prepare(`
+                    INSERT INTO Users (User_ID, Username, Password_Hash, Password_Salt, Role, Tenant_ID, Storage_Quota_MB, Agent_Aliases_JSON, Created_At)
+                    VALUES (?, ?, ?, ?, 'COLLABORATOR', ?, ?, ?, ?)
+                `).run(userId, cleanUser, hash, salt, tenantId, Number(claims.quotaMb || 500), aliases, new Date().toISOString());
+            }
+
+            if (!VALID_TENANTS.includes(tenantId)) VALID_TENANTS.push(tenantId);
+
+            const sessionToken = signToken({
+                userId,
+                username: cleanUser,
+                role: 'COLLABORATOR',
+                tenantId
+            });
+
+            logAudit(userId, tenantId, 'INVITE_CLAIMED', cleanUser);
+
+            return res.json({
+                success: true,
+                token: sessionToken,
+                user: {
+                    userId,
+                    username: cleanUser,
+                    role: 'COLLABORATOR',
+                    tenantId,
+                    availableTenants: [tenantId],
+                    storageQuotaMb: Number(claims.quotaMb || 500),
+                    agentAliases: JSON.parse(aliases)
+                }
+            });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        } finally {
+            if (db) db.close();
+        }
+    });
+
     console.log('[AUTH & TENANT ENGINE]   : /api/auth/* & /api/tenant/bounties MOUNTED (Mike/Adine/Claire)');
 };
+

@@ -9,7 +9,7 @@
     const API_BASE = (window.location.port === '5173') ? 'http://localhost:8081' : '';
 
     // Allowed tab labels for Collaborators (Adine & Claire)
-    const COLLABORATOR_ALLOWED_TABS = ['03 PROJECTS', '04 TASK BOARD', '05 CALENDAR', '11 CAMPAIGNS', '12 REVIEW'];
+    const COLLABORATOR_ALLOWED_TABS = ['01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD', '05 CALENDAR', '06 MEMORY', '11 CAMPAIGNS', '12 REVIEW'];
 
     function getToken() {
         return sessionStorage.getItem(TOKEN_KEY) || '';
@@ -237,7 +237,7 @@
                 ${isOverride ? 'ADMIN OVERRIDE: ' + activeTenant : 'OPERATOR: ' + user.username}
             </span>
             ${switcherHtml}
-            <button id="mcnc-pwd-open-btn" class="mcnc-hud-btn" type="button">PASSWORD</button>
+            ${user.role === "EXEC_ADMIN" ? `<button id="mcnc-invite-open-btn" class="mcnc-hud-btn" type="button" style="border-color:#DAA520;color:#ffb800;">+ INVITE</button>` : ""}<button id="mcnc-pwd-open-btn" class="mcnc-hud-btn" type="button">PASSWORD</button>
             <button id="mcnc-logout-btn" class="mcnc-hud-btn" type="button">LOGOUT</button>
         `;
 
@@ -256,6 +256,13 @@
             window.location.reload();
         });
 
+                const invBtn = document.getElementById('mcnc-invite-open-btn');
+        if (invBtn) {
+            ensureInviteModal();
+            invBtn.addEventListener('click', () => {
+                document.getElementById('mcnc-invite-modal').style.display = 'flex';
+            });
+        }
         ensurePasswordModal();
         document.getElementById('mcnc-pwd-open-btn').addEventListener('click', () => {
             document.getElementById('mcnc-pwd-modal').style.display = 'flex';
@@ -321,7 +328,128 @@
         });
     }
 
+        function ensureInviteModal() {
+        if (document.getElementById('mcnc-invite-modal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'mcnc-invite-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(8,10,12,0.88);display:none;align-items:center;justify-content:center;font-family:"JetBrains Mono",Consolas,monospace;';
+        modal.innerHTML = `
+            <div class="mcnc-auth-card">
+                <div class="mcnc-auth-title">GENERATE CLIENT INVITE LINK</div>
+                <div class="mcnc-auth-sub">Creates a single-use onboarding link with a 100% clean-slate workspace.</div>
+                <form id="mcnc-invite-form">
+                    <label class="mcnc-auth-label" for="mcnc-inv-name">Client / Tenant Name (e.g. Adine)</label>
+                    <input id="mcnc-inv-name" class="mcnc-auth-input" type="text" placeholder="Adine" required />
+                    <label class="mcnc-auth-label" for="mcnc-inv-email">Client Email (Optional)</label>
+                    <input id="mcnc-inv-email" class="mcnc-auth-input" type="email" placeholder="adine@example.com" />
+                    <label class="mcnc-auth-label" for="mcnc-inv-quota">Storage Quota (MB)</label>
+                    <input id="mcnc-inv-quota" class="mcnc-auth-input" type="number" value="500" min="100" required />
+                    <div style="display:flex;gap:8px;">
+                        <button type="submit" class="mcnc-auth-btn">GENERATE LINK</button>
+                        <button type="button" id="mcnc-inv-cancel" class="mcnc-hud-btn" style="padding:10px 14px;">CLOSE</button>
+                    </div>
+                    <input id="mcnc-inv-output" class="mcnc-auth-input" type="text" readonly style="margin-top:12px;display:none;color:#10b981;border-color:#10b981;" />
+                    <div id="mcnc-inv-msg" class="mcnc-auth-err"></div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('mcnc-inv-cancel').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        document.getElementById('mcnc-invite-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('mcnc-inv-msg');
+            const outEl = document.getElementById('mcnc-inv-output');
+            msgEl.textContent = '';
+            const tenantName = document.getElementById('mcnc-inv-name').value.trim();
+            const email = document.getElementById('mcnc-inv-email').value.trim();
+            const quotaMb = Number(document.getElementById('mcnc-inv-quota').value || 500);
+
+            try {
+                const res = await window.fetch(API_BASE + '/api/auth/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tenantName, email, quotaMb })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    msgEl.textContent = data.error || 'Failed to generate invite.';
+                    return;
+                }
+                const inviteUrl = window.location.origin + '/?invite=' + encodeURIComponent(data.inviteToken);
+                outEl.style.display = 'block';
+                outEl.value = inviteUrl;
+                outEl.select();
+                if (navigator.clipboard) navigator.clipboard.writeText(inviteUrl).catch(() => {});
+                msgEl.style.color = '#10b981';
+                msgEl.textContent = 'Invite link generated & copied to clipboard!';
+            } catch (err) {
+                msgEl.textContent = 'Error: ' + err.message;
+            }
+        });
+    }
+
+    function renderInviteClaimOverlay(inviteToken) {
+        clearSession();
+        const overlay = document.createElement('div');
+        overlay.id = 'mcnc-login-overlay';
+        overlay.innerHTML = `
+            <div class="mcnc-auth-card">
+                <div class="mcnc-auth-title">WELCOME TO MCNC // CLAIM PROFILE</div>
+                <div class="mcnc-auth-sub">Set up your private workspace credentials to begin.</div>
+                <form id="mcnc-claim-form">
+                    <label class="mcnc-auth-label" for="mcnc-claim-user">Choose Your Username</label>
+                    <input id="mcnc-claim-user" class="mcnc-auth-input" type="text" placeholder="Adine" required />
+                    <label class="mcnc-auth-label" for="mcnc-claim-pass">Create Password (Min 8 Chars)</label>
+                    <input id="mcnc-claim-pass" class="mcnc-auth-input" type="password" minlength="8" required />
+                    <label class="mcnc-auth-label" for="mcnc-claim-ai">Name Your Lead AI Chief (Optional)</label>
+                    <input id="mcnc-claim-ai" class="mcnc-auth-input" type="text" placeholder="e.g. Monty, Nova, Atlas" />
+                    <button type="submit" class="mcnc-auth-btn">ACTIVATE MY WORKSPACE</button>
+                    <div id="mcnc-claim-err" class="mcnc-auth-err"></div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('mcnc-claim-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const errEl = document.getElementById('mcnc-claim-err');
+            errEl.textContent = '';
+            const username = document.getElementById('mcnc-claim-user').value.trim();
+            const password = document.getElementById('mcnc-claim-pass').value;
+            const customDirectorName = document.getElementById('mcnc-claim-ai').value.trim();
+
+            try {
+                const res = await originalFetch(API_BASE + '/api/auth/accept-invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inviteToken, username, password, customDirectorName })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    errEl.textContent = data.error || 'Could not claim invite.';
+                    return;
+                }
+                window.history.replaceState({}, document.title, '/');
+                sessionStorage.setItem(TOKEN_KEY, data.token);
+                sessionStorage.setItem(USER_KEY, JSON.stringify(data.user));
+                sessionStorage.setItem(TARGET_TENANT_KEY, data.user.tenantId);
+                overlay.remove();
+                applyAuthenticatedState(data.user);
+            } catch (err) {
+                errEl.textContent = 'Error: ' + err.message;
+            }
+        });
+    }
+
     async function bootAuthGate() {
+        injectStyles();
+        const params = new URLSearchParams(window.location.search);
+        const inviteParam = params.get('invite');
+        if (inviteParam) { renderInviteClaimOverlay(inviteParam); return; }
         injectStyles();
         const token = getToken();
         const user = getUser();
@@ -348,3 +476,5 @@
         bootAuthGate();
     }
 })();
+
+

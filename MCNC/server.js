@@ -1658,6 +1658,13 @@ function autoPersistCodeArtifact(projectName, replyText) {
 // CHAT & HEALTH
 // ==========================================
 app.post('/api/chat', async (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const montySoul = loadSoul('monty');
         const liveTelemetry = getLiveSystemSnapshot();
@@ -1740,6 +1747,13 @@ function appendAgentRule(agentId, ruleText) {
 }
 
 app.post('/api/memory/learn', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     const { agentId, rule } = req.body;
     if (!agentId || !rule) return res.status(400).json({ error: 'Missing agentId or rule payload.' });
     try {
@@ -1752,6 +1766,13 @@ app.post('/api/memory/learn', (req, res) => {
 });
 
 app.get('/api/memory/read/:agentId', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     const { agentId } = req.params;
     const memory = getAgentDynamicMemory(agentId);
     res.json({ agentId: agentId.toLowerCase(), memory });
@@ -1849,6 +1870,13 @@ function saveBountyLedger(data) {
 // PRIORITY BOUNTY DISCOVERY & TELEMETRY STATS OVERRIDE
 // ==========================================
 app.post('/api/campaigns/discover', async (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         broadcast('TRACE', '[DISCOVERY] Dispatching Jack & Tess to sync open Vyro CPM campaigns...');
         delete require.cache[require.resolve('./Bounty_Scraper')];
@@ -1890,22 +1918,50 @@ app.post('/api/campaigns/discover', async (req, res) => {
 });
 
 app.get('/api/campaigns/bounty/job-status', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     res.json(ACTIVE_BOUNTY_JOB);
 });
 
 app.post('/api/campaigns/bounty/clear-logs', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] [TELEMETRY CLEARED] Ready for dispatch.`];
     if (!ACTIVE_BOUNTY_JOB.running) ACTIVE_BOUNTY_JOB.status = 'IDLE';
     res.json({ success: true, job: ACTIVE_BOUNTY_JOB });
 });
 
 app.post('/api/campaigns/bounty/auto-execute', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     const bounty = req.body && req.body.bounty ? req.body.bounty : null;
     const outcome = triggerBountyGovernor(bounty, 'UI-BUTTON');
     return res.json({ success: true, ...outcome });
 });
 
 app.post('/api/bounties/update-stats', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const { id, totalClicks, dailyPostsUsed, poolStatus, runwayDays, cpmRate, viewFloor, mandatoryTags, hookHeadline, sourcePath } = req.body;
         let ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] };
@@ -1939,10 +1995,24 @@ app.post('/api/bounties/update-stats', (req, res) => {
 });
 
 app.get('/api/bounties', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     res.json(getBountyLedger());
 });
 
 app.post('/api/bounties', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     const { id, title, cpmRate, viewFloor, mandatoryTags, hookHeadline, sourcePath } = req.body;
     const ledger = getBountyLedger();
     const safeId = (id || title || `bounty_${Date.now()}`).toString().trim().replace(/[<>:"\/\\|?*]+/g, '').replace(/\s+/g, '_').toLowerCase();
@@ -2006,6 +2076,13 @@ function buildFfmpegRenderCommand(sourceFile, hookText, startTimestamp, endTimes
 }
 
 app.post('/api/campaigns/bounty/find-hooks', async (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const { youtubeUrl, bountyId, clipCount = 3 } = req.body;
         if (!youtubeUrl || !bountyId) {
@@ -2093,6 +2170,13 @@ ${timestampedTranscript.slice(0, 45000)}`;
 // MANUAL SINGLE CUT EXECUTION ENGINE
 // ==========================================
 app.post('/api/campaigns/bounty/run', async (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const { sourceFile, hookText, startTimestamp, endTimestamp, outputFilename, bountyId } = req.body;
         
@@ -2122,6 +2206,13 @@ app.post('/api/campaigns/bounty/run', async (req, res) => {
 // CAMPAIGN ARTIFACT VAULT DISK-TRUTH SCANNER
 // ==========================================
 app.get('/api/campaigns/artifacts/:projectId', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const { projectId } = req.params;
         const { bountyId } = req.query;
@@ -2195,6 +2286,7 @@ app.post('/api/projects/purge', (req, res) => {
 
 const { scrapeBounties } = require('./Bounty_Scraper');
 
+const { resolveTenantContext } = require('./Tenant_Scope_Resolver');
 const PORT = process.env.PORT || 8081;
 
 require('./Auth_Middleware')(app, DATA_PATH);
@@ -2221,6 +2313,13 @@ server.listen(PORT, () => {
 
 // [WARLORD] Delete individual staged disk artifact after manual social publish
 app.post('/api/campaigns/artifacts/delete', (req, res) => {
+    const __tCtx = resolveTenantContext(req);
+    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
+    const PROJECTS_PATH = __tCtx.projectsRoot;
+    const CHATS_PATH = __tCtx.chatsRoot;
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
   try {
     const { projectId, bountyId, fileName } = req.body || {};
     if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
@@ -2239,4 +2338,5 @@ app.post('/api/campaigns/artifacts/delete', (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
