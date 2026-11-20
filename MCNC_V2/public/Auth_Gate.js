@@ -1,4 +1,66 @@
-﻿// MCNC_UNIFIED_GOLD_Q_V1: Universal Goldenrod [?] badges + Spacing & Overflow Fix
+﻿// MCNC_TAB_PROPORTION_V2_START
+(function initMcncTabProportionV2() {
+    const applyProportion = () => {
+        let style = document.getElementById('mcnc-tab-proportion-v2');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'mcnc-tab-proportion-v2';
+            document.head.appendChild(style);
+        }
+        style.textContent = `
+            /* Proportional 11px tab polish so 04 TASK BOARD & 14 PIPE-LINE fit with zero clipping */
+            body button:has(.mcnc-tab-info-badge) {
+                font-size: 11px !important;
+                font-weight: 600 !important;
+                letter-spacing: 0.1px !important;
+                padding-left: 3px !important;
+                padding-right: 3px !important;
+                gap: 3px !important;
+            }
+            body button:has(.mcnc-tab-info-badge) .mcnc-tab-info-badge {
+                width: 14px !important;
+                height: 14px !important;
+                min-width: 14px !important;
+                font-size: 9px !important;
+                line-height: 12px !important;
+                margin-left: 2px !important;
+                border-width: 1.5px !important;
+            }
+
+            /* Keep floating HUD clear of [ HEARTBEAT ] */
+            body #mcnc-floating-hud {
+                right: 410px !important;
+            }
+        `;
+
+        // Ensure 14 PIPE-LINE gets its Goldenrod [?] badge too
+        document.querySelectorAll('button').forEach((btn) => {
+            const txt = (btn.textContent || '').trim().toUpperCase();
+            if (txt.includes('14') && txt.includes('PIPE') && !btn.querySelector('.mcnc-tab-info-badge')) {
+                const badge = document.createElement('span');
+                badge.className = 'mcnc-tab-info-badge';
+                badge.textContent = '?';
+                badge.title = '14 PIPE-LINE: Live automated content & execution pipeline monitor (Port 8082). Tracks queued jobs, FFmpeg renders, and worker status.';
+                badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid #DAA520;color:#DAA520;background:rgba(218,165,32,0.12);cursor:help;font-weight:700;';
+                badge.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alert('14 PIPE-LINE\n\nLive automated execution & rendering pipeline monitor (Port 8082).\nTracks queued jobs, media/FFmpeg renders, and active background workers.');
+                });
+                btn.appendChild(badge);
+            }
+        });
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyProportion);
+    } else {
+        applyProportion();
+    }
+    setInterval(applyProportion, 800);
+})();
+// MCNC_TAB_PROPORTION_V2_END
+// MCNC_UNIFIED_GOLD_Q_V1: Universal Goldenrod [?] badges + Spacing & Overflow Fix
 (function initMcncUnifiedGoldQ() {
     const applyUnifiedStyle = () => {
         if (!document.getElementById('mcnc-unified-gold-q-v1')) {
@@ -1343,6 +1405,8 @@
         bootAuthGate();
     }
 })();
+
+
 
 
 
