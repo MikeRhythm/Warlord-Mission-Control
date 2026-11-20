@@ -1,4 +1,31 @@
-﻿(function () {
+﻿// MCNC_PWD_EYE_V2: Guaranteed SHOW/HIDE toggle on all password inputs
+(function initMcncPasswordEye() {
+    setInterval(() => {
+        document.querySelectorAll('input[type="password"]').forEach((inp) => {
+            if (inp.dataset.mcncEyeBound) return;
+            inp.dataset.mcncEyeBound = '1';
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'position:relative;width:100%;display:block;';
+            inp.parentNode.insertBefore(wrap, inp);
+            wrap.appendChild(inp);
+            inp.style.paddingRight = '58px';
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = 'SHOW';
+            btn.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#131720;border:1px solid #DAA520;color:#ffb800;font-size:10px;font-weight:700;font-family:"JetBrains Mono",Consolas,monospace;padding:3px 7px;border-radius:3px;cursor:pointer;z-index:9999;';
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const hidden = inp.type === 'password';
+                inp.type = hidden ? 'text' : 'password';
+                btn.textContent = hidden ? 'HIDE' : 'SHOW';
+            });
+            wrap.appendChild(btn);
+        });
+    }, 300);
+})();
+(function () {
     'use strict';
 
     const TOKEN_KEY = 'mcnc_jwt_token';
@@ -6,7 +33,7 @@
     const TARGET_TENANT_KEY = 'mcnc_target_tenant';
 
     // Resolve API base: localhost:8081 when running on Vite dev port 5173, otherwise same origin
-    const API_BASE = (window.location.port === '5173') ? '${API_BASE}' : '';
+    const API_BASE = '';
 
     // Allowed tab labels for Collaborators (Adine & Claire)
         // MCNC_CONTEXT_HELP_V3: Top-Bar Tab [i] Info Overviews + Exhaustive [?] Control Micro-Tooltips
@@ -1171,6 +1198,8 @@
         bootAuthGate();
     }
 })();
+
+
 
 
 
