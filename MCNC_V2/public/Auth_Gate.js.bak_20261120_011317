@@ -1,4 +1,67 @@
-﻿// MCNC_PWD_EYE_V2: Guaranteed SHOW/HIDE toggle on all password inputs
+﻿    // MCNC_SPACING_FIX_V1: Compact badges, prevent tab/toolbar clipping, clear [HEARTBEAT] overlap
+    (function injectMcncSpacingFix() {
+        const applyFix = () => {
+            if (document.getElementById('mcnc-spacing-fix-v1')) return;
+            const style = document.createElement('style');
+            style.id = 'mcnc-spacing-fix-v1';
+            style.textContent = `
+                /* 1. Compact [i] and [?] badges so they don't bloat button widths */
+                .mcnc-tab-info-badge {
+                    width: 12px !important; height: 12px !important; min-width: 12px !important;
+                    margin-left: 3px !important; font-size: 8px !important;
+                    flex-shrink: 0 !important;
+                }
+                .mcnc-q-badge {
+                    width: 12px !important; height: 12px !important; min-width: 12px !important;
+                    margin-left: 3px !important; font-size: 8px !important;
+                    flex-shrink: 0 !important;
+                }
+
+                /* 2. Tighten top navigation tabs so all 14 tabs + [i] icons fit with breathing room */
+                button:has(.mcnc-tab-info-badge) {
+                    padding-left: 5px !important;
+                    padding-right: 5px !important;
+                    font-size: 10px !important;
+                    letter-spacing: 0.2px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 2px !important;
+                    white-space: nowrap !important;
+                }
+
+                /* 3. Tighten action buttons with [?] badges & allow bottom bar to wrap cleanly if narrow */
+                button:has(.mcnc-q-badge) {
+                    padding-left: 6px !important;
+                    padding-right: 6px !important;
+                    gap: 2px !important;
+                }
+                div:has(> button > .mcnc-q-badge) {
+                    flex-wrap: wrap !important;
+                    row-gap: 4px !important;
+                }
+
+                /* 4. Shift top-bar floating HUD left into the empty gap so it never overlaps [HEARTBEAT] */
+                #mcnc-floating-hud {
+                    right: 365px !important;
+                    gap: 5px !important;
+                }
+                #mcnc-floating-hud button, #mcnc-floating-hud select, #mcnc-floating-hud span {
+                    font-size: 10px !important;
+                    padding-left: 6px !important;
+                    padding-right: 6px !important;
+                }
+            `;
+            document.head.appendChild(style);
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyFix);
+        } else {
+            applyFix();
+        }
+        setInterval(applyFix, 1000);
+    })();
+// MCNC_PWD_EYE_V2: Guaranteed SHOW/HIDE toggle on all password inputs
 (function initMcncPasswordEye() {
     setInterval(() => {
         document.querySelectorAll('input[type="password"]').forEach((inp) => {
@@ -33,7 +96,7 @@
     const TARGET_TENANT_KEY = 'mcnc_target_tenant';
 
     // Resolve API base: localhost:8081 when running on Vite dev port 5173, otherwise same origin
-    const API_BASE = (window.location.port === '5173') ? '${API_BASE}' : '';
+    const API_BASE = '';
 
     // Allowed tab labels for Collaborators (Adine & Claire)
         // MCNC_CONTEXT_HELP_V3: Top-Bar Tab [i] Info Overviews + Exhaustive [?] Control Micro-Tooltips
@@ -1198,6 +1261,8 @@
         bootAuthGate();
     }
 })();
+
+
 
 
 

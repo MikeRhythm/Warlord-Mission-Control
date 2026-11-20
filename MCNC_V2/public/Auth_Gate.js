@@ -1,4 +1,149 @@
-﻿// MCNC_PWD_EYE_V2: Guaranteed SHOW/HIDE toggle on all password inputs
+﻿// MCNC_UNIFIED_GOLD_Q_V1: Universal Goldenrod [?] badges + Spacing & Overflow Fix
+(function initMcncUnifiedGoldQ() {
+    const applyUnifiedStyle = () => {
+        if (!document.getElementById('mcnc-unified-gold-q-v1')) {
+            const style = document.createElement('style');
+            style.id = 'mcnc-unified-gold-q-v1';
+            style.textContent = `
+                /* 1. Unify all tab & control badges to compact Goldenrod [?] */
+                .mcnc-tab-info-badge,
+                .mcnc-q-badge {
+                    width: 12px !important;
+                    height: 12px !important;
+                    min-width: 12px !important;
+                    margin-left: 3px !important;
+                    font-size: 8px !important;
+                    line-height: 10px !important;
+                    color: #DAA520 !important;
+                    border-color: #DAA520 !important;
+                    background: rgba(218, 165, 32, 0.12) !important;
+                    flex-shrink: 0 !important;
+                }
+                .mcnc-tab-info-badge:hover,
+                .mcnc-q-badge:hover {
+                    color: #0b0e14 !important;
+                    background: #DAA520 !important;
+                }
+
+                /* 2. Tighten top navigation tabs so all 14 tabs + [?] icons fit cleanly */
+                button:has(.mcnc-tab-info-badge) {
+                    padding-left: 5px !important;
+                    padding-right: 5px !important;
+                    font-size: 10px !important;
+                    letter-spacing: 0.2px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 2px !important;
+                    white-space: nowrap !important;
+                }
+
+                /* 3. Tighten action buttons & allow bottom toolbar to wrap cleanly */
+                button:has(.mcnc-q-badge) {
+                    padding-left: 6px !important;
+                    padding-right: 6px !important;
+                    gap: 2px !important;
+                }
+                div:has(> button > .mcnc-q-badge) {
+                    flex-wrap: wrap !important;
+                    row-gap: 4px !important;
+                }
+
+                /* 4. Shift top-bar floating HUD left so LOGOUT clears [ HEARTBEAT ] */
+                #mcnc-floating-hud {
+                    right: 380px !important;
+                    gap: 5px !important;
+                }
+                #mcnc-floating-hud button,
+                #mcnc-floating-hud select,
+                #mcnc-floating-hud span {
+                    font-size: 10px !important;
+                    padding-left: 6px !important;
+                    padding-right: 6px !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Convert every tab "i" badge character to "?"
+        document.querySelectorAll('.mcnc-tab-info-badge').forEach((el) => {
+            if (el.textContent.trim().toLowerCase() !== '?') {
+                el.textContent = '?';
+            }
+        });
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyUnifiedStyle);
+    } else {
+        applyUnifiedStyle();
+    }
+    setInterval(applyUnifiedStyle, 500);
+})();
+    // MCNC_SPACING_FIX_V1: Compact badges, prevent tab/toolbar clipping, clear [HEARTBEAT] overlap
+    (function injectMcncSpacingFix() {
+        const applyFix = () => {
+            if (document.getElementById('mcnc-spacing-fix-v1')) return;
+            const style = document.createElement('style');
+            style.id = 'mcnc-spacing-fix-v1';
+            style.textContent = `
+                /* 1. Compact [i] and [?] badges so they don't bloat button widths */
+                .mcnc-tab-info-badge {
+                    width: 12px !important; height: 12px !important; min-width: 12px !important;
+                    margin-left: 3px !important; font-size: 8px !important;
+                    flex-shrink: 0 !important;
+                }
+                .mcnc-q-badge {
+                    width: 12px !important; height: 12px !important; min-width: 12px !important;
+                    margin-left: 3px !important; font-size: 8px !important;
+                    flex-shrink: 0 !important;
+                }
+
+                /* 2. Tighten top navigation tabs so all 14 tabs + [i] icons fit with breathing room */
+                button:has(.mcnc-tab-info-badge) {
+                    padding-left: 5px !important;
+                    padding-right: 5px !important;
+                    font-size: 10px !important;
+                    letter-spacing: 0.2px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 2px !important;
+                    white-space: nowrap !important;
+                }
+
+                /* 3. Tighten action buttons with [?] badges & allow bottom bar to wrap cleanly if narrow */
+                button:has(.mcnc-q-badge) {
+                    padding-left: 6px !important;
+                    padding-right: 6px !important;
+                    gap: 2px !important;
+                }
+                div:has(> button > .mcnc-q-badge) {
+                    flex-wrap: wrap !important;
+                    row-gap: 4px !important;
+                }
+
+                /* 4. Shift top-bar floating HUD left into the empty gap so it never overlaps [HEARTBEAT] */
+                #mcnc-floating-hud {
+                    right: 365px !important;
+                    gap: 5px !important;
+                }
+                #mcnc-floating-hud button, #mcnc-floating-hud select, #mcnc-floating-hud span {
+                    font-size: 10px !important;
+                    padding-left: 6px !important;
+                    padding-right: 6px !important;
+                }
+            `;
+            document.head.appendChild(style);
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyFix);
+        } else {
+            applyFix();
+        }
+        setInterval(applyFix, 1000);
+    })();
+// MCNC_PWD_EYE_V2: Guaranteed SHOW/HIDE toggle on all password inputs
 (function initMcncPasswordEye() {
     setInterval(() => {
         document.querySelectorAll('input[type="password"]').forEach((inp) => {
@@ -1198,6 +1343,8 @@
         bootAuthGate();
     }
 })();
+
+
 
 
 
