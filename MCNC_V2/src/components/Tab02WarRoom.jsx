@@ -9,7 +9,7 @@ import './Tab02WarRoom.css';
 const STAGE1_TEMPLATE_HEADER = `EXECUTE: STAGE 1 ZERO-SOLUTION FORENSIC DECONSTRUCTION
 GOVERNANCE: WARLORD ROE TIER 1 - TIER 5
 TARGET: 4-TURN LOCAL / FREE CLUSTER CASCADE
-DOMINANT METRIC: ABSOLUTE PRECISION
+DOMINANT METRIC: SPEED & DETERMINISTIC PRECISION
 
 [MISSION DIRECTIVE]
 Ingest the core project scope. Deconstruct the requirements across the 16 MECE Directors Matrix (00_core through 15_social).
@@ -20,8 +20,8 @@ NEGATIVE CONSTRAINTS:
 
 [CASCADE RULES OF ENGAGEMENT]
 - Turn 1 (NIM Llama 3.3 70B): System Architecture. Extract functional requirements and component topology.
-- Turn 2 (Nemotron 70B): UI/UX & Asset Audit. Map the Authentic Africa Palette, timber tokens, and attached design references.
-- Turn 3 (Groq Llama 3.3 70B): Narrative & Statutory Lead. Lock in the accurate humanitarian mission (fees & food, not building schools).
+- Turn 2 (Nemotron 70B): UI/UX & Asset Audit. Map authorized project palette tokens and attached design references.
+- Turn 3 (Groq Llama 3.3 70B): Statutory & Governance Lead. Enforce SOP 19 Pascal_Snake_Case, zero-orphan file hygiene, and domain boundaries.
 - Turn 4 (The Judge Gate): Risk & Contract Verification. Enforce rhythm_multiplier: 1.0 and output the final validated ### DISPATCH MANIFEST.
 
 [OUTPUT FORMAT]
@@ -30,7 +30,7 @@ Output STRICT RAW JSON ONLY. No markdown code blocks, no preamble, no commentary
   "pipeline_stage": 1,
   "status": "FORENSIC_DECONSTRUCTION_COMPLETE",
   "project": "__PROJECT_NAME__",
-  "dominant_metric": "Absolute Precision",
+  "dominant_metric": "Speed",
   "raw_input_digest": "<clinical 1-sentence restatement>",
   "pillars": [
     {
@@ -125,7 +125,7 @@ const DIRECTOR_BOARD_CONFIG = [
   { name: 'ORION // STRATEGIC INTEL', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' }
 ];
 
-const DEFAULT_PROJECTS = ['The Chief Madothi Fund', 'MAKING MONEY IDEAS', 'ZAMBEZI SAFARI', 'WAR ROOM - DIRECTOR BOARD KAGGLE TEST', 'MCNC REACT VITE', 'RHYTHM WASP V8.5'];
+const DEFAULT_PROJECTS = ['Bounty_Engine', 'The_Chief_Madothi_Fund', 'A_For_Adine', 'Peptides_For_Africa'];
 
 export default function Tab02WarRoom({ ws }) {
   const [assignedDirectors, setAssignedDirectors] = useState([]);
@@ -176,7 +176,7 @@ export default function Tab02WarRoom({ ws }) {
   });
 
   const [selectedProject, setSelectedProject] = useState(() => {
-    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'The Chief Madothi Fund';
+    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'Bounty_Engine';
   });
 
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -465,11 +465,11 @@ export default function Tab02WarRoom({ ws }) {
     setTimeout(() => setCopiedDirective(false), 2000);
   };
 
-  // Auto-Sync Staged Directive & Project from Tab 01
+  // Auto-Sync Staged Directive & Project from Tab 01 WITH ZERO-STATE RESET (SOP 03 & Tier 3)
   useEffect(() => {
     const ingestStagedDirective = (targetProject, targetPrompt) => {
-      if (targetProject) {
-        const cleanProj = targetProject.trim();
+      const cleanProj = targetProject ? targetProject.trim() : selectedProject;
+      if (cleanProj) {
         setProjects(prev => {
           if (!prev.includes(cleanProj)) {
             const updated = [...prev, cleanProj];
@@ -482,12 +482,27 @@ export default function Tab02WarRoom({ ws }) {
         try { localStorage.setItem('MCNC_ACTIVE_PROJECT', cleanProj); } catch (e) {}
       }
 
-      if (targetPrompt && targetPrompt.trim()) {
-        setInputBuffer(targetPrompt.trim());
-      }
+      // Enforce clean slate: wipe old cross-project comms, reset stage to 1, and load ONLY incoming directive
+      const freshSlate = [
+        {
+          id: Date.now(),
+          sender: 'SYSTEM // GATE KEEPER',
+          text: `Zero-state initialization complete. War Room locked to [${cleanProj || 'Bounty_Engine'}] at STAGE 1: PRD.`,
+          type: 'system'
+        }
+      ];
 
+      setStreamLog(freshSlate);
+      setPipelineStage(1);
+      setAssignedDirectors([]);
       setWorkflowState('IDLE');
-      localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
+      setInputBuffer(targetPrompt && targetPrompt.trim() ? targetPrompt.trim() : '');
+
+      try {
+        localStorage.setItem('MCNC_WARROOM_STREAM', JSON.stringify(freshSlate));
+        localStorage.setItem('MCNC_WARROOM_PIPELINE_STAGE', '1');
+        localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
+      } catch (e) {}
     };
 
     try {
@@ -525,7 +540,8 @@ export default function Tab02WarRoom({ ws }) {
 
   const handleCreateProject = () => {
     if (!newProjectName.trim()) return;
-    const formatted = newProjectName.trim().toUpperCase();
+    // Preserve SOP 19 Pascal_Snake_Case instead of forcing all-caps
+    const formatted = newProjectName.trim().replace(/\s+/g, '_');
     if (!projects.includes(formatted)) {
       const updated = [...projects, formatted];
       setProjects(updated);
@@ -570,7 +586,7 @@ export default function Tab02WarRoom({ ws }) {
         .map(l => `### ${l.sender}\n${l.text}`)
         .join('\n\n---\n\n') || 'Stage 1 deconstruction specifications validated in active session.';
 
-      let assetDirectives = 'Apply exact visual hierarchy, African Ochre and Malawi Sunset borders, and wood timber textures matching all attached reference images.';
+      let assetDirectives = 'Apply exact visual hierarchy and authorized palette tokens matching all attached reference images.';
       if (incomingCritiques.length > 0 && incomingCritiques[0].attachments) {
         assetDirectives += `\nReferenced Assets (${incomingCritiques[0].attachments.length}): ` + 
           incomingCritiques[0].attachments.map(a => a.name).join(', ');
@@ -651,7 +667,7 @@ export default function Tab02WarRoom({ ws }) {
       { 
         id: Date.now(), 
         sender: 'SYSTEM // GATE KEEPER', 
-        text: 'Terminal ready. War Room initialized.', 
+        text: `Terminal ready. War Room initialized for [${selectedProject}].`, 
         type: 'system' 
       }
     ];
@@ -914,7 +930,7 @@ Format strictly as:
 
     let activeDirective = inputBuffer.trim();
     if (!activeDirective) {
-      activeDirective = `Generate 100% complete, fully responsive single-file index.html for The Chief Madothi Fund. Directly feed children & pay school fees directly (strictly NO building schools). Include hero section, donation tier cards, impact metrics, and footer.`;
+      activeDirective = `Generate 100% complete, production-ready artifacts for [${selectedProject}] strictly following the approved Stage 1 PRD and SOP 19 Pascal_Snake_Case rules.`;
     }
 
     const stage2SystemConstraint = `CRITICAL DIRECTIVE: You are an autonomous single-file code synthesizer.
@@ -941,7 +957,6 @@ ${activeDirective}`;
     setInputBuffer('');
 
     try {
-      // Pinned active endpoint for OpenRouter and NIM
       const codeModel = selectedLLM === 'ELITE_CASCADE' 
         ? 'anthropic/claude-3.5-sonnet-20241022' 
         : 'meta-llama/llama-3.3-70b-instruct';
@@ -958,14 +973,12 @@ ${activeDirective}`;
       const data = await dispatchAndWait(payload);
       let generatedCode = data.reply || '';
 
-      // Strip accidental markdown fences if returned
       if (generatedCode.includes('```html')) {
         generatedCode = generatedCode.split('```html')[1].split('```')[0].trim();
       } else if (generatedCode.includes('```')) {
         generatedCode = generatedCode.split('```')[1].split('```')[0].trim();
       }
 
-      // STRICT WARLORD VALIDATION GATE: REJECT CONVERSATIONAL COPOUTS OR SHORT SKELETONS
       if (!generatedCode || generatedCode.includes('"error"') || generatedCode.includes('404') || !generatedCode.includes('<!DOCTYPE html') || generatedCode.length < 1500) {
         throw new Error(`Inference engine failed or returned invalid HTML artifact (${generatedCode.length} bytes). Output trace: ${generatedCode.slice(0, 260)}`);
       }
@@ -1286,7 +1299,7 @@ ${activeDirective}`;
           <div className="p-2 bg-[#0a0c0e]">
             {isCreatingProject ? (
               <div className="flex gap-1.5">
-                <input type="text" placeholder="PROJECT NAME..." value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="flex-1 bg-[#14171c] text-white border border-[#232832] px-2 py-1.5 text-[11px] font-mono rounded focus:border-[#ffb800] outline-none" />
+                <input type="text" placeholder="Project_Name..." value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="flex-1 bg-[#14171c] text-white border border-[#232832] px-2 py-1.5 text-[11px] font-mono rounded focus:border-[#ffb800] outline-none" />
                 <button onClick={handleCreateProject} className="bg-[#ffb800] text-black text-[11px] font-bold px-3 py-1.5 rounded hover:bg-[#e6a600] cursor-pointer">ADD</button>
               </div>
             ) : (
@@ -1540,7 +1553,7 @@ ${activeDirective}`;
       {/* RIGHT MAIN TERMINAL AREA */}
       <div className="flex-1 flex flex-col bg-[#0d0f12] border border-[#1f242d] rounded overflow-hidden relative">
         <div className="px-4 py-2 bg-[#0a0c0e] border-b border-[#14181f] flex justify-between items-center select-none font-mono z-10 relative">
-          <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2 uppercase tracking-widest font-bold">
+          <div className="text-[11px] text-[#5c6b7f] flex items-center gap-2 tracking-widest font-bold">
             THE WAR ROOM // LIVE COMMS &amp; ARTIFACT PIPELINE <span className="text-[#ffb800]">[{selectedProject}]</span>
             <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${
               pipelineStage === 2 
@@ -1629,7 +1642,7 @@ ${activeDirective}`;
                     {item.attachments && item.attachments.length > 0 && (
                       <div className="flex items-center gap-2 pt-1 overflow-x-auto custom-scrollbar">
                         <span className="text-[9px] text-[#DAA520] font-bold uppercase tracking-wider flex-shrink-0">
-                          ?? EXAMPLES ({item.attachments.length}):
+                          EXAMPLES ({item.attachments.length}):
                         </span>
                         {item.attachments.map((file, fileIdx) => (
                           <div
