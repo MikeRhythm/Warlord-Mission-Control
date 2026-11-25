@@ -1,33 +1,76 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  CheckCircle2, Clock, PlayCircle, AlertCircle, ArrowRight, 
+import {
+  CheckCircle2, Clock, PlayCircle, AlertCircle, ArrowRight,
   Layers, Filter, Sparkles, Terminal, ShieldAlert, Check, X,
-  RefreshCw, PlusCircle, Send, CheckSquare, Eye, FileText
+  RefreshCw, PlusCircle, Send, CheckSquare, Eye, FileText,
+  Trash2, Search, ShieldCheck, Compass, Cpu, Archive
 } from 'lucide-react';
 import './Tab04TaskBoard.css';
 
 const PIPELINE_PORT = 8082;
 const PIPELINE_BASE = `http://localhost:${PIPELINE_PORT}`;
 
+const METALLIC_PLATES = {
+  titanium: {
+    background: 'linear-gradient(135deg, #2d3540 0%, #1a2028 52%, #11151b 100%)',
+    borderColor: '#475569',
+    accentColor: '#E2E8F0',
+    badgeBg: 'rgba(148, 163, 184, 0.16)',
+    glow: 'inset 0 1px 0 rgba(255,255,255,0.14)'
+  },
+  antiqueBrass: {
+    background: 'linear-gradient(135deg, #493610 0%, #271d09 55%, #161005 100%)',
+    borderColor: '#DAA520',
+    accentColor: '#ffb800',
+    badgeBg: 'rgba(255, 184, 0, 0.18)',
+    glow: 'inset 0 1px 0 rgba(255,184,0,0.28)'
+  },
+  deepTeal: {
+    background: 'linear-gradient(135deg, #0f3a4a 0%, #0b222d 55%, #07141b 100%)',
+    borderColor: '#38bdf8',
+    accentColor: '#38bdf8',
+    badgeBg: 'rgba(56, 189, 248, 0.16)',
+    glow: 'inset 0 1px 0 rgba(56,189,248,0.24)'
+  },
+  sageEmerald: {
+    background: 'linear-gradient(135deg, #103d2e 0%, #0a241b 55%, #061510 100%)',
+    borderColor: '#10b981',
+    accentColor: '#10b981',
+    badgeBg: 'rgba(16, 185, 129, 0.16)',
+    glow: 'inset 0 1px 0 rgba(16,185,129,0.24)'
+  },
+  maroonRust: {
+    background: 'linear-gradient(135deg, #45141b 0%, #240b0f 55%, #140608 100%)',
+    borderColor: '#ef4444',
+    accentColor: '#ef4444',
+    badgeBg: 'rgba(239, 68, 68, 0.18)',
+    glow: 'inset 0 1px 0 rgba(239,68,68,0.24)'
+  }
+};
+
 export default function Tab04TaskBoard({ ws }) {
   const [projects, setProjects] = useState([]);
   const [selectedProjectScope, setSelectedProjectScope] = useState('ALL PROJECTS');
+  const [searchQuery, setSearchQuery] = useState('');
   const [pipelineConnected, setPipelineConnected] = useState(false);
   const [newIdeaText, setNewIdeaText] = useState('');
   const [selectedDirector, setSelectedDirector] = useState('MONTY // COMMAND');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize task store directly from real project manifests or persistent storage
   const [taskList, setTaskList] = useState(() => {
     try {
       const stored = localStorage.getItem('MCNC_HERMES_KANBAN_TASKS');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Purge legacy uppercase BOUNTY ENGINE / stale BTY-* tickets automatically
+          return parsed.filter(
+            t => !String(t.id || '').startsWith('BTY-') && String(t.project || '').toUpperCase() !== 'BOUNTY ENGINE'
+          );
+        }
       }
     } catch (e) {}
 
-    // Seed tasks for real active disk projects if none exist
     return [
       {
         id: 'CMF-INIT-1',
@@ -37,6 +80,7 @@ export default function Tab04TaskBoard({ ws }) {
         assignedDirector: 'MONTY // COMMAND',
         stage: 'AGENT BUILD',
         status: 'BUILDING',
+        judgeVerified: false,
         milestones: ['Scan inbound API', 'Format message deck', 'Deploy telemetry hook'],
         timestamp: new Date().toISOString()
       },
@@ -48,6 +92,7 @@ export default function Tab04TaskBoard({ ws }) {
         assignedDirector: 'TESS // QUANT',
         stage: 'HUMAN GATE',
         status: 'WAITING_APPROVAL',
+        judgeVerified: false,
         milestones: ['Compute ATR bands', 'Verify spread variance', 'Draft trigger payload'],
         timestamp: new Date().toISOString()
       },
@@ -59,18 +104,17 @@ export default function Tab04TaskBoard({ ws }) {
         assignedDirector: 'CHARLIE // DEV LEAD',
         stage: 'SHIPPED',
         status: 'COMPLETED',
+        judgeVerified: true,
         milestones: ['Verify root paths', 'Flatten docs structure', 'Deploy server_pipeline.js'],
         timestamp: new Date().toISOString()
       }
     ];
   });
 
-  // Save task updates locally
   useEffect(() => {
     localStorage.setItem('MCNC_HERMES_KANBAN_TASKS', JSON.stringify(taskList));
   }, [taskList]);
 
-  // Listen for Automated Bounty Discovery broadcasts from Tab 11 (Cross-Tab Sync)
   useEffect(() => {
     const handleBountyDiscovered = (event) => {
       const bounties = event.detail.bounties || [];
@@ -78,13 +122,14 @@ export default function Tab04TaskBoard({ ws }) {
         setTaskList(prev => {
           const newTasks = bounties.map((b, idx) => ({
             id: `BTY-${Date.now()}-${idx}`,
-            project: 'BOUNTY ENGINE',
+            project: 'Bounty_Engine',
             title: `Process Viral Campaign: ${b.title || b.id}`,
-            plan: `Autonomously discovered by Tess (Scraper). Ready for final hook alignment and FFmpeg rendering.`,
-            assignedDirector: 'SKYLA // MEDIA',
+            plan: 'Autonomously discovered by Tess (Active-Only Filter). Ready for hook alignment and FFmpeg 9:16 Proof-of-Done rendering.',
+            assignedDirector: 'CHARLIE // DEV LEAD',
             stage: 'AGENT BUILD',
             status: 'BUILDING',
-            milestones: ['Extract transcript hooks', 'Download source MP4', 'Dispatch FFmpeg pipeline'],
+            judgeVerified: false,
+            milestones: ['Verify non-locked status', 'Render 9:16 + audio check', 'Stage in Outbox'],
             timestamp: new Date().toISOString()
           }));
           return [...newTasks, ...prev];
@@ -96,7 +141,6 @@ export default function Tab04TaskBoard({ ws }) {
     return () => window.removeEventListener('mcnc-bounties-discovered', handleBountyDiscovered);
   }, []);
 
-  // Fetch real project manifests from Port 8082 or fallback to local manifest cache
   const fetchProjectsFromPipeline = useCallback(async () => {
     try {
       const res = await fetch(`${PIPELINE_BASE}/api/projects/disk`);
@@ -109,9 +153,7 @@ export default function Tab04TaskBoard({ ws }) {
           return;
         }
       }
-    } catch (e) {
-      // Pipeline offline or endpoint unmapped, proceed to fallback cache
-    }
+    } catch (e) {}
 
     try {
       const local = localStorage.getItem('MCNC_PROJECT_MANIFESTS');
@@ -132,35 +174,41 @@ export default function Tab04TaskBoard({ ws }) {
     fetchProjectsFromPipeline();
   }, [fetchProjectsFromPipeline]);
 
-  // Project scope options dynamically populated from disk projects
   const projectOptions = [
     'ALL PROJECTS',
     ...projects.map(p => (typeof p === 'string' ? p : p.name || p.id))
   ];
 
-  // Filter tasks based on selected project scope
   const filteredTasks = taskList.filter(t => {
-    if (selectedProjectScope === 'ALL PROJECTS') return true;
-    const taskProj = (t.project || '').toUpperCase();
-    const scopeProj = selectedProjectScope.toUpperCase();
-    return taskProj === scopeProj || taskProj.replace(/_/g, ' ') === scopeProj.replace(/_/g, ' ');
+    const matchesScope = selectedProjectScope === 'ALL PROJECTS' || (() => {
+      const taskProj = (t.project || '').toUpperCase();
+      const scopeProj = selectedProjectScope.toUpperCase();
+      return taskProj === scopeProj || taskProj.replace(/_/g, ' ') === scopeProj.replace(/_/g, ' ');
+    })();
+
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q ||
+      String(t.title || '').toLowerCase().includes(q) ||
+      String(t.id || '').toLowerCase().includes(q) ||
+      String(t.project || '').toLowerCase().includes(q) ||
+      String(t.assignedDirector || '').toLowerCase().includes(q);
+
+    return matchesScope && matchesSearch;
   });
 
-  // 4 Hermes Kanban Stages (Floor 1-5 Pipeline)
   const captureAndPlanTasks = filteredTasks.filter(t => t.stage === 'CAPTURE & PLAN' || t.status === 'PLANNING');
-  const agentBuildTasks = filteredTasks.filter(t => t.stage === 'AGENT BUILD' || t.status === 'BUILDING');
   const humanGateTasks = filteredTasks.filter(t => t.stage === 'HUMAN GATE' || t.status === 'WAITING_APPROVAL');
+  const agentBuildTasks = filteredTasks.filter(t => t.stage === 'AGENT BUILD' || t.status === 'BUILDING');
   const shippedTasks = filteredTasks.filter(t => t.stage === 'SHIPPED' || t.status === 'COMPLETED');
 
-  // Floor 1: Capture single idea and auto-classify
   const handleCaptureIdea = (e) => {
     e.preventDefault();
     if (!newIdeaText.trim()) return;
 
     setIsSubmitting(true);
 
-    const activeProjectName = selectedProjectScope === 'ALL PROJECTS' 
-      ? (typeof projects[0] === 'string' ? projects[0] : (projects[0]?.name || 'CHIEF MADOTHI FUND'))
+    const activeProjectName = selectedProjectScope === 'ALL PROJECTS'
+      ? (typeof projects[0] === 'string' ? projects[0] : (projects[0]?.name || 'Bounty_Engine'))
       : selectedProjectScope;
 
     const prefix = activeProjectName.split(/[\s_]+/).map(w => w[0]).join('').substring(0, 3).toUpperCase();
@@ -174,7 +222,8 @@ export default function Tab04TaskBoard({ ws }) {
       assignedDirector: selectedDirector,
       stage: 'CAPTURE & PLAN',
       status: 'PLANNING',
-      milestones: ['Autonomous classification', 'Resource allocation', 'Staging build package'],
+      judgeVerified: false,
+      milestones: ['Autonomous classification', 'Three-Tier Gate check', 'Staging build package'],
       timestamp: new Date().toISOString()
     };
 
@@ -183,7 +232,6 @@ export default function Tab04TaskBoard({ ws }) {
     setIsSubmitting(false);
   };
 
-  // Floor 3: Human-in-the-Loop Gate (Approve & Build)
   const handleApprove = (taskId) => {
     setTaskList(prev => prev.map(t => {
       if (t.id === taskId) {
@@ -198,59 +246,72 @@ export default function Tab04TaskBoard({ ws }) {
     }));
   };
 
-  // Floor 3: Human-in-the-Loop Gate (Reject)
-  const handleReject = (taskId) => {
+  const handleDeleteTask = (taskId) => {
     setTaskList(prev => prev.filter(t => t.id !== taskId));
   };
 
-  // Interactive Stage Advance (Manual override or click advance)
+  const handlePurgeStaleBountyCards = () => {
+    setTaskList(prev => prev.filter(
+      t => !String(t.id || '').startsWith('BTY-') && !String(t.project || '').toLowerCase().includes('bounty')
+    ));
+  };
+
+  const toggleJudgeVerified = (taskId) => {
+    setTaskList(prev => prev.map(t => (t.id === taskId ? { ...t, judgeVerified: !t.judgeVerified } : t)));
+  };
+
   const advanceTask = (taskId) => {
     setTaskList(prev => prev.map(t => {
       if (t.id === taskId) {
         let nextStage = 'AGENT BUILD';
         let nextStatus = 'BUILDING';
+        let nextJudge = t.judgeVerified;
         if (t.stage === 'CAPTURE & PLAN') { nextStage = 'HUMAN GATE'; nextStatus = 'WAITING_APPROVAL'; }
         else if (t.stage === 'HUMAN GATE') { nextStage = 'AGENT BUILD'; nextStatus = 'BUILDING'; }
-        else if (t.stage === 'AGENT BUILD') { nextStage = 'SHIPPED'; nextStatus = 'COMPLETED'; }
-        else if (t.stage === 'SHIPPED') { nextStage = 'CAPTURE & PLAN'; nextStatus = 'PLANNING'; }
-        return { ...t, stage: nextStage, status: nextStatus };
+        else if (t.stage === 'AGENT BUILD') { nextStage = 'SHIPPED'; nextStatus = 'COMPLETED'; nextJudge = true; }
+        else if (t.stage === 'SHIPPED') { nextStage = 'CAPTURE & PLAN'; nextStatus = 'PLANNING'; nextJudge = false; }
+        return { ...t, stage: nextStage, status: nextStatus, judgeVerified: nextJudge };
       }
       return t;
     }));
   };
 
+  const hasBountyCards = taskList.some(
+    t => String(t.id || '').startsWith('BTY-') || String(t.project || '').toLowerCase().includes('bounty')
+  );
+
   return (
     <div className="flex h-full w-full bg-[#080a0c] text-xs font-mono select-none p-2 gap-2 overflow-hidden">
-      
+
       {/* MAIN KANBAN BOARD */}
       <div className="flex-1 flex flex-col gap-2 overflow-hidden">
-        
-        {/* TELEMETRY TOP BAR */}
-        <div className="grid grid-cols-5 gap-2 border border-[#1f242d] rounded bg-[#0d0f12] p-2.5">
-          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
+
+        {/* HIGH-FINANCE METALLIC TELEMETRY TOP BAR */}
+        <div className="grid grid-cols-5 gap-2 border border-[#1f242d] rounded bg-[#0d0f12] p-2">
+          <div style={METALLIC_PLATES.titanium} className="border rounded p-2 text-center">
             <div className="text-lg font-bold text-white font-mono">{filteredTasks.length}</div>
-            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-0.5">ACTIVE TASKS</div>
+            <div className="text-[9px] text-[#C5BD9F] uppercase tracking-wider mt-0.5">ACTIVE TASKS</div>
           </div>
-          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
-            <div className="text-lg font-bold text-gray-300 font-mono">{captureAndPlanTasks.length}</div>
-            <div className="text-[9px] text-[#8fa0b5] uppercase tracking-wider mt-0.5">FLOOR 1: CAPTURE</div>
+          <div style={METALLIC_PLATES.titanium} className="border rounded p-2 text-center">
+            <div className="text-lg font-bold text-gray-200 font-mono">{captureAndPlanTasks.length}</div>
+            <div className="text-[9px] text-[#94A3B8] uppercase tracking-wider mt-0.5">FLOOR 1: TRIAGE</div>
           </div>
-          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
+          <div style={METALLIC_PLATES.antiqueBrass} className="border rounded p-2 text-center">
             <div className="text-lg font-bold text-[#ffb800] font-mono">{humanGateTasks.length}</div>
             <div className="text-[9px] text-[#ffb800] uppercase tracking-wider mt-0.5">FLOOR 3: HUMAN GATE</div>
           </div>
-          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
+          <div style={METALLIC_PLATES.deepTeal} className="border rounded p-2 text-center">
             <div className="text-lg font-bold text-[#38bdf8] font-mono">{agentBuildTasks.length}</div>
             <div className="text-[9px] text-[#38bdf8] uppercase tracking-wider mt-0.5">FLOOR 4: AGENT BUILD</div>
           </div>
-          <div className="bg-[#0a0c0e] border border-[#1f242d] rounded p-2 text-center">
+          <div style={METALLIC_PLATES.sageEmerald} className="border rounded p-2 text-center">
             <div className="text-lg font-bold text-[#10b981] font-mono">{shippedTasks.length}</div>
             <div className="text-[9px] text-[#10b981] uppercase tracking-wider mt-0.5">FLOOR 5: SHIPPED</div>
           </div>
         </div>
 
-        {/* PROJECT SCOPE & PIPELINE STATUS */}
-        <div className="flex items-center justify-between border border-[#1f242d] rounded bg-[#0d0f12] px-3 py-1.5">
+        {/* PROJECT SCOPE, SEARCH & PURGE CONTROLS */}
+        <div className="flex items-center justify-between border border-[#1f242d] rounded bg-[#0d0f12] px-3 py-1.5 gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-[#ffb800]" />
@@ -259,14 +320,25 @@ export default function Tab04TaskBoard({ ws }) {
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${pipelineConnected ? 'bg-[#10b981]' : 'bg-[#f43f5e]'}`} />
+              <span className={`w-2 h-2 rounded-full ${pipelineConnected ? 'bg-[#10b981]' : 'bg-[#ef4444]'}`} />
               <span className="text-[9px] text-gray-400">
-                {pipelineConnected ? 'DISK PIPELINE (PORT 8082)' : 'OFFLINE (USING CACHED MANIFEST)'}
+                {pipelineConnected ? 'DISK PIPELINE (PORT 8082)' : 'OFFLINE (CACHED MANIFEST)'}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="relative flex items-center">
+              <Search className="w-3 h-3 text-[#94A3B8] absolute left-2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter cards..."
+                className="bg-[#080a0c] border border-[#232832] rounded pl-6 pr-2 py-0.5 text-[9px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#ffb800] w-32"
+              />
+            </div>
+
             {projectOptions.map(p => (
               <button
                 key={p}
@@ -280,6 +352,17 @@ export default function Tab04TaskBoard({ ws }) {
                 {p}
               </button>
             ))}
+
+            {hasBountyCards && (
+              <button
+                onClick={handlePurgeStaleBountyCards}
+                title="Purge all Bounty Engine cards from board"
+                className="px-2 py-1 rounded text-[9px] font-bold cursor-pointer border bg-[#ef4444]/10 text-[#ef4444] border-[#ef4444]/50 hover:bg-[#ef4444] hover:text-white transition-all flex items-center gap-1"
+              >
+                <Trash2 className="w-2.5 h-2.5" />
+                PURGE BOUNTY CARDS
+              </button>
+            )}
           </div>
         </div>
 
@@ -289,7 +372,7 @@ export default function Tab04TaskBoard({ ws }) {
             type="text"
             value={newIdeaText}
             onChange={(e) => setNewIdeaText(e.target.value)}
-            placeholder="[FLOOR 1 CAPTURE] Type one idea (e.g. Build Telegram lead scraper or calibrate breakout logic)..."
+            placeholder="[FLOOR 1 CAPTURE] Drop a prompt into triage — Hermes decomposes & routes to the 16-Director Matrix..."
             className="flex-1 bg-[#0a0c0e] border border-[#232832] rounded px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#ffb800] text-[11px]"
           />
           <select
@@ -314,44 +397,78 @@ export default function Tab04TaskBoard({ ws }) {
           </button>
         </form>
 
-        {/* HERMES 4-STAGE KANBAN LANES */}
+        {/* HERMES 4-STAGE KANBAN LANES WITH METALLIC HEADER PLATES */}
         <div className="flex-1 grid grid-cols-4 gap-2 overflow-hidden">
-          
-          {/* LANE 1: CAPTURE & PLAN */}
-          <div className="border border-[#1f242d] rounded bg-[#0d0f12] flex flex-col overflow-hidden">
-            <div className="p-2 border-b border-[#1f242d] bg-[#0a0c0e] flex justify-between items-center">
-              <span className="text-[10px] font-bold text-gray-300 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-gray-500" />
-                FLOOR 1: CAPTURE & PLAN
-              </span>
-              <span className="text-[9px] bg-[#1a202c] text-gray-400 px-1.5 py-0.5 rounded font-bold">
-                {captureAndPlanTasks.length}
-              </span>
+
+          {/* LANE 1: CAPTURE & PLAN (METAL TITANIUM) */}
+          <div className="border border-[#2b3340] rounded bg-[#0d0f12] flex flex-col overflow-hidden">
+            <div
+              style={METALLIC_PLATES.titanium}
+              className="px-3 py-2.5 border-b flex justify-between items-center relative overflow-hidden"
+            >
+              <div className="flex flex-col z-10">
+                <span className="text-[8px] tracking-widest uppercase text-[#94A3B8] font-bold">
+                  FLOOR 01 // INTAKE
+                </span>
+                <span className="text-[12px] font-bold text-white tracking-wide flex items-center gap-1.5 mt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-[#C5BD9F]" />
+                  Triage &amp; Plan
+                </span>
+              </div>
+              <div className="flex items-center gap-2 z-10">
+                <Compass className="w-5 h-5 text-white/15" />
+                <span
+                  style={{ backgroundColor: METALLIC_PLATES.titanium.badgeBg, color: METALLIC_PLATES.titanium.accentColor }}
+                  className="text-[10px] border border-white/20 px-2 py-0.5 rounded font-bold"
+                >
+                  {captureAndPlanTasks.length}
+                </span>
+              </div>
             </div>
 
             <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
               {captureAndPlanTasks.length === 0 ? (
                 <div className="text-[#5c6b7f] text-center p-6 italic text-[10px]">
-                  No ideas currently awaiting planning. Use the input bar above.
+                  No ideas currently awaiting planning. Use the triage bar above.
                 </div>
               ) : (
                 captureAndPlanTasks.map(t => (
-                  <TaskCard key={t.id} task={t} onAdvance={() => advanceTask(t.id)} />
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    onAdvance={() => advanceTask(t.id)}
+                    onDelete={() => handleDeleteTask(t.id)}
+                    onToggleJudge={() => toggleJudgeVerified(t.id)}
+                  />
                 ))
               )}
             </div>
           </div>
 
-          {/* LANE 2: HUMAN GATE (FLOOR 3) */}
-          <div className="border border-[#ffb800]/30 rounded bg-[#0d0f12] flex flex-col overflow-hidden">
-            <div className="p-2 border-b border-[#ffb800]/30 bg-[#ffb800]/5 flex justify-between items-center">
-              <span className="text-[10px] font-bold text-[#ffb800] flex items-center gap-1.5">
-                <ShieldAlert className="w-3 h-3 text-[#ffb800]" />
-                FLOOR 3: HUMAN GATE
-              </span>
-              <span className="text-[9px] bg-[#ffb800]/20 text-[#ffb800] border border-[#ffb800]/40 px-1.5 py-0.5 rounded font-bold">
-                {humanGateTasks.length} PENDING
-              </span>
+          {/* LANE 2: HUMAN GATE (METAL ANTIQUE BRASS / GOLD) */}
+          <div className="border border-[#DAA520]/45 rounded bg-[#0d0f12] flex flex-col overflow-hidden">
+            <div
+              style={METALLIC_PLATES.antiqueBrass}
+              className="px-3 py-2.5 border-b flex justify-between items-center relative overflow-hidden"
+            >
+              <div className="flex flex-col z-10">
+                <span className="text-[8px] tracking-widest uppercase text-[#C5BD9F] font-bold">
+                  FLOOR 03 // THREE-TIER GATE
+                </span>
+                <span className="text-[12px] font-bold text-[#ffb800] tracking-wide flex items-center gap-1.5 mt-0.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-[#ffb800]" />
+                  Human Gate
+                </span>
+              </div>
+              <div className="flex items-center gap-2 z-10">
+                <ShieldCheck className="w-5 h-5 text-[#ffb800]/20" />
+                <span
+                  style={{ backgroundColor: METALLIC_PLATES.antiqueBrass.badgeBg, color: '#ffb800' }}
+                  className="text-[10px] border border-[#ffb800]/45 px-2 py-0.5 rounded font-bold"
+                >
+                  {humanGateTasks.length} PENDING
+                </span>
+              </div>
             </div>
 
             <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
@@ -361,27 +478,41 @@ export default function Tab04TaskBoard({ ws }) {
                 </div>
               ) : (
                 humanGateTasks.map(t => (
-                  <HumanGateCard 
-                    key={t.id} 
-                    task={t} 
-                    onApprove={() => handleApprove(t.id)} 
-                    onReject={() => handleReject(t.id)} 
+                  <HumanGateCard
+                    key={t.id}
+                    task={t}
+                    onApprove={() => handleApprove(t.id)}
+                    onReject={() => handleDeleteTask(t.id)}
                   />
                 ))
               )}
             </div>
           </div>
 
-          {/* LANE 3: AGENT BUILD (FLOOR 4) */}
-          <div className="border border-[#1f242d] rounded bg-[#0d0f12] flex flex-col overflow-hidden">
-            <div className="p-2 border-b border-[#1f242d] bg-[#0a0c0e] flex justify-between items-center">
-              <span className="text-[10px] font-bold text-[#38bdf8] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#38bdf8] animate-pulse" />
-                FLOOR 4: AGENT BUILD
-              </span>
-              <span className="text-[9px] bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/30 px-1.5 py-0.5 rounded font-bold">
-                {agentBuildTasks.length}
-              </span>
+          {/* LANE 3: AGENT BUILD (METAL DEEP TEAL) */}
+          <div className="border border-[#38bdf8]/40 rounded bg-[#0d0f12] flex flex-col overflow-hidden">
+            <div
+              style={METALLIC_PLATES.deepTeal}
+              className="px-3 py-2.5 border-b flex justify-between items-center relative overflow-hidden"
+            >
+              <div className="flex flex-col z-10">
+                <span className="text-[8px] tracking-widest uppercase text-[#94A3B8] font-bold">
+                  FLOOR 04 // OPENCLAW RUNTIME
+                </span>
+                <span className="text-[12px] font-bold text-[#38bdf8] tracking-wide flex items-center gap-1.5 mt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-[#38bdf8] animate-pulse" />
+                  Agent Build
+                </span>
+              </div>
+              <div className="flex items-center gap-2 z-10">
+                <Cpu className="w-5 h-5 text-[#38bdf8]/20" />
+                <span
+                  style={{ backgroundColor: METALLIC_PLATES.deepTeal.badgeBg, color: '#38bdf8' }}
+                  className="text-[10px] border border-[#38bdf8]/40 px-2 py-0.5 rounded font-bold"
+                >
+                  {agentBuildTasks.length}
+                </span>
+              </div>
             </div>
 
             <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
@@ -391,22 +522,42 @@ export default function Tab04TaskBoard({ ws }) {
                 </div>
               ) : (
                 agentBuildTasks.map(t => (
-                  <TaskCard key={t.id} task={t} onAdvance={() => advanceTask(t.id)} />
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    onAdvance={() => advanceTask(t.id)}
+                    onDelete={() => handleDeleteTask(t.id)}
+                    onToggleJudge={() => toggleJudgeVerified(t.id)}
+                  />
                 ))
               )}
             </div>
           </div>
 
-          {/* LANE 4: SHIPPED (FLOOR 5) */}
-          <div className="border border-[#1f242d] rounded bg-[#0d0f12] flex flex-col overflow-hidden">
-            <div className="p-2 border-b border-[#1f242d] bg-[#0a0c0e] flex justify-between items-center">
-              <span className="text-[10px] font-bold text-[#10b981] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#10b981]" />
-                FLOOR 5: SHIPPED & VAULT
-              </span>
-              <span className="text-[9px] bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 px-1.5 py-0.5 rounded font-bold">
-                {shippedTasks.length}
-              </span>
+          {/* LANE 4: SHIPPED & VAULT (METAL SAGE EMERALD) */}
+          <div className="border border-[#10b981]/40 rounded bg-[#0d0f12] flex flex-col overflow-hidden">
+            <div
+              style={METALLIC_PLATES.sageEmerald}
+              className="px-3 py-2.5 border-b flex justify-between items-center relative overflow-hidden"
+            >
+              <div className="flex flex-col z-10">
+                <span className="text-[8px] tracking-widest uppercase text-[#94A3B8] font-bold">
+                  FLOOR 05 // PROOF-OF-DONE
+                </span>
+                <span className="text-[12px] font-bold text-[#10b981] tracking-wide flex items-center gap-1.5 mt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-[#10b981]" />
+                  Shipped &amp; Vault
+                </span>
+              </div>
+              <div className="flex items-center gap-2 z-10">
+                <Archive className="w-5 h-5 text-[#10b981]/20" />
+                <span
+                  style={{ backgroundColor: METALLIC_PLATES.sageEmerald.badgeBg, color: '#10b981' }}
+                  className="text-[10px] border border-[#10b981]/40 px-2 py-0.5 rounded font-bold"
+                >
+                  {shippedTasks.length}
+                </span>
+              </div>
             </div>
 
             <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
@@ -416,7 +567,14 @@ export default function Tab04TaskBoard({ ws }) {
                 </div>
               ) : (
                 shippedTasks.map(t => (
-                  <TaskCard key={t.id} task={t} onAdvance={() => advanceTask(t.id)} isShipped />
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    onAdvance={() => advanceTask(t.id)}
+                    onDelete={() => handleDeleteTask(t.id)}
+                    onToggleJudge={() => toggleJudgeVerified(t.id)}
+                    isShipped
+                  />
                 ))
               )}
             </div>
@@ -428,12 +586,15 @@ export default function Tab04TaskBoard({ ws }) {
 
       {/* RIGHT SIDEBAR: LIVE HERMES ORCHESTRATION FEED */}
       <div className="w-80 border border-[#1f242d] rounded bg-[#0d0f12] p-3 flex flex-col gap-2 overflow-hidden flex-shrink-0">
-        <div className="border-b border-[#1f242d] pb-2 flex items-center justify-between">
+        <div
+          style={METALLIC_PLATES.antiqueBrass}
+          className="border rounded px-2.5 py-2 flex items-center justify-between"
+        >
           <span className="text-[#ffb800] font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5">
             <Terminal className="w-3.5 h-3.5 text-[#ffb800]" />
             HERMES ORCHESTRATION CORE
           </span>
-          <span className="text-[8px] text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/30 px-1.5 py-0.5 rounded font-bold">
+          <span className="text-[8px] text-[#10b981] bg-[#080a0c]/80 border border-[#10b981]/40 px-1.5 py-0.5 rounded font-bold">
             DAEMON 8082
           </span>
         </div>
@@ -445,8 +606,8 @@ export default function Tab04TaskBoard({ ws }) {
               Monty (Chief of Staff)
             </div>
             <p className="text-[#8fa0b5] leading-relaxed text-[9px]">
-              {selectedProjectScope === 'ALL PROJECTS' 
-                ? `Overseeing operational pipelines across registered projects. Zero-state initialization active.` 
+              {selectedProjectScope === 'ALL PROJECTS'
+                ? 'Overseeing operational pipelines across registered projects. Zero-state initialization active.'
                 : `Focused on [${selectedProjectScope}]. Ready to execute agent sub-threads and pipeline artifacts.`}
             </p>
           </div>
@@ -488,7 +649,7 @@ export default function Tab04TaskBoard({ ws }) {
               Target: <span className="text-gray-300">C:\Warlord_Inc\Warlord_WASP\MCNC\vault\Docs</span>
             </p>
             <p className="text-[8px] text-gray-500 pt-1 border-t border-[#1f242d]">
-              Every approved & shipped task generates persistent memory in Obsidian.
+              Every approved &amp; shipped task generates persistent memory in Obsidian.
             </p>
           </div>
         </div>
@@ -535,7 +696,7 @@ function HumanGateCard({ task, onApprove, onReject }) {
       <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-[#1f242d]">
         <button
           onClick={onReject}
-          className="bg-[#1c1214] hover:bg-[#f43f5e] text-[#f43f5e] hover:text-white border border-[#f43f5e]/40 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 transition-all cursor-pointer text-[9px]"
+          className="bg-[#1c1214] hover:bg-[#ef4444] text-[#ef4444] hover:text-white border border-[#ef4444]/40 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 transition-all cursor-pointer text-[9px]"
         >
           <X className="w-3 h-3" />
           REJECT
@@ -545,55 +706,78 @@ function HumanGateCard({ task, onApprove, onReject }) {
           className="bg-[#12231c] hover:bg-[#10b981] text-[#10b981] hover:text-black border border-[#10b981]/40 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 transition-all cursor-pointer text-[9px]"
         >
           <Check className="w-3 h-3" />
-          APPROVE & BUILD
+          APPROVE &amp; BUILD
         </button>
       </div>
     </div>
   );
 }
 
-// Subcomponent: Standard Task Card
-function TaskCard({ task, onAdvance, isShipped }) {
+// Subcomponent: Standard Task Card with Proof-of-Done Judge Gate & Delete Control
+function TaskCard({ task, onAdvance, onDelete, onToggleJudge, isShipped }) {
   const getBadgeColor = (director) => {
     if (director.includes('CHARLIE')) return 'text-[#38bdf8] border-[#38bdf8]/40 bg-[#38bdf8]/10';
     if (director.includes('TESS')) return 'text-[#ffb800] border-[#ffb800]/40 bg-[#ffb800]/10';
-    if (director.includes('JACK')) return 'text-[#a855f7] border-[#a855f7]/40 bg-[#a855f7]/10';
+    if (director.includes('JACK')) return 'text-[#C5BD9F] border-[#C5BD9F]/40 bg-[#C5BD9F]/10';
     if (director.includes('SKYLA')) return 'text-[#fbbf24] border-[#fbbf24]/40 bg-[#fbbf24]/10';
-    if (director.includes('ROXY')) return 'text-[#f43f5e] border-[#f43f5e]/40 bg-[#f43f5e]/10';
+    if (director.includes('ROXY')) return 'text-[#ef4444] border-[#ef4444]/40 bg-[#ef4444]/10';
     return 'text-[#10b981] border-[#10b981]/40 bg-[#10b981]/10';
   };
 
   return (
-    <div className="bg-[#0a0c0e] border border-[#1f242d] hover:border-gray-500 rounded p-2.5 flex flex-col gap-1.5 transition-all shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="bg-[#0a0c0e] border border-[#1f242d] hover:border-[#C5BD9F]/40 rounded p-2.5 flex flex-col gap-1.5 transition-all shadow-sm">
+      <div className="flex items-center justify-between gap-1">
         <span className="text-[8px] font-mono text-[#5c6b7f] font-bold">
           {task.id}
         </span>
-        <span className="text-[8px] font-mono text-gray-400 truncate max-w-[90px]">
-          {task.project}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[8px] font-mono text-[#C5BD9F] truncate max-w-[90px]">
+            {task.project}
+          </span>
+          <button
+            onClick={onDelete}
+            title="Purge task card"
+            className="text-[#5c6b7f] hover:text-[#ef4444] transition-colors cursor-pointer p-0.5"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
       <div className="text-[10px] font-bold text-gray-200 leading-snug">
         {task.title}
       </div>
 
-      <div className="flex items-center justify-between pt-1 border-t border-[#1f242d]/60 mt-1">
+      <div className="flex items-center justify-between pt-1.5 border-t border-[#1f242d]/60 mt-1 gap-1">
         <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border ${getBadgeColor(task.assignedDirector || 'MONTY')}`}>
           {(task.assignedDirector || 'MONTY').split('//')[0].trim()}
         </span>
 
-        <button
-          onClick={onAdvance}
-          className={`p-1 rounded border transition-colors cursor-pointer ${
-            isShipped 
-              ? 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/30 hover:bg-[#10b981] hover:text-black' 
-              : 'bg-[#14171c] hover:bg-[#ffb800] text-[#8fa0b5] hover:text-black border-[#232832]'
-          }`}
-          title={isShipped ? 'Re-cycle task to planning' : 'Advance to next Kanban stage'}
-        >
-          <ArrowRight className="w-3 h-3" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onToggleJudge}
+            title="SOP 05 Judge Gate / Proof-of-Done Status"
+            className={`text-[8px] px-1.5 py-0.5 rounded font-bold border cursor-pointer transition-all ${
+              task.judgeVerified
+                ? 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/40'
+                : 'bg-[#14171c] text-[#94A3B8] border-[#232832] hover:border-[#ffb800]'
+            }`}
+          >
+            {task.judgeVerified ? '✓ PROOF' : 'JUDGE'}
+          </button>
+
+          <button
+            onClick={onAdvance}
+            className={`p-1 rounded border transition-colors cursor-pointer ${
+              isShipped
+                ? 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/30 hover:bg-[#10b981] hover:text-black'
+                : 'bg-[#14171c] hover:bg-[#ffb800] text-[#8fa0b5] hover:text-black border-[#232832]'
+            }`}
+            title={isShipped ? 'Re-cycle task to planning' : 'Advance to next Kanban stage'}
+          >
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
       </div>
     </div>
   );
