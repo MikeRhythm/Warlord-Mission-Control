@@ -4,19 +4,19 @@ export default function Tab11Campaigns() {
   const [selectedProjectId, setSelectedProjectId] = useState('BOUNTY_ENGINE');
   const [bounties, setBounties] = useState([]);
   const [activeBountyId, setActiveBountyId] = useState('');
-  const [activePlatform, setActivePlatform] = useState('Vyro');
+  const [activePlatform, setActivePlatform] = useState('');
 
   const [campaignTitle, setCampaignTitle] = useState('');
-  const [cpmRate, setCpmRate] = useState('$2.00');
-  const [viewFloor, setViewFloor] = useState('1000');
+  const [cpmRate, setCpmRate] = useState('');
+  const [viewFloor, setViewFloor] = useState('');
   const [sourceVideoPath, setSourceVideoPath] = useState('');
   const [hookHeadline, setHookHeadline] = useState('');
-  const [startTime, setStartTime] = useState('00:00:00');
-  const [endTime, setEndTime] = useState('00:01:00');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [mandatoryTags, setMandatoryTags] = useState('');
 
-  const [poolStatus, setPoolStatus] = useState('ACTIVE // 88% Pool Left (~14 Days)');
-  const [runwayDays, setRunwayDays] = useState(14);
+  const [poolStatus, setPoolStatus] = useState('');
+  const [runwayDays, setRunwayDays] = useState(0);
   const [totalClicks, setTotalClicks] = useState(0);
   const [dailyPostsUsed, setDailyPostsUsed] = useState(0);
   const [dailyPostCap] = useState(6);
@@ -43,13 +43,35 @@ export default function Tab11Campaigns() {
     { id: 'John Tanton - Proje', label: 'JOHN TANTON // PM BOOK', color: '#C5BD9F' }
   ];
 
+  const resetBountyFormToZeroState = () => {
+    setActiveBountyId('');
+    setActivePlatform('');
+    setCampaignTitle('');
+    setCpmRate('');
+    setViewFloor('');
+    setSourceVideoPath('');
+    setHookHeadline('');
+    setStartTime('');
+    setEndTime('');
+    setMandatoryTags('');
+    setPoolStatus('');
+    setRunwayDays(0);
+    setTotalClicks(0);
+    setDailyPostsUsed(0);
+    setTranscriptDrawerOpen(false);
+    setRawTranscript('');
+    setArtifacts([]);
+    setCopiedFlash({});
+    setCopiedHistory({});
+  };
+
   const getDefaultSourcePath = (bId) => {
     if (!bId) return '';
-    return `C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\BOUNTY_ENGINE\\campaigns\\${bId}\\intake\\${bId}_source.mp4`;
+    return `C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\Bounty_Engine\\Campaigns\\${bId}\\Intake\\${bId}_source.mp4`;
   };
 
   const detectPlatform = (b) => {
-    if (!b) return 'Vyro';
+    if (!b) return '';
     if (b.platform) return b.platform;
     return String(b.id || '').toLowerCase().startsWith('whop_') ? 'Whop' : 'Vyro';
   };
@@ -128,7 +150,10 @@ export default function Tab11Campaigns() {
   };
 
   const loadBountyIntoForm = (bounty) => {
-    if (!bounty) return;
+    if (!bounty) {
+      resetBountyFormToZeroState();
+      return;
+    }
     const autoPath = (bounty.sourcePath && bounty.sourcePath.trim())
       ? bounty.sourcePath.trim()
       : getDefaultSourcePath(bounty.id);
@@ -136,15 +161,15 @@ export default function Tab11Campaigns() {
     setActiveBountyId(bounty.id);
     setActivePlatform(detectPlatform(bounty));
     setCampaignTitle(bounty.campaignTitle || bounty.title || bounty.name || '');
-    setCpmRate(bounty.cpmRate || bounty.cpm_rate || '$2.00');
-    setViewFloor(bounty.viewFloor || bounty.view_floor || '1000');
+    setCpmRate(bounty.cpmRate || bounty.cpm_rate || '');
+    setViewFloor(bounty.viewFloor || bounty.view_floor || '');
     setSourceVideoPath(autoPath);
     setHookHeadline(bounty.hookHeadline || '');
     setStartTime(bounty.startTime || '00:00:00');
     setEndTime(bounty.endTime || '00:01:00');
     setMandatoryTags(bounty.mandatoryTags || '');
-    setPoolStatus(bounty.poolStatus || 'ACTIVE // 85% Pool Left (~12 Days)');
-    setRunwayDays(bounty.runwayDays !== undefined ? bounty.runwayDays : 12);
+    setPoolStatus(bounty.poolStatus || '');
+    setRunwayDays(bounty.runwayDays !== undefined ? bounty.runwayDays : 0);
     setTotalClicks(bounty.totalClicks || 0);
     setDailyPostsUsed(bounty.dailyPostsUsed || 0);
     loadDiskArtifacts('BOUNTY_ENGINE', bounty.id);
@@ -160,6 +185,8 @@ export default function Tab11Campaigns() {
         if (activeList.length > 0) {
           const current = activeList.find(b => b.id === activeBountyId) || activeList[0];
           loadBountyIntoForm(current);
+        } else {
+          resetBountyFormToZeroState();
         }
       }
     } catch (e) {}
@@ -184,18 +211,18 @@ export default function Tab11Campaigns() {
           if (job.status === 'COMPLETE' && job.lastResult && job.lastResult.activeList) {
             const updatedList = job.lastResult.activeList.slice(0, 5);
             setBounties(updatedList);
-            if (job.lastResult.updatedBounty) {
-              const target = updatedList.find(b => b.id === activeBountyId) || job.lastResult.updatedBounty;
+            if (updatedList.length === 0) {
+              resetBountyFormToZeroState();
+            } else if (activeBountyId) {
+              const target = updatedList.find(b => b.id === activeBountyId);
               if (target) {
                 setActiveBountyId(target.id);
                 setActivePlatform(detectPlatform(target));
                 setDailyPostsUsed(target.dailyPostsUsed || 0);
                 setSourceVideoPath(target.sourcePath || getDefaultSourcePath(target.id));
+                loadDiskArtifacts('BOUNTY_ENGINE', target.id);
               }
-            } else if (updatedList.length > 0) {
-              loadBountyIntoForm(updatedList[0]);
             }
-            loadDiskArtifacts('BOUNTY_ENGINE', job.bountyId || activeBountyId);
           }
         }
       } catch (e) {}
@@ -212,6 +239,8 @@ export default function Tab11Campaigns() {
   useEffect(() => {
     if (selectedProjectId === 'BOUNTY_ENGINE') {
       fetchBounties();
+    } else {
+      resetBountyFormToZeroState();
     }
   }, [selectedProjectId]);
 
@@ -285,7 +314,11 @@ export default function Tab11Campaigns() {
       if (data.success) {
         const list = (data.bounties || []).slice(0, 5);
         setBounties(list);
-        if (list.length > 0) loadBountyIntoForm(list[0]);
+        if (list.length > 0) {
+          loadBountyIntoForm(list[0]);
+        } else {
+          resetBountyFormToZeroState();
+        }
       }
     } catch (err) {} finally {
       setIsDiscovering(false);
@@ -368,6 +401,10 @@ export default function Tab11Campaigns() {
   };
 
   const handlePurgeBounty = async () => {
+    if (!activeBountyId) {
+      resetBountyFormToZeroState();
+      return;
+    }
     if (!window.confirm(`Permanently delete [${activeBountyId}] and its physical clips?`)) return;
     const targetId = activeBountyId;
     try {
@@ -375,14 +412,18 @@ export default function Tab11Campaigns() {
       if (res.ok) {
         const remaining = bounties.filter(b => b.id !== targetId);
         setBounties(remaining);
-        if (remaining.length > 0) loadBountyIntoForm(remaining[0]);
+        resetBountyFormToZeroState();
+        setTelemetryLog(prev => [
+          `[${new Date().toLocaleTimeString()}] [PURGE COMPLETE] Cleared [${targetId}] and reset workspace to clean slate.`,
+          ...prev
+        ]);
       }
     } catch (e) {}
   };
 
   const totalDailyUsedAcrossAll = bounties.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
   const remainingGlobalSlots = Math.max(0, dailyPostCap - totalDailyUsedAcrossAll);
-  const estEarnings = ((totalClicks / 1000) * (parseFloat(String(cpmRate).replace(/[^0-9.]/g, '')) || 2.0)).toFixed(2);
+  const estEarnings = ((totalClicks / 1000) * (parseFloat(String(cpmRate).replace(/[^0-9.]/g, '')) || 0)).toFixed(2);
   const formatTimer = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   return (
@@ -489,7 +530,7 @@ export default function Tab11Campaigns() {
                   </span>
                   <span>{b.title || b.id}</span>
                   <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '2px', backgroundColor: 'rgba(16,185,129,0.18)', color: '#10b981' }}>
-                    {b.cpmRate || '$2.00'} • {b.runwayDays !== undefined ? `${b.runwayDays}d` : '12d'}
+                    {b.cpmRate || '$0.00'} • {b.runwayDays !== undefined ? `${b.runwayDays}d` : '0d'}
                   </span>
                 </button>
               );
@@ -550,8 +591,8 @@ export default function Tab11Campaigns() {
               <span style={{ fontSize: '10px', color: '#94A3B8' }}>BOUNTY RUNWAY // POOL STATUS</span>
               <span style={{ fontSize: '9px', color: '#10b981', border: '1px solid #1f242d', padding: '1px 5px' }}>AUTO-PURGE ON DRY</span>
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: poolStatus.includes('DRY') ? '#ef4444' : '#10b981' }}>{poolStatus}</div>
-            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>PLATFORM: <strong style={{ color: activePlatform === 'Whop' ? '#38bdf8' : '#ffb800' }}>{activePlatform.toUpperCase()}</strong> • EST. REMAINING: <strong style={{ color: '#E2E8F0' }}>{runwayDays} DAYS</strong></div>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: poolStatus.includes('DRY') ? '#ef4444' : '#10b981' }}>{poolStatus || 'STANDBY'}</div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>PLATFORM: <strong style={{ color: activePlatform === 'Whop' ? '#38bdf8' : '#ffb800' }}>{(activePlatform || 'NONE').toUpperCase()}</strong> • EST. REMAINING: <strong style={{ color: '#E2E8F0' }}>{runwayDays} DAYS</strong></div>
           </div>
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
@@ -563,7 +604,7 @@ export default function Tab11Campaigns() {
               </div>
             </div>
             <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#fff' }}>{totalClicks.toLocaleString()} CLICKS <span style={{ fontSize: '11px', color: '#10b981' }}>(${estEarnings} EST.)</span></div>
-            <div style={{ fontSize: '10px', color: totalClicks >= Number(viewFloor) ? '#10b981' : '#ffb800', marginTop: '4px' }}>VIEW FLOOR: {Number(viewFloor).toLocaleString()}</div>
+            <div style={{ fontSize: '10px', color: totalClicks >= Number(viewFloor || 0) ? '#10b981' : '#ffb800', marginTop: '4px' }}>VIEW FLOOR: {Number(viewFloor || 0).toLocaleString()}</div>
           </div>
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
@@ -581,8 +622,8 @@ export default function Tab11Campaigns() {
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
             <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '6px' }}>TESS QUANT VERDICT</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffb800' }}>{cpmRate} CPM // {poolStatus.includes('DRY') ? 'AUTO-PURGING' : 'KEEP RUNNING'}</div>
-            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>NETWORK: <strong style={{ color: '#fff' }}>{activePlatform.toUpperCase()}</strong> • {(campaignTitle || '').split('//')[0]}</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffb800' }}>{cpmRate || '$0.00'} CPM // {poolStatus.includes('DRY') ? 'AUTO-PURGING' : 'KEEP RUNNING'}</div>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>NETWORK: <strong style={{ color: '#fff' }}>{(activePlatform || 'NONE').toUpperCase()}</strong> • {(campaignTitle || '').split('//')[0]}</div>
           </div>
         </div>
       )}
@@ -592,7 +633,7 @@ export default function Tab11Campaigns() {
         {/* COLUMN 01: BOUNTY RULES */}
         <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES ({activePlatform.toUpperCase()})</span>
+            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES ({(activePlatform || 'STANDBY').toUpperCase()})</span>
             {activeBountyId && (
               <button onClick={handlePurgeBounty} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '10px', padding: '3px 8px', cursor: 'pointer' }}>[ PURGE FUNNEL ]</button>
             )}
@@ -600,23 +641,23 @@ export default function Tab11Campaigns() {
 
           <div>
             <label style={{ fontSize: '10px', color: '#94A3B8' }}>CAMPAIGN TARGET</label>
-            <input type="text" value={campaignTitle} onChange={e => setCampaignTitle(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            <input type="text" value={campaignTitle} onChange={e => setCampaignTitle(e.target.value)} onBlur={() => syncBountyStats()} placeholder="No active bounty selected" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <div>
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>CPM RATE</label>
-              <input type="text" value={cpmRate} onChange={e => setCpmRate(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#10b981', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              <input type="text" value={cpmRate} onChange={e => setCpmRate(e.target.value)} onBlur={() => syncBountyStats()} placeholder="$0.00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#10b981', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
             </div>
             <div>
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>VIEW FLOOR</label>
-              <input type="text" value={viewFloor} onChange={e => setViewFloor(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              <input type="text" value={viewFloor} onChange={e => setViewFloor(e.target.value)} onBlur={() => syncBountyStats()} placeholder="0" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
             </div>
           </div>
 
           <div>
             <label style={{ fontSize: '10px', color: '#94A3B8' }}>SOURCE PATH (AUTO-ASSIGNED PER BOUNTY)</label>
-            <input type="text" value={sourceVideoPath} onChange={e => setSourceVideoPath(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            <input type="text" value={sourceVideoPath} onChange={e => setSourceVideoPath(e.target.value)} onBlur={() => syncBountyStats()} placeholder="Clean slate" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
           </div>
 
           <div>
@@ -624,7 +665,7 @@ export default function Tab11Campaigns() {
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>HOOK HEADLINE</label>
               <button onClick={() => setTranscriptDrawerOpen(!transcriptDrawerOpen)} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '10px', cursor: 'pointer' }}>{transcriptDrawerOpen ? '[ CLOSE DRAWER ]' : '[ AI HOOK / YT URL ]'}</button>
             </div>
-            <input type="text" value={hookHeadline} onChange={e => setHookHeadline(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            <input type="text" value={hookHeadline} onChange={e => setHookHeadline(e.target.value)} onBlur={() => syncBountyStats()} placeholder="" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
           </div>
 
           {transcriptDrawerOpen && (
@@ -637,17 +678,17 @@ export default function Tab11Campaigns() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <div>
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>START TIME</label>
-              <input type="text" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              <input type="text" value={startTime} onChange={e => setStartTime(e.target.value)} placeholder="00:00:00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
             </div>
             <div>
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>END TIME</label>
-              <input type="text" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              <input type="text" value={endTime} onChange={e => setEndTime(e.target.value)} placeholder="00:01:00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
             </div>
           </div>
 
           <div>
             <label style={{ fontSize: '10px', color: '#94A3B8' }}>MANDATORY TAGS (SEO CLUSTER)</label>
-            <input type="text" value={mandatoryTags} onChange={e => setMandatoryTags(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            <input type="text" value={mandatoryTags} onChange={e => setMandatoryTags(e.target.value)} onBlur={() => syncBountyStats()} placeholder="" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
           </div>
 
           <button
