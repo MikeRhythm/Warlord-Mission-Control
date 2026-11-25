@@ -59,17 +59,31 @@ if (!fs.existsSync(STATE_LEDGER)) {
   }
 }
 
-// Helper: Match physical folder name regardless of space vs underscore or casing
+function normKey(s) {
+  return String(s || '').trim().replace(/[\s_]+/g, '_').toLowerCase();
+}
+
 function findMatchingDir(baseDir, rawTarget) {
   if (!fs.existsSync(baseDir) || !rawTarget) return null;
-  const norm = (s) => String(s || '').trim().replace(/[\s_]+/g, '_').toLowerCase();
-  const targetNorm = norm(rawTarget);
+  const targetNorm = normKey(rawTarget);
   try {
     const entries = fs.readdirSync(baseDir, { withFileTypes: true }).filter(d => d.isDirectory());
-    const match = entries.find(d => norm(d.name) === targetNorm);
+    const match = entries.find(d => normKey(d.name) === targetNorm);
     return match ? path.join(baseDir, match.name) : null;
   } catch (e) {
     return null;
+  }
+}
+
+function findAllMatchingDirs(baseDir, rawTarget) {
+  if (!fs.existsSync(baseDir) || !rawTarget) return [];
+  const targetNorm = normKey(rawTarget);
+  try {
+    return fs.readdirSync(baseDir, { withFileTypes: true })
+      .filter(d => d.isDirectory() && normKey(d.name) === targetNorm)
+      .map(d => path.join(baseDir, d.name));
+  } catch (e) {
+    return [];
   }
 }
 
@@ -79,14 +93,12 @@ function findMatchingDir(baseDir, rawTarget) {
 
 app.get('/api/health', (req, res) => {
   const __tenantCtx = resolveTenantContext(req);
-  const PROJECTS_ROOT = __tenantCtx.projectsRoot;
-  const CHATS_ROOT = __tenantCtx.chatsRoot;
   return res.json({
     status: 'ONLINE',
     pillar: 2,
     port: PORT,
-    projectsRoot: PROJECTS_ROOT,
-    chatsRoot: CHATS_ROOT,
+    projectsRoot: __tenantCtx.projectsRoot,
+    chatsRoot: __tenantCtx.chatsRoot,
     timestamp: new Date().toISOString()
   });
 });
@@ -120,7 +132,6 @@ app.all('/api/heartbeat', (req, res) => {
 app.get(['/api/projects', '/api/projects/list', '/api/projects/all', '/api/projects/disk'], (req, res) => {
   const __tenantCtx = resolveTenantContext(req);
   const PROJECTS_ROOT = __tenantCtx.projectsRoot;
-  const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     if (!fs.existsSync(PROJECTS_ROOT)) {
       return res.json({ success: true, projects: [] });
@@ -137,7 +148,8 @@ app.get(['/api/projects', '/api/projects/list', '/api/projects/all', '/api/proje
       let manifest = null;
       if (fs.existsSync(manifestPath)) {
         try {
-          manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          const raw = fs.readFileSync(manifestPath, 'utf8').replace(/^\uFEFF/, '');
+          manifest = JSON.parse(raw);
         } catch (e) {
           console.error(`[PIPELINE] Failed to parse manifest for ${name}:`, e.message);
         }
@@ -262,7 +274,7 @@ app.post('/api/projects/create', (req, res) => {
   }
 });
 
-// Nuclear Purge Controller (Mounted BEFORE global fallback)
+// Nuclear Purge Controller (Obliterates Project, Chats, and Docs across all casing/space variants)
 app.post('/api/projects/purge', (req, res) => {
   const __tenantCtx = resolveTenantContext(req);
   const PROJECTS_ROOT = __tenantCtx.projectsRoot;
@@ -275,10 +287,10 @@ app.post('/api/projects/purge', (req, res) => {
     const docsRoot = path.join(BASE_MCNC, 'vault', 'Docs');
 
     const matchedDirs = [
-      findMatchingDir(PROJECTS_ROOT, safeSlug),
-      findMatchingDir(CHATS_ROOT, safeSlug),
-      findMatchingDir(docsRoot, safeSlug)
-    ].filter(Boolean);
+      ...findAllMatchingDirs(PROJECTS_ROOT, safeSlug),
+      ...findAllMatchingDirs(CHATS_ROOT, safeSlug),
+      ...findAllMatchingDirs(docsRoot, safeSlug)
+    ];
 
     matchedDirs.forEach(dir => {
       if (fs.existsSync(dir)) {
@@ -290,14 +302,14 @@ app.post('/api/projects/purge', (req, res) => {
     const rootPrd = path.join(docsRoot, prdPattern);
     if (fs.existsSync(rootPrd)) fs.unlinkSync(rootPrd);
 
-    console.log(`[NUCLEAR PURGE] Physically obliterated project: ${safeSlug} (${matchedDirs.length} dirs removed)`);
+    console.log(`[NUCLEAR PURGE] Physically obliterated project & chats: ${safeSlug} (${matchedDirs.length} dirs removed)`);
     return res.json({ success: true, purged: safeSlug, removedPaths: matchedDirs });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Obsidian Archive Controller (Mounted BEFORE global fallback)
+// Obsidian Archive Controller
 app.post('/api/projects/archive-obsidian', (req, res) => {
   const __tenantCtx = resolveTenantContext(req);
   const PROJECTS_ROOT = __tenantCtx.projectsRoot;
@@ -337,7 +349,7 @@ app.post('/api/projects/archive-obsidian', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 3. TAB 01: AUTO-HEALING CHAT DISCOVERY
+// 3. TAB 01: DISK-TRUTH CHAT DISCOVERY (NO ORPHANED OR DUPLICATE LEDGERS)
 // ----------------------------------------------------------------------------
 
 app.get('/api/chats/all', (req, res) => {
@@ -346,56 +358,89 @@ app.get('/api/chats/all', (req, res) => {
   const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const catalog = {};
-    const discoveredProjects = new Set(['General_Chats']);
+    const validProjectMap = new Map();
+    validProjectMap.set('general_chats', 'General_Chats');
 
+    // 1. Source of truth: ONLY active project folders on disk in PROJECTS_ROOT
     if (fs.existsSync(PROJECTS_ROOT)) {
       fs.readdirSync(PROJECTS_ROOT, { withFileTypes: true })
         .filter(d => d.isDirectory())
-        .forEach(d => discoveredProjects.add(d.name));
+        .forEach(d => {
+          const key = normKey(d.name);
+          if (!validProjectMap.has(key)) {
+            validProjectMap.set(key, d.name);
+          }
+        });
     }
 
+    // 2. Clean up orphaned chat folders in CHATS_ROOT whose project was deleted
     if (fs.existsSync(CHATS_ROOT)) {
       fs.readdirSync(CHATS_ROOT, { withFileTypes: true })
         .filter(d => d.isDirectory())
-        .forEach(d => discoveredProjects.add(d.name));
+        .forEach(d => {
+          const key = normKey(d.name);
+          if (!validProjectMap.has(key)) {
+            try {
+              fs.rmSync(path.join(CHATS_ROOT, d.name), { recursive: true, force: true });
+              console.log(`[CHATS CLEANUP] Purged orphaned chat ledger: ${d.name}`);
+            } catch (e) {}
+          }
+        });
     }
 
-    discoveredProjects.forEach(prj => {
-      catalog[prj] = [];
-      const prjChatDir = path.join(CHATS_ROOT, prj);
+    // 3. Build deduplicated catalog strictly for General_Chats + active disk projects
+    validProjectMap.forEach((canonicalName, key) => {
+      catalog[canonicalName] = [];
+      const matchingChatDirs = findAllMatchingDirs(CHATS_ROOT, canonicalName);
+      const primaryChatDir = matchingChatDirs[0] || path.join(CHATS_ROOT, canonicalName);
 
-      if (!fs.existsSync(prjChatDir)) {
-        fs.mkdirSync(prjChatDir, { recursive: true });
+      if (!fs.existsSync(primaryChatDir)) {
+        fs.mkdirSync(primaryChatDir, { recursive: true });
       }
 
-      let files = fs.readdirSync(prjChatDir).filter(f => f.endsWith('.json') && !f.includes('Master'));
+      // Merge any duplicate space/underscore chat folders into primaryChatDir
+      if (matchingChatDirs.length > 1) {
+        for (let i = 1; i < matchingChatDirs.length; i++) {
+          const dupDir = matchingChatDirs[i];
+          try {
+            fs.readdirSync(dupDir).forEach(f => {
+              const src = path.join(dupDir, f);
+              const dst = path.join(primaryChatDir, f);
+              if (!fs.existsSync(dst)) fs.renameSync(src, dst);
+            });
+            fs.rmSync(dupDir, { recursive: true, force: true });
+          } catch (e) {}
+        }
+      }
+
+      let files = fs.readdirSync(primaryChatDir).filter(f => f.endsWith('.json') && !f.includes('Master'));
 
       if (files.length === 0) {
         const seedId = `chat_init_${Date.now()}`;
         const seedPayload = {
           id: seedId,
           title: 'Master Chat',
-          project: prj,
+          project: canonicalName,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           messages: []
         };
-        fs.writeFileSync(path.join(prjChatDir, `${seedId}.json`), JSON.stringify(seedPayload, null, 2), 'utf8');
+        fs.writeFileSync(path.join(primaryChatDir, `${seedId}.json`), JSON.stringify(seedPayload, null, 2), 'utf8');
         files = [`${seedId}.json`];
       }
 
-      catalog[prj] = files.map(file => {
+      catalog[canonicalName] = files.map(file => {
         try {
-          const raw = fs.readFileSync(path.join(prjChatDir, file), 'utf8');
+          const raw = fs.readFileSync(path.join(primaryChatDir, file), 'utf8');
           const parsed = JSON.parse(raw);
           return {
             id: parsed.id || file.replace('.json', ''),
             title: parsed.title || 'Master Chat',
-            project: prj,
+            project: canonicalName,
             updatedAt: parsed.updatedAt || new Date().toISOString()
           };
         } catch (e) {
-          return { id: file.replace('.json', ''), title: file.replace('.json', ''), project: prj };
+          return { id: file.replace('.json', ''), title: file.replace('.json', ''), project: canonicalName };
         }
       });
     });
@@ -411,7 +456,8 @@ app.get('/api/chats/master', (req, res) => {
   const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const prj = req.query.project || 'General_Chats';
-    const masterPath = path.join(CHATS_ROOT, prj, 'Master_Ledger.md');
+    const prjDir = findMatchingDir(CHATS_ROOT, prj) || path.join(CHATS_ROOT, prj);
+    const masterPath = path.join(prjDir, 'Master_Ledger.md');
     let content = `Master Chat Ledger for ${prj}.\nNo recorded entries.`;
     if (fs.existsSync(masterPath)) {
       content = fs.readFileSync(masterPath, 'utf8');
@@ -427,7 +473,8 @@ app.get('/api/chats/load', (req, res) => {
   const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const { project, id } = req.query;
-    const targetFile = path.join(CHATS_ROOT, project || 'General_Chats', `${id}.json`);
+    const prjDir = findMatchingDir(CHATS_ROOT, project || 'General_Chats') || path.join(CHATS_ROOT, project || 'General_Chats');
+    const targetFile = path.join(prjDir, `${id}.json`);
     if (!fs.existsSync(targetFile)) {
       return res.json({ success: true, chat: { messages: [] } });
     }
@@ -443,7 +490,7 @@ app.post('/api/chats/save', (req, res) => {
   const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const { project, id, title, messages } = req.body;
-    const prjDir = path.join(CHATS_ROOT, project || 'General_Chats');
+    const prjDir = findMatchingDir(CHATS_ROOT, project || 'General_Chats') || path.join(CHATS_ROOT, project || 'General_Chats');
     if (!fs.existsSync(prjDir)) {
       fs.mkdirSync(prjDir, { recursive: true });
     }
@@ -466,8 +513,17 @@ app.delete('/api/chats/delete', (req, res) => {
   const __tenantCtx = resolveTenantContext(req);
   const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
-    const { project, id } = req.query;
-    const targetFile = path.join(CHATS_ROOT, project || 'General_Chats', `${id}.json`);
+    const { project, id, deleteLedger } = req.query;
+    const prjDir = findMatchingDir(CHATS_ROOT, project || 'General_Chats') || path.join(CHATS_ROOT, project || 'General_Chats');
+
+    if (deleteLedger === 'true' && normKey(project) !== 'general_chats') {
+      if (fs.existsSync(prjDir)) {
+        fs.rmSync(prjDir, { recursive: true, force: true });
+      }
+      return res.json({ success: true, deletedLedger: project });
+    }
+
+    const targetFile = path.join(prjDir, `${id}.json`);
     if (fs.existsSync(targetFile)) {
       fs.unlinkSync(targetFile);
     }
@@ -482,7 +538,8 @@ app.post('/api/chats/archive', (req, res) => {
   const CHATS_ROOT = __tenantCtx.chatsRoot;
   try {
     const { project, chatId, title, summary } = req.body;
-    const prjDir = path.join(CHATS_ROOT, project || 'General_Chats');
+    const prjDir = findMatchingDir(CHATS_ROOT, project || 'General_Chats') || path.join(CHATS_ROOT, project || 'General_Chats');
+    if (!fs.existsSync(prjDir)) fs.mkdirSync(prjDir, { recursive: true });
     const masterPath = path.join(prjDir, 'Master_Ledger.md');
     const archiveLine = `\n\n### [ARCHIVE] ${new Date().toISOString()} // ${title}\n${summary}\n`;
     fs.appendFileSync(masterPath, archiveLine, 'utf8');

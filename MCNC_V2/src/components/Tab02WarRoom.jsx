@@ -1,9 +1,11 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Paperclip, ChevronDown, ChevronUp, AlertOctagon, Loader2, Check, UserCheck, Mic, MicOff, X, Copy, Square, Cpu, CheckSquare, Sparkles, FileText, Server, AlertTriangle, Eye, Trash2, Code, ArrowRight, Lock, RotateCcw
 } from 'lucide-react';
 import SpeakerBtn from './SpeakerBtn';
 import './Tab02WarRoom.css';
+
+const PIPELINE_API_BASE = 'http://localhost:8082/api';
 
 // Stage 1 Forensic Deconstruction Template Wrapper
 const STAGE1_TEMPLATE_HEADER = `EXECUTE: STAGE 1 ZERO-SOLUTION FORENSIC DECONSTRUCTION
@@ -125,7 +127,13 @@ const DIRECTOR_BOARD_CONFIG = [
   { name: 'ORION // STRATEGIC INTEL', modelBadge: 'NEMOTRON', roleType: 'REASONING', color: 'text-[#38bdf8] bg-[#38bdf8]/10 border-[#38bdf8]/30' }
 ];
 
-const DEFAULT_PROJECTS = ['Bounty_Engine', 'The_Chief_Madothi_Fund', 'A_For_Adine', 'Peptides_For_Africa'];
+function normalizeProjectKey(name) {
+  return String(name || '').trim().replace(/[\s_]+/g, '_').toLowerCase();
+}
+
+function formatCanonicalProjectName(name) {
+  return String(name || '').trim().replace(/\s+/g, '_');
+}
 
 export default function Tab02WarRoom({ ws }) {
   const [assignedDirectors, setAssignedDirectors] = useState([]);
@@ -169,14 +177,19 @@ export default function Tab02WarRoom({ ws }) {
   const [projects, setProjects] = useState(() => {
     try {
       const stored = localStorage.getItem('MCNC_PROJECT_LIST');
-      return stored ? JSON.parse(stored) : DEFAULT_PROJECTS;
-    } catch (e) {
-      return DEFAULT_PROJECTS;
-    }
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(formatCanonicalProjectName);
+        }
+      }
+    } catch (e) {}
+    return ['Bounty_Engine'];
   });
 
   const [selectedProject, setSelectedProject] = useState(() => {
-    return localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'Bounty_Engine';
+    const saved = localStorage.getItem('MCNC_ACTIVE_PROJECT');
+    return saved ? formatCanonicalProjectName(saved) : 'Bounty_Engine';
   });
 
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -205,6 +218,69 @@ export default function Tab02WarRoom({ ws }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   
   const isAnyExecuting = Boolean(isCascading || isMultiAgentExecuting || isLLMExecuting || isCodeGenerating);
+
+  // Disk-Truth Sync from Port 8082 + Purge Listener
+  const syncDiskProjects = useCallback(async () => {
+    try {
+      const res = await fetch(`${PIPELINE_API_BASE}/projects`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.projects)) {
+          const liveNames = data.projects
+            .filter(p => p.status !== 'ARCHIVED')
+            .map(p => formatCanonicalProjectName(p.id || p.name))
+            .filter(Boolean);
+
+          if (liveNames.length > 0) {
+            setProjects(liveNames);
+            try { localStorage.setItem('MCNC_PROJECT_LIST', JSON.stringify(liveNames)); } catch (e) {}
+
+            setSelectedProject(prev => {
+              const stillExists = liveNames.some(n => normalizeProjectKey(n) === normalizeProjectKey(prev));
+              const nextActive = stillExists ? prev : (liveNames.includes('Bounty_Engine') ? 'Bounty_Engine' : liveNames[0]);
+              try { localStorage.setItem('MCNC_ACTIVE_PROJECT', nextActive); } catch (e) {}
+              return nextActive;
+            });
+          }
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    syncDiskProjects();
+    const interval = setInterval(syncDiskProjects, 6000);
+
+    const handleProjectPurged = (event) => {
+      const deletedName = event?.detail?.projectName || event?.detail?.project;
+      if (!deletedName) return;
+      const targetKey = normalizeProjectKey(deletedName);
+
+      setProjects(prev => {
+        const filtered = prev.filter(p => normalizeProjectKey(p) !== targetKey);
+        try { localStorage.setItem('MCNC_PROJECT_LIST', JSON.stringify(filtered)); } catch (e) {}
+        setSelectedProject(curr => {
+          if (normalizeProjectKey(curr) !== targetKey) return curr;
+          const fallback = filtered[0] || 'Bounty_Engine';
+          try { localStorage.setItem('MCNC_ACTIVE_PROJECT', fallback); } catch (e) {}
+          return fallback;
+        });
+        return filtered;
+      });
+    };
+
+    const handleProjectCreated = () => {
+      syncDiskProjects();
+    };
+
+    window.addEventListener('mcnc-project-purged', handleProjectPurged);
+    window.addEventListener('mcnc-project-created', handleProjectCreated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('mcnc-project-purged', handleProjectPurged);
+      window.removeEventListener('mcnc-project-created', handleProjectCreated);
+    };
+  }, [syncDiskProjects]);
 
   // Sync incoming critiques queue from Tab 09
   const syncCritiquesQueue = () => {
@@ -257,13 +333,13 @@ export default function Tab02WarRoom({ ws }) {
       setActiveArtifactTarget(critiqueItem.target);
     }
 
-    if (critiqueItem.project && !projects.includes(critiqueItem.project)) {
-      setProjects(prev => [...prev, critiqueItem.project]);
-      setSelectedProject(critiqueItem.project);
-      localStorage.setItem('MCNC_ACTIVE_PROJECT', critiqueItem.project);
-    } else if (critiqueItem.project) {
-      setSelectedProject(critiqueItem.project);
-      localStorage.setItem('MCNC_ACTIVE_PROJECT', critiqueItem.project);
+    if (critiqueItem.project) {
+      const cleanProj = formatCanonicalProjectName(critiqueItem.project);
+      if (!projects.includes(cleanProj)) {
+        setProjects(prev => [...prev, cleanProj]);
+      }
+      setSelectedProject(cleanProj);
+      localStorage.setItem('MCNC_ACTIVE_PROJECT', cleanProj);
     }
 
     setInputBuffer(prev => prev ? `${prev.trim()}\n\n${revisionScaffold}` : revisionScaffold.trim());
@@ -331,8 +407,9 @@ export default function Tab02WarRoom({ ws }) {
   useEffect(() => { streamBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [streamLog, isAnyExecuting]);
 
   const handleSelectProject = (proj) => {
-    setSelectedProject(proj);
-    localStorage.setItem('MCNC_ACTIVE_PROJECT', proj);
+    const canonical = formatCanonicalProjectName(proj);
+    setSelectedProject(canonical);
+    localStorage.setItem('MCNC_ACTIVE_PROJECT', canonical);
   };
 
   const updateKaggleTelemetry = async () => {
@@ -468,10 +545,10 @@ export default function Tab02WarRoom({ ws }) {
   // Auto-Sync Staged Directive & Project from Tab 01 WITH ZERO-STATE RESET (SOP 03 & Tier 3)
   useEffect(() => {
     const ingestStagedDirective = (targetProject, targetPrompt) => {
-      const cleanProj = targetProject ? targetProject.trim() : selectedProject;
+      const cleanProj = targetProject ? formatCanonicalProjectName(targetProject) : selectedProject;
       if (cleanProj) {
         setProjects(prev => {
-          if (!prev.includes(cleanProj)) {
+          if (!prev.some(p => normalizeProjectKey(p) === normalizeProjectKey(cleanProj))) {
             const updated = [...prev, cleanProj];
             try { localStorage.setItem('MCNC_PROJECT_LIST', JSON.stringify(updated)); } catch (e) {}
             return updated;
@@ -482,7 +559,6 @@ export default function Tab02WarRoom({ ws }) {
         try { localStorage.setItem('MCNC_ACTIVE_PROJECT', cleanProj); } catch (e) {}
       }
 
-      // Enforce clean slate: wipe old cross-project comms, reset stage to 1, and load ONLY incoming directive
       const freshSlate = [
         {
           id: Date.now(),
@@ -540,9 +616,8 @@ export default function Tab02WarRoom({ ws }) {
 
   const handleCreateProject = () => {
     if (!newProjectName.trim()) return;
-    // Preserve SOP 19 Pascal_Snake_Case instead of forcing all-caps
-    const formatted = newProjectName.trim().replace(/\s+/g, '_');
-    if (!projects.includes(formatted)) {
+    const formatted = formatCanonicalProjectName(newProjectName);
+    if (!projects.some(p => normalizeProjectKey(p) === normalizeProjectKey(formatted))) {
       const updated = [...projects, formatted];
       setProjects(updated);
       localStorage.setItem('MCNC_PROJECT_LIST', JSON.stringify(updated));
@@ -580,7 +655,6 @@ export default function Tab02WarRoom({ ws }) {
    - MQL/Trading (01) strictly uses DodgerBlue, OrangeRed, and Goldenrod lines only.`;
 
     if (pipelineStage === 2) {
-      // Stage 2 Production Scaffold Injection
       const synthesizedPRD = streamLog
         .filter(l => l.type === 'agent' && !l.text.startsWith('Executing ['))
         .map(l => `### ${l.sender}\n${l.text}`)
@@ -612,7 +686,6 @@ export default function Tab02WarRoom({ ws }) {
       ]);
 
     } else {
-      // Stage 1 Deconstruction Scaffold Injection
       const dynamicScaffold = STAGE1_TEMPLATE_HEADER
         .replace("__PROJECT_NAME__", selectedProject)
         .replace("__PALETTE_RULES__", projectPaletteConstraint);
@@ -676,7 +749,6 @@ export default function Tab02WarRoom({ ws }) {
       localStorage.setItem('MCNC_WARROOM_STREAM', JSON.stringify(freshReset));
       localStorage.setItem('MCNC_WARROOM_STATE', 'IDLE');
       localStorage.setItem('MCNC_WARROOM_PIPELINE_STAGE', '1');
-      localStorage.removeItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
       sessionStorage.removeItem('MCNC_WARROOM_STREAM');
     } catch (e) {}
 
@@ -881,8 +953,6 @@ Format strictly as:
     }
 
     setIsCascading(false);
-    
-    // PROGRESSION: ADVANCE TO STAGE 2
     setPipelineStage(2);
     localStorage.setItem('MCNC_WARROOM_PIPELINE_STAGE', '2');
 
@@ -1234,7 +1304,7 @@ ${activeDirective}`;
 
       const existingProjects = JSON.parse(localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS') || '[]');
       const updatedManifests = [
-        ...existingProjects.filter(p => p.name !== selectedProject),
+        ...existingProjects.filter(p => normalizeProjectKey(p.name) !== normalizeProjectKey(selectedProject)),
         {
           name: selectedProject,
           totalTasks: parsedTasks.length,
@@ -1291,7 +1361,7 @@ ${activeDirective}`;
         {/* PROJECT CONTAINER SELECTOR */}
         <div className="border border-[#1f242d] rounded bg-[#101317]/50 overflow-hidden mb-2">
           <div className="px-3 py-2 bg-[#14171c] flex items-center justify-between border-b border-[#1f242d]">
-            <span className="text-[#ffb800] font-bold text-xs tracking-wider">PROJECT CONTAINER</span>
+            <span className="text-[#ffb800] font-bold text-xs tracking-wider">PROJECT CONTAINER ({projects.length})</span>
             <button onClick={() => setIsCreatingProject(!isCreatingProject)} className="text-[9px] border border-[#ffb800] text-[#ffb800] px-1.5 py-0.5 rounded font-mono font-bold hover:bg-[#ffb800]/10 cursor-pointer">
               {isCreatingProject ? 'CANCEL' : '+ NEW PROJECT'}
             </button>
@@ -1638,7 +1708,6 @@ ${activeDirective}`;
                       {item.critique || '(No spoken critique — reference images attached)'}
                     </div>
 
-                    {/* ATTACHED DESIGN EXAMPLES THUMBNAILS TRAY */}
                     {item.attachments && item.attachments.length > 0 && (
                       <div className="flex items-center gap-2 pt-1 overflow-x-auto custom-scrollbar">
                         <span className="text-[9px] text-[#DAA520] font-bold uppercase tracking-wider flex-shrink-0">
@@ -1672,7 +1741,7 @@ ${activeDirective}`;
           </div>
         )}
 
-        {/* TERMINAL LOG FEED: SELECT-TEXT PERMITTED */}
+        {/* TERMINAL LOG FEED */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono select-text cursor-text custom-scrollbar">
           {streamLog.map(log => (
             <div key={log.id} className="space-y-1">
@@ -1859,7 +1928,7 @@ ${activeDirective}`;
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono">
             <div className="flex items-center gap-1.5 flex-wrap">
               
-              {/* PRIMARY EXECUTION TRIGGER (STAGE 1 VS STAGE 2 DYNAMIC ACTION) */}
+              {/* PRIMARY EXECUTION TRIGGER */}
               {pipelineStage === 2 ? (
                 <button 
                   onClick={runStage2CodeDelivery} 
@@ -1952,7 +2021,7 @@ ${activeDirective}`;
                 <span>RESET STATE</span>
               </button>
               
-              {/* CLS (PERMANENTLY UNLOCKED) */}
+              {/* CLS */}
               <button 
                 type="button"
                 onClick={handleCls} 

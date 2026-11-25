@@ -1,6 +1,20 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
+
+const PIPELINE_API_BASE = 'http://localhost:8082/api';
+
+const PROJECT_THEME_PALETTE = ['#ffb800', '#38bdf8', '#10b981', '#C5BD9F', '#a78bfa'];
+
+function normalizeProjectKey(name) {
+  return String(name || '')
+    .trim()
+    .replace(/[\s_]+/g, '_')
+    .toLowerCase();
+}
 
 export default function Tab11Campaigns() {
+  const [projects, setProjects] = useState([
+    { id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }
+  ]);
   const [selectedProjectId, setSelectedProjectId] = useState('BOUNTY_ENGINE');
   const [bounties, setBounties] = useState([]);
   const [activeBountyId, setActiveBountyId] = useState('');
@@ -36,13 +50,6 @@ export default function Tab11Campaigns() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [artifacts, setArtifacts] = useState([]);
 
-  const projects = [
-    { id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' },
-    { id: 'The Chief Madothi F', label: 'THE CHIEF MADOTHI FUND', color: '#38bdf8' },
-    { id: 'PEPTIDES', label: 'PEPTIDES FOR AFRICA', color: '#10b981' },
-    { id: 'John Tanton - Proje', label: 'JOHN TANTON // PM BOOK', color: '#C5BD9F' }
-  ];
-
   const resetBountyFormToZeroState = () => {
     setActiveBountyId('');
     setActivePlatform('');
@@ -64,6 +71,88 @@ export default function Tab11Campaigns() {
     setCopiedFlash({});
     setCopiedHistory({});
   };
+
+  // Sync live on-disk projects from Port 8082 + listen for purge/create broadcasts
+  const syncDiskProjects = useCallback(async () => {
+    try {
+      const res = await fetch(`${PIPELINE_API_BASE}/projects`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.projects)) {
+          const activeDiskProjects = data.projects.filter(p => p.status !== 'ARCHIVED');
+          const mapped = [];
+
+          // Always keep Bounty_Engine first if present on disk
+          const bountyEntry = activeDiskProjects.find(
+            p => normalizeProjectKey(p.id || p.name) === 'bounty_engine'
+          );
+          if (bountyEntry) {
+            mapped.push({
+              id: 'BOUNTY_ENGINE',
+              label: 'CREATOR BOUNTIES',
+              color: '#ffb800'
+            });
+          }
+
+          activeDiskProjects.forEach((p, idx) => {
+            const rawId = p.id || p.name;
+            if (normalizeProjectKey(rawId) === 'bounty_engine') return;
+            const displayLabel = String(p.name || rawId).replace(/_/g, ' ').toUpperCase();
+            mapped.push({
+              id: rawId,
+              label: displayLabel,
+              color: PROJECT_THEME_PALETTE[(idx + 1) % PROJECT_THEME_PALETTE.length]
+            });
+          });
+
+          const finalList = mapped.length > 0
+            ? mapped
+            : [{ id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }];
+
+          setProjects(finalList);
+          setSelectedProjectId(prev => {
+            const exists = finalList.some(item => normalizeProjectKey(item.id) === normalizeProjectKey(prev));
+            return exists ? prev : finalList[0].id;
+          });
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    syncDiskProjects();
+    const interval = setInterval(syncDiskProjects, 6000);
+
+    const handleProjectPurged = (event) => {
+      const deletedName = event?.detail?.projectName || event?.detail?.project;
+      if (!deletedName) return;
+      const targetKey = normalizeProjectKey(deletedName);
+
+      setProjects(prev => {
+        const filtered = prev.filter(p => normalizeProjectKey(p.id) !== targetKey);
+        const fallbackList = filtered.length > 0
+          ? filtered
+          : [{ id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }];
+
+        setSelectedProjectId(curr =>
+          normalizeProjectKey(curr) === targetKey ? fallbackList[0].id : curr
+        );
+        return fallbackList;
+      });
+    };
+
+    const handleProjectCreated = () => {
+      syncDiskProjects();
+    };
+
+    window.addEventListener('mcnc-project-purged', handleProjectPurged);
+    window.addEventListener('mcnc-project-created', handleProjectCreated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('mcnc-project-purged', handleProjectPurged);
+      window.removeEventListener('mcnc-project-created', handleProjectCreated);
+    };
+  }, [syncDiskProjects]);
 
   const getDefaultSourcePath = (bId) => {
     if (!bId) return '';
@@ -241,6 +330,7 @@ export default function Tab11Campaigns() {
       fetchBounties();
     } else {
       resetBountyFormToZeroState();
+      loadDiskArtifacts(selectedProjectId);
     }
   }, [selectedProjectId]);
 
@@ -445,9 +535,11 @@ export default function Tab11Campaigns() {
         justifyContent: 'space-between',
         paddingBottom: '10px',
         borderBottom: '1px solid #1f242d',
-        marginBottom: '12px'
+        marginBottom: '12px',
+        flexWrap: 'wrap',
+        gap: '8px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '13px' }}>ACTION STATION //</span>
           {projects.map(proj => (
             <button

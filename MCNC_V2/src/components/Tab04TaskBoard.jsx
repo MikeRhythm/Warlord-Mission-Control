@@ -12,16 +12,6 @@ const PIPELINE_BASE = `http://localhost:${PIPELINE_PORT}`;
 const MASTER_PORT = 8081;
 const MASTER_BASE = `http://localhost:${MASTER_PORT}`;
 
-const KNOWN_MASTER_PROJECTS = [
-  'A_For_Adine',
-  'Becks_Soccer_Academy',
-  'Bounty_Engine',
-  'Commune_Org_App',
-  'John_Tanton_-_Project_Management_Book',
-  'PEPTIDES',
-  'The_Chief_Madothi_Fund'
-];
-
 const METALLIC_PLATES = {
   titanium: {
     background: 'linear-gradient(135deg, #2d3540 0%, #1a2028 52%, #11151b 100%)',
@@ -69,9 +59,58 @@ function normalizeProjectKey(name) {
 
 function formatProjectLabel(name) {
   const raw = String(name || '').trim();
-  if (!raw) return 'Bounty_Engine';
-  if (normalizeProjectKey(raw) === 'bounty_engine') return 'Bounty_Engine';
-  return raw;
+  if (!raw) return '';
+  return raw.replace(/\s+/g, '_');
+}
+
+function purgeProjectFromLocalStorage(projectName) {
+  const targetKey = normalizeProjectKey(projectName);
+  if (!targetKey) return;
+
+  try {
+    const rawList = localStorage.getItem('MCNC_PROJECT_LIST');
+    if (rawList) {
+      const parsed = JSON.parse(rawList);
+      if (Array.isArray(parsed)) {
+        localStorage.setItem(
+          'MCNC_PROJECT_LIST',
+          JSON.stringify(parsed.filter(p => normalizeProjectKey(p) !== targetKey))
+        );
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const rawManifests = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
+    if (rawManifests) {
+      const parsed = JSON.parse(rawManifests);
+      if (Array.isArray(parsed)) {
+        localStorage.setItem(
+          'MCNC_ACTIVE_PROJECT_MANIFESTS',
+          JSON.stringify(parsed.filter(m => normalizeProjectKey(m.name) !== targetKey))
+        );
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const rawActiveTasks = localStorage.getItem('MCNC_ACTIVE_TASKS');
+    if (rawActiveTasks) {
+      const parsed = JSON.parse(rawActiveTasks);
+      if (Array.isArray(parsed)) {
+        localStorage.setItem(
+          'MCNC_ACTIVE_TASKS',
+          JSON.stringify(parsed.filter(t => normalizeProjectKey(t.project) !== targetKey))
+        );
+      }
+    }
+  } catch (e) {}
+
+  try {
+    if (normalizeProjectKey(localStorage.getItem('MCNC_ACTIVE_PROJECT')) === targetKey) {
+      localStorage.removeItem('MCNC_ACTIVE_PROJECT');
+    }
+  } catch (e) {}
 }
 
 function mergeDispatchedTasksIntoList(existingList) {
@@ -85,7 +124,7 @@ function mergeDispatchedTasksIntoList(existingList) {
     rawTasks.forEach((rt, idx) => {
       const proj = formatProjectLabel(rt.project || fallbackProject);
       const title = String(rt.title || '').trim();
-      if (!title) return;
+      if (!title || !proj) return;
       const dedupeKey = `${normalizeProjectKey(proj)}::${title.toLowerCase()}`;
       if (existingKeys.has(dedupeKey)) return;
       existingKeys.add(dedupeKey);
@@ -129,7 +168,7 @@ function mergeDispatchedTasksIntoList(existingList) {
 }
 
 export default function Tab04TaskBoard({ ws }) {
-  const [projects, setProjects] = useState(KNOWN_MASTER_PROJECTS);
+  const [projects, setProjects] = useState([]);
   const [selectedProjectScope, setSelectedProjectScope] = useState('ALL PROJECTS');
   const [searchQuery, setSearchQuery] = useState('');
   const [pipelineConnected, setPipelineConnected] = useState(false);
@@ -143,30 +182,15 @@ export default function Tab04TaskBoard({ ws }) {
       const stored = localStorage.getItem('MCNC_HERMES_KANBAN_TASKS');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           baseTasks = parsed.filter(
-            t => !String(t.id || '').startsWith('BTY-') && String(t.project || '').toUpperCase() !== 'BOUNTY ENGINE'
+            t => !String(t.id || '').startsWith('BTY-') &&
+                 String(t.id || '') !== 'RHY-SCAN-1' &&
+                 normalizeProjectKey(t.project) !== 'rhythm_trading'
           );
         }
       }
     } catch (e) {}
-
-    if (baseTasks.length === 0) {
-      baseTasks = [
-        {
-          id: 'RHY-SCAN-1',
-          project: 'RHYTHM_TRADING',
-          title: 'Volatility Scan Calibration & Breakout Trigger Verification',
-          plan: 'Validate tick-level breakout algorithms across Asian and London sessions using Warlord line standards.',
-          assignedDirector: 'TESS // QUANT',
-          stage: 'AGENT BUILD',
-          status: 'BUILDING',
-          judgeVerified: false,
-          milestones: ['Compute ATR bands', 'Verify spread variance', 'Draft trigger payload'],
-          timestamp: new Date().toISOString()
-        }
-      ];
-    }
 
     return mergeDispatchedTasksIntoList(baseTasks);
   });
@@ -174,6 +198,25 @@ export default function Tab04TaskBoard({ ws }) {
   useEffect(() => {
     localStorage.setItem('MCNC_HERMES_KANBAN_TASKS', JSON.stringify(taskList));
   }, [taskList]);
+
+  // Listen for Project Deletions / Archives from Tab 03 Projects
+  useEffect(() => {
+    const handleProjectPurged = (event) => {
+      const deletedName = event?.detail?.projectName || event?.detail?.project;
+      if (!deletedName) return;
+      const targetKey = normalizeProjectKey(deletedName);
+
+      purgeProjectFromLocalStorage(deletedName);
+      setProjects(prev => prev.filter(p => normalizeProjectKey(p) !== targetKey));
+      setTaskList(prev => prev.filter(t => normalizeProjectKey(t.project) !== targetKey));
+      setSelectedProjectScope(prev =>
+        normalizeProjectKey(prev) === targetKey ? 'ALL PROJECTS' : prev
+      );
+    };
+
+    window.addEventListener('mcnc-project-purged', handleProjectPurged);
+    return () => window.removeEventListener('mcnc-project-purged', handleProjectPurged);
+  }, []);
 
   // Listen for War Room Dispatches (Tab 02 -> Tab 04 & Paperclip)
   useEffect(() => {
@@ -238,58 +281,55 @@ export default function Tab04TaskBoard({ ws }) {
     return () => window.removeEventListener('mcnc-bounties-discovered', handleBountyDiscovered);
   }, []);
 
-  // Fetch all projects from Port 8082 + Port 8081 + Local Manifests so all 7+ projects show
+  // Fetch live on-disk projects from Port 8082 and prune deleted projects from Kanban state
   const fetchProjectsFromPipeline = useCallback(async () => {
-    const collected = new Map();
-    const registerName = (raw) => {
-      const label = formatProjectLabel(typeof raw === 'string' ? raw : raw?.name || raw?.id);
-      if (!label) return;
-      const key = normalizeProjectKey(label);
-      if (!collected.has(key)) collected.set(key, label);
-    };
-
-    KNOWN_MASTER_PROJECTS.forEach(registerName);
-    let connected = false;
-
     try {
-      const res8082 = await fetch(`${PIPELINE_BASE}/api/projects/disk`);
+      const res8082 = await fetch(`${PIPELINE_BASE}/api/projects`);
       if (res8082.ok) {
         const raw = await res8082.json();
         const list = Array.isArray(raw) ? raw : (raw.projects || raw.data || []);
-        list.forEach(registerName);
-        connected = true;
+        const diskMap = new Map();
+
+        list.forEach(item => {
+          if (item && item.status === 'ARCHIVED') return;
+          const rawLabel = typeof item === 'string' ? item : (item?.id || item?.name);
+          const label = formatProjectLabel(rawLabel);
+          if (!label) return;
+          diskMap.set(normalizeProjectKey(label), label);
+        });
+
+        const liveProjects = Array.from(diskMap.values());
+        setProjects(liveProjects);
+        setPipelineConnected(true);
+
+        // Prune stale tasks whose project folder no longer exists on disk
+        if (diskMap.size > 0) {
+          setTaskList(prev => prev.filter(t => diskMap.has(normalizeProjectKey(t.project))));
+          setSelectedProjectScope(prev => {
+            if (prev === 'ALL PROJECTS') return prev;
+            return diskMap.has(normalizeProjectKey(prev)) ? prev : 'ALL PROJECTS';
+          });
+        }
+        return;
       }
     } catch (e) {}
 
-    try {
-      const res8081 = await fetch(`${MASTER_BASE}/api/projects`);
-      if (res8081.ok) {
-        const raw = await res8081.json();
-        const list = Array.isArray(raw) ? raw : (raw.projects || raw.data || []);
-        list.forEach(registerName);
-        connected = true;
-      }
-    } catch (e) {}
-
-    try {
-      const local = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS') || localStorage.getItem('MCNC_PROJECT_MANIFESTS');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) parsed.forEach(registerName);
-      }
-    } catch (e) {}
-
-    setProjects(Array.from(collected.values()));
-    setPipelineConnected(connected);
+    setPipelineConnected(false);
   }, []);
 
   useEffect(() => {
     fetchProjectsFromPipeline();
+    const interval = setInterval(fetchProjectsFromPipeline, 5000);
+    window.addEventListener('mcnc-project-created', fetchProjectsFromPipeline);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('mcnc-project-created', fetchProjectsFromPipeline);
+    };
   }, [fetchProjectsFromPipeline]);
 
-  // Build deduplicated full list of all projects across Disk + Tasks
+  // Build deduplicated list strictly from live disk projects
   const projectMap = new Map();
-  [...projects, ...taskList.map(t => t.project)].forEach(p => {
+  projects.forEach(p => {
     const label = formatProjectLabel(p);
     if (!label) return;
     const key = normalizeProjectKey(label);
@@ -324,7 +364,7 @@ export default function Tab04TaskBoard({ ws }) {
     setIsSubmitting(true);
 
     const activeProjectName = selectedProjectScope === 'ALL PROJECTS'
-      ? 'Bounty_Engine'
+      ? (projects[0] || 'Bounty_Engine')
       : selectedProjectScope;
 
     const prefix = activeProjectName.split(/[\s_]+/).map(w => w[0]).join('').substring(0, 3).toUpperCase();
@@ -426,20 +466,20 @@ export default function Tab04TaskBoard({ ws }) {
           </div>
         </div>
 
-        {/* EXPANDED PROJECT SCOPE SELECTOR BAR (ALL DISK & DISPATCHED PROJECTS VISIBLE) */}
+        {/* EXPANDED DISK-TRUTH PROJECT SCOPE SELECTOR BAR */}
         <div className="flex flex-col border border-[#1f242d] rounded bg-[#0d0f12] px-3 py-2 gap-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5 text-[#ffb800]" />
                 <span className="text-[#ffb800] font-bold text-[10px] uppercase tracking-wider">
-                  PROJECT SCOPE ({projectOptions.length - 1} REGISTERED):
+                  PROJECT SCOPE ({projectOptions.length - 1} ON DISK):
                 </span>
               </div>
               <div className="flex items-center gap-1">
                 <span className={`w-2 h-2 rounded-full ${pipelineConnected ? 'bg-[#10b981]' : 'bg-[#ef4444]'}`} />
                 <span className="text-[9px] text-gray-400">
-                  {pipelineConnected ? 'DISK PIPELINE (PORT 8081/8082)' : 'OFFLINE (CACHED MANIFEST)'}
+                  {pipelineConnected ? 'DISK PIPELINE (PORT 8082)' : 'OFFLINE (WAITING FOR 8082)'}
                 </span>
               </div>
             </div>
@@ -458,7 +498,7 @@ export default function Tab04TaskBoard({ ws }) {
 
               <button
                 onClick={handleSyncFromWarRoom}
-                title="Pull latest dispatched tasks from War Room / Paperclip"
+                title="Sync live disk projects and dispatched tasks"
                 className="px-2.5 py-1 rounded text-[9px] font-bold cursor-pointer border bg-[#38bdf8]/15 text-[#38bdf8] border-[#38bdf8]/50 hover:bg-[#38bdf8] hover:text-black transition-all flex items-center gap-1"
               >
                 <RefreshCw className="w-3 h-3" />
@@ -504,7 +544,7 @@ export default function Tab04TaskBoard({ ws }) {
             type="text"
             value={newIdeaText}
             onChange={(e) => setNewIdeaText(e.target.value)}
-            placeholder={`[FLOOR 1 CAPTURE] Drop a prompt into triage for [${selectedProjectScope === 'ALL PROJECTS' ? 'Bounty_Engine' : selectedProjectScope}]...`}
+            placeholder={`[FLOOR 1 CAPTURE] Drop a prompt into triage for [${selectedProjectScope === 'ALL PROJECTS' ? (projects[0] || 'Bounty_Engine') : selectedProjectScope}]...`}
             className="flex-1 bg-[#0a0c0e] border border-[#232832] rounded px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#ffb800] text-[11px]"
           />
           <select
@@ -740,7 +780,7 @@ export default function Tab04TaskBoard({ ws }) {
             </div>
             <p className="text-[#8fa0b5] leading-relaxed text-[9px]">
               {selectedProjectScope === 'ALL PROJECTS'
-                ? 'Overseeing operational pipelines across all 7+ registered projects. Zero-state initialization active.'
+                ? `Overseeing operational pipelines across ${projects.length} active on-disk project(s). Zero-state disk-truth active.`
                 : `Focused on [${selectedProjectScope}]. Ready to execute agent sub-threads and pipeline artifacts.`}
             </p>
           </div>

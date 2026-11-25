@@ -9,6 +9,18 @@ import './Tab04TaskBoard.css';
 
 const PIPELINE_PORT = 8082;
 const PIPELINE_BASE = `http://localhost:${PIPELINE_PORT}`;
+const MASTER_PORT = 8081;
+const MASTER_BASE = `http://localhost:${MASTER_PORT}`;
+
+const KNOWN_MASTER_PROJECTS = [
+  'A_For_Adine',
+  'Becks_Soccer_Academy',
+  'Bounty_Engine',
+  'Commune_Org_App',
+  'John_Tanton_-_Project_Management_Book',
+  'PEPTIDES',
+  'The_Chief_Madothi_Fund'
+];
 
 const METALLIC_PLATES = {
   titanium: {
@@ -48,8 +60,76 @@ const METALLIC_PLATES = {
   }
 };
 
+function normalizeProjectKey(name) {
+  return String(name || '')
+    .trim()
+    .replace(/[\s_]+/g, '_')
+    .toLowerCase();
+}
+
+function formatProjectLabel(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return 'Bounty_Engine';
+  if (normalizeProjectKey(raw) === 'bounty_engine') return 'Bounty_Engine';
+  return raw;
+}
+
+function mergeDispatchedTasksIntoList(existingList) {
+  const merged = [...existingList];
+  const existingKeys = new Set(
+    merged.map(t => `${normalizeProjectKey(t.project)}::${String(t.title || '').trim().toLowerCase()}`)
+  );
+
+  const ingestRaw = (rawTasks, fallbackProject = 'Bounty_Engine') => {
+    if (!Array.isArray(rawTasks)) return;
+    rawTasks.forEach((rt, idx) => {
+      const proj = formatProjectLabel(rt.project || fallbackProject);
+      const title = String(rt.title || '').trim();
+      if (!title) return;
+      const dedupeKey = `${normalizeProjectKey(proj)}::${title.toLowerCase()}`;
+      if (existingKeys.has(dedupeKey)) return;
+      existingKeys.add(dedupeKey);
+
+      merged.unshift({
+        id: rt.id || `DEL-${100 + idx}`,
+        project: proj,
+        title,
+        plan: rt.toolId
+          ? `Dispatched from War Room Manifest. Bound tool: [${rt.toolId}].`
+          : 'Dispatched from War Room Manifest to Paperclip & Hermes Kanban.',
+        assignedDirector: String(rt.assignedDirector || 'CHARLIE // CODE').toUpperCase(),
+        stage: rt.stage || 'AGENT BUILD',
+        status: rt.status || 'BUILDING',
+        judgeVerified: false,
+        milestones: rt.toolId ? [`Tool: ${rt.toolId}`, 'Execute & verify DoD'] : ['Execute & verify DoD'],
+        timestamp: rt.timestamp || new Date().toISOString()
+      });
+    });
+  };
+
+  try {
+    const manifestsRaw = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS');
+    if (manifestsRaw) {
+      const manifests = JSON.parse(manifestsRaw);
+      if (Array.isArray(manifests)) {
+        manifests.forEach(m => ingestRaw(m.tasks, m.name || 'Bounty_Engine'));
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const activeTasksRaw = localStorage.getItem('MCNC_ACTIVE_TASKS');
+    if (activeTasksRaw) {
+      const activeTasks = JSON.parse(activeTasksRaw);
+      ingestRaw(activeTasks, localStorage.getItem('MCNC_ACTIVE_PROJECT') || 'Bounty_Engine');
+    }
+  } catch (e) {}
+
+  return merged;
+}
+
 export default function Tab04TaskBoard({ ws }) {
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState(KNOWN_MASTER_PROJECTS);
   const [selectedProjectScope, setSelectedProjectScope] = useState('ALL PROJECTS');
   const [searchQuery, setSearchQuery] = useState('');
   const [pipelineConnected, setPipelineConnected] = useState(false);
@@ -58,63 +138,80 @@ export default function Tab04TaskBoard({ ws }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [taskList, setTaskList] = useState(() => {
+    let baseTasks = [];
     try {
       const stored = localStorage.getItem('MCNC_HERMES_KANBAN_TASKS');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Purge legacy uppercase BOUNTY ENGINE / stale BTY-* tickets automatically
-          return parsed.filter(
+          baseTasks = parsed.filter(
             t => !String(t.id || '').startsWith('BTY-') && String(t.project || '').toUpperCase() !== 'BOUNTY ENGINE'
           );
         }
       }
     } catch (e) {}
 
-    return [
-      {
-        id: 'CMF-INIT-1',
-        project: 'CHIEF MADOTHI FUND',
-        title: 'Community Ingestion Engine & Telegram Broadcast Pipe',
-        plan: 'Map inbound lead streams to automated sentiment scoring and dispatch summaries to Monty.',
-        assignedDirector: 'MONTY // COMMAND',
-        stage: 'AGENT BUILD',
-        status: 'BUILDING',
-        judgeVerified: false,
-        milestones: ['Scan inbound API', 'Format message deck', 'Deploy telemetry hook'],
-        timestamp: new Date().toISOString()
-      },
-      {
-        id: 'RHY-SCAN-1',
-        project: 'RHYTHM TRADING',
-        title: 'Volatility Scan Calibration & Breakout Trigger Verification',
-        plan: 'Validate tick-level breakout algorithms across Asian and London sessions using Warlord line standards.',
-        assignedDirector: 'TESS // QUANT',
-        stage: 'HUMAN GATE',
-        status: 'WAITING_APPROVAL',
-        judgeVerified: false,
-        milestones: ['Compute ATR bands', 'Verify spread variance', 'Draft trigger payload'],
-        timestamp: new Date().toISOString()
-      },
-      {
-        id: 'CMF-DOCS-1',
-        project: 'CHIEF MADOTHI FUND',
-        title: 'Project Directory Doctrine Architecture Verification',
-        plan: 'Enforce standard 4-folder schema across vault directories on disk.',
-        assignedDirector: 'CHARLIE // DEV LEAD',
-        stage: 'SHIPPED',
-        status: 'COMPLETED',
-        judgeVerified: true,
-        milestones: ['Verify root paths', 'Flatten docs structure', 'Deploy server_pipeline.js'],
-        timestamp: new Date().toISOString()
-      }
-    ];
+    if (baseTasks.length === 0) {
+      baseTasks = [
+        {
+          id: 'RHY-SCAN-1',
+          project: 'RHYTHM_TRADING',
+          title: 'Volatility Scan Calibration & Breakout Trigger Verification',
+          plan: 'Validate tick-level breakout algorithms across Asian and London sessions using Warlord line standards.',
+          assignedDirector: 'TESS // QUANT',
+          stage: 'AGENT BUILD',
+          status: 'BUILDING',
+          judgeVerified: false,
+          milestones: ['Compute ATR bands', 'Verify spread variance', 'Draft trigger payload'],
+          timestamp: new Date().toISOString()
+        }
+      ];
+    }
+
+    return mergeDispatchedTasksIntoList(baseTasks);
   });
 
   useEffect(() => {
     localStorage.setItem('MCNC_HERMES_KANBAN_TASKS', JSON.stringify(taskList));
   }, [taskList]);
 
+  // Listen for War Room Dispatches (Tab 02 -> Tab 04 & Paperclip)
+  useEffect(() => {
+    const handleWarRoomDispatch = (event) => {
+      const detail = event?.detail || {};
+      const incoming = Array.isArray(detail.tasks) ? detail.tasks : [];
+      const projName = formatProjectLabel(detail.project || 'Bounty_Engine');
+
+      setTaskList(prev => {
+        const withoutOldProject = prev.filter(
+          t => normalizeProjectKey(t.project) !== normalizeProjectKey(projName)
+        );
+        if (incoming.length > 0) {
+          const formatted = incoming.map((rt, idx) => ({
+            id: rt.id || `DEL-${100 + idx}`,
+            project: projName,
+            title: rt.title || `Execution Unit ${idx + 1}`,
+            plan: rt.toolId
+              ? `Dispatched from War Room Manifest. Bound tool: [${rt.toolId}].`
+              : 'Dispatched from War Room Manifest.',
+            assignedDirector: String(rt.assignedDirector || 'CHARLIE // CODE').toUpperCase(),
+            stage: 'AGENT BUILD',
+            status: 'BUILDING',
+            judgeVerified: false,
+            milestones: rt.toolId ? [`Tool: ${rt.toolId}`, 'Verify SOP 05 DoD'] : ['Verify SOP 05 DoD'],
+            timestamp: rt.timestamp || new Date().toISOString()
+          }));
+          return [...formatted, ...withoutOldProject];
+        }
+        return mergeDispatchedTasksIntoList(withoutOldProject);
+      });
+    };
+
+    window.addEventListener('warlord-project-dispatched', handleWarRoomDispatch);
+    return () => window.removeEventListener('warlord-project-dispatched', handleWarRoomDispatch);
+  }, []);
+
+  // Listen for Automated Bounty Discovery broadcasts from Tab 11
   useEffect(() => {
     const handleBountyDiscovered = (event) => {
       const bounties = event.detail.bounties || [];
@@ -141,50 +238,69 @@ export default function Tab04TaskBoard({ ws }) {
     return () => window.removeEventListener('mcnc-bounties-discovered', handleBountyDiscovered);
   }, []);
 
+  // Fetch all projects from Port 8082 + Port 8081 + Local Manifests so all 7+ projects show
   const fetchProjectsFromPipeline = useCallback(async () => {
+    const collected = new Map();
+    const registerName = (raw) => {
+      const label = formatProjectLabel(typeof raw === 'string' ? raw : raw?.name || raw?.id);
+      if (!label) return;
+      const key = normalizeProjectKey(label);
+      if (!collected.has(key)) collected.set(key, label);
+    };
+
+    KNOWN_MASTER_PROJECTS.forEach(registerName);
+    let connected = false;
+
     try {
-      const res = await fetch(`${PIPELINE_BASE}/api/projects/disk`);
-      if (res.ok) {
-        const raw = await res.json();
+      const res8082 = await fetch(`${PIPELINE_BASE}/api/projects/disk`);
+      if (res8082.ok) {
+        const raw = await res8082.json();
         const list = Array.isArray(raw) ? raw : (raw.projects || raw.data || []);
-        if (list.length > 0) {
-          setProjects(list);
-          setPipelineConnected(true);
-          return;
-        }
+        list.forEach(registerName);
+        connected = true;
       }
     } catch (e) {}
 
     try {
-      const local = localStorage.getItem('MCNC_PROJECT_MANIFESTS');
+      const res8081 = await fetch(`${MASTER_BASE}/api/projects`);
+      if (res8081.ok) {
+        const raw = await res8081.json();
+        const list = Array.isArray(raw) ? raw : (raw.projects || raw.data || []);
+        list.forEach(registerName);
+        connected = true;
+      }
+    } catch (e) {}
+
+    try {
+      const local = localStorage.getItem('MCNC_ACTIVE_PROJECT_MANIFESTS') || localStorage.getItem('MCNC_PROJECT_MANIFESTS');
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setProjects(parsed);
-          setPipelineConnected(true);
-          return;
-        }
+        if (Array.isArray(parsed)) parsed.forEach(registerName);
       }
     } catch (e) {}
 
-    setPipelineConnected(false);
+    setProjects(Array.from(collected.values()));
+    setPipelineConnected(connected);
   }, []);
 
   useEffect(() => {
     fetchProjectsFromPipeline();
   }, [fetchProjectsFromPipeline]);
 
-  const projectOptions = [
-    'ALL PROJECTS',
-    ...projects.map(p => (typeof p === 'string' ? p : p.name || p.id))
-  ];
+  // Build deduplicated full list of all projects across Disk + Tasks
+  const projectMap = new Map();
+  [...projects, ...taskList.map(t => t.project)].forEach(p => {
+    const label = formatProjectLabel(p);
+    if (!label) return;
+    const key = normalizeProjectKey(label);
+    if (!projectMap.has(key)) projectMap.set(key, label);
+  });
+
+  const projectOptions = ['ALL PROJECTS', ...Array.from(projectMap.values())];
 
   const filteredTasks = taskList.filter(t => {
-    const matchesScope = selectedProjectScope === 'ALL PROJECTS' || (() => {
-      const taskProj = (t.project || '').toUpperCase();
-      const scopeProj = selectedProjectScope.toUpperCase();
-      return taskProj === scopeProj || taskProj.replace(/_/g, ' ') === scopeProj.replace(/_/g, ' ');
-    })();
+    const matchesScope = selectedProjectScope === 'ALL PROJECTS' ||
+      normalizeProjectKey(t.project) === normalizeProjectKey(selectedProjectScope);
 
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch = !q ||
@@ -208,7 +324,7 @@ export default function Tab04TaskBoard({ ws }) {
     setIsSubmitting(true);
 
     const activeProjectName = selectedProjectScope === 'ALL PROJECTS'
-      ? (typeof projects[0] === 'string' ? projects[0] : (projects[0]?.name || 'Bounty_Engine'))
+      ? 'Bounty_Engine'
       : selectedProjectScope;
 
     const prefix = activeProjectName.split(/[\s_]+/).map(w => w[0]).join('').substring(0, 3).toUpperCase();
@@ -250,10 +366,9 @@ export default function Tab04TaskBoard({ ws }) {
     setTaskList(prev => prev.filter(t => t.id !== taskId));
   };
 
-  const handlePurgeStaleBountyCards = () => {
-    setTaskList(prev => prev.filter(
-      t => !String(t.id || '').startsWith('BTY-') && !String(t.project || '').toLowerCase().includes('bounty')
-    ));
+  const handleSyncFromWarRoom = () => {
+    setTaskList(prev => mergeDispatchedTasksIntoList(prev));
+    fetchProjectsFromPipeline();
   };
 
   const toggleJudgeVerified = (taskId) => {
@@ -276,9 +391,10 @@ export default function Tab04TaskBoard({ ws }) {
     }));
   };
 
-  const hasBountyCards = taskList.some(
-    t => String(t.id || '').startsWith('BTY-') || String(t.project || '').toLowerCase().includes('bounty')
-  );
+  const countTasksForProject = (projName) => {
+    if (projName === 'ALL PROJECTS') return taskList.length;
+    return taskList.filter(t => normalizeProjectKey(t.project) === normalizeProjectKey(projName)).length;
+  };
 
   return (
     <div className="flex h-full w-full bg-[#080a0c] text-xs font-mono select-none p-2 gap-2 overflow-hidden">
@@ -310,59 +426,75 @@ export default function Tab04TaskBoard({ ws }) {
           </div>
         </div>
 
-        {/* PROJECT SCOPE, SEARCH & PURGE CONTROLS */}
-        <div className="flex items-center justify-between border border-[#1f242d] rounded bg-[#0d0f12] px-3 py-1.5 gap-2 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-[#ffb800]" />
-              <span className="text-[#ffb800] font-bold text-[10px] uppercase tracking-wider">
-                PROJECT SCOPE:
-              </span>
+        {/* EXPANDED PROJECT SCOPE SELECTOR BAR (ALL DISK & DISPATCHED PROJECTS VISIBLE) */}
+        <div className="flex flex-col border border-[#1f242d] rounded bg-[#0d0f12] px-3 py-2 gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-[#ffb800]" />
+                <span className="text-[#ffb800] font-bold text-[10px] uppercase tracking-wider">
+                  PROJECT SCOPE ({projectOptions.length - 1} REGISTERED):
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className={`w-2 h-2 rounded-full ${pipelineConnected ? 'bg-[#10b981]' : 'bg-[#ef4444]'}`} />
+                <span className="text-[9px] text-gray-400">
+                  {pipelineConnected ? 'DISK PIPELINE (PORT 8081/8082)' : 'OFFLINE (CACHED MANIFEST)'}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${pipelineConnected ? 'bg-[#10b981]' : 'bg-[#ef4444]'}`} />
-              <span className="text-[9px] text-gray-400">
-                {pipelineConnected ? 'DISK PIPELINE (PORT 8082)' : 'OFFLINE (CACHED MANIFEST)'}
-              </span>
+
+            <div className="flex items-center gap-2">
+              <div className="relative flex items-center">
+                <Search className="w-3 h-3 text-[#94A3B8] absolute left-2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter cards..."
+                  className="bg-[#080a0c] border border-[#232832] rounded pl-6 pr-2 py-1 text-[9px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#ffb800] w-36"
+                />
+              </div>
+
+              <button
+                onClick={handleSyncFromWarRoom}
+                title="Pull latest dispatched tasks from War Room / Paperclip"
+                className="px-2.5 py-1 rounded text-[9px] font-bold cursor-pointer border bg-[#38bdf8]/15 text-[#38bdf8] border-[#38bdf8]/50 hover:bg-[#38bdf8] hover:text-black transition-all flex items-center gap-1"
+              >
+                <RefreshCw className="w-3 h-3" />
+                SYNC DISPATCH
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="relative flex items-center">
-              <Search className="w-3 h-3 text-[#94A3B8] absolute left-2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter cards..."
-                className="bg-[#080a0c] border border-[#232832] rounded pl-6 pr-2 py-0.5 text-[9px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#ffb800] w-32"
-              />
-            </div>
-
-            {projectOptions.map(p => (
-              <button
-                key={p}
-                onClick={() => setSelectedProjectScope(p)}
-                className={`px-2.5 py-1 rounded text-[9px] font-bold transition-all cursor-pointer border ${
-                  selectedProjectScope === p
-                    ? 'bg-[#ffb800] text-black border-[#ffb800]'
-                    : 'bg-[#14171c] text-[#8fa0b5] border-[#232832] hover:text-white hover:border-gray-500'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-
-            {hasBountyCards && (
-              <button
-                onClick={handlePurgeStaleBountyCards}
-                title="Purge all Bounty Engine cards from board"
-                className="px-2 py-1 rounded text-[9px] font-bold cursor-pointer border bg-[#ef4444]/10 text-[#ef4444] border-[#ef4444]/50 hover:bg-[#ef4444] hover:text-white transition-all flex items-center gap-1"
-              >
-                <Trash2 className="w-2.5 h-2.5" />
-                PURGE BOUNTY CARDS
-              </button>
-            )}
+          {/* FULL-WIDTH WRAPPED PROJECT PILLS */}
+          <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-[#1f242d]/70">
+            {projectOptions.map(p => {
+              const count = countTasksForProject(p);
+              const isSelected = selectedProjectScope === p;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setSelectedProjectScope(p)}
+                  className={`px-2.5 py-1 rounded text-[9px] font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-[#ffb800] text-black border-[#ffb800] shadow-[0_0_8px_rgba(255,184,0,0.3)]'
+                      : 'bg-[#14171c] text-[#C5BD9F] border-[#232832] hover:text-white hover:border-[#ffb800]/60'
+                  }`}
+                >
+                  <span>{p}</span>
+                  <span className={`px-1 rounded text-[8px] ${
+                    isSelected
+                      ? 'bg-black/20 text-black'
+                      : count > 0
+                        ? 'bg-[#38bdf8]/15 text-[#38bdf8]'
+                        : 'bg-[#1f242d] text-[#64748B]'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -372,7 +504,7 @@ export default function Tab04TaskBoard({ ws }) {
             type="text"
             value={newIdeaText}
             onChange={(e) => setNewIdeaText(e.target.value)}
-            placeholder="[FLOOR 1 CAPTURE] Drop a prompt into triage — Hermes decomposes & routes to the 16-Director Matrix..."
+            placeholder={`[FLOOR 1 CAPTURE] Drop a prompt into triage for [${selectedProjectScope === 'ALL PROJECTS' ? 'Bounty_Engine' : selectedProjectScope}]...`}
             className="flex-1 bg-[#0a0c0e] border border-[#232832] rounded px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#ffb800] text-[11px]"
           />
           <select
@@ -384,8 +516,9 @@ export default function Tab04TaskBoard({ ws }) {
             <option value="CHARLIE // DEV LEAD">CHARLIE // DEV LEAD</option>
             <option value="TESS // QUANT">TESS // QUANT</option>
             <option value="JACK // BACKEND">JACK // BACKEND</option>
-            <option value="SKYLA // MEDIA">SKYLA // MEDIA</option>
-            <option value="ROXY // ARTWORK">ROXY // ARTWORK</option>
+            <option value="SILAS // DATABASE">SILAS // DATABASE</option>
+            <option value="ROXY // UI/UX">ROXY // UI/UX</option>
+            <option value="THE ASKARI // SECURITY">THE ASKARI // SECURITY</option>
           </select>
           <button
             type="submit"
@@ -607,7 +740,7 @@ export default function Tab04TaskBoard({ ws }) {
             </div>
             <p className="text-[#8fa0b5] leading-relaxed text-[9px]">
               {selectedProjectScope === 'ALL PROJECTS'
-                ? 'Overseeing operational pipelines across registered projects. Zero-state initialization active.'
+                ? 'Overseeing operational pipelines across all 7+ registered projects. Zero-state initialization active.'
                 : `Focused on [${selectedProjectScope}]. Ready to execute agent sub-threads and pipeline artifacts.`}
             </p>
           </div>
@@ -626,7 +759,7 @@ export default function Tab04TaskBoard({ ws }) {
                 <span className="text-[#10b981]">STANDBY</span>
               </div>
               <div className="flex justify-between items-center text-[#ffb800]">
-                <span>SKYLA // MEDIA</span>
+                <span>SILAS // DATABASE</span>
                 <span className="text-[#10b981]">STANDBY</span>
               </div>
               <div className="flex justify-between items-center text-[#ffb800]">
@@ -636,6 +769,10 @@ export default function Tab04TaskBoard({ ws }) {
               <div className="flex justify-between items-center text-[#ffb800]">
                 <span>ROXY // UI/UX</span>
                 <span className="text-[#10b981]">READY</span>
+              </div>
+              <div className="flex justify-between items-center text-[#ffb800]">
+                <span>THE ASKARI // SECURITY</span>
+                <span className="text-[#10b981]">ARMED</span>
               </div>
             </div>
           </div>
@@ -696,7 +833,7 @@ function HumanGateCard({ task, onApprove, onReject }) {
       <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-[#1f242d]">
         <button
           onClick={onReject}
-          className="bg-[#1c1214] hover:bg-[#ef4444] text-[#ef4444] hover:text-white border border-[#ef4444]/40 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 transition-all cursor-pointer text-[9px]"
+          className="bg-[#1c1214] hover:bg-[#ef4444] text-[#ef4444] hover:text-white border border-[#f43f5e]/40 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 transition-all cursor-pointer text-[9px]"
         >
           <X className="w-3 h-3" />
           REJECT
@@ -719,8 +856,9 @@ function TaskCard({ task, onAdvance, onDelete, onToggleJudge, isShipped }) {
     if (director.includes('CHARLIE')) return 'text-[#38bdf8] border-[#38bdf8]/40 bg-[#38bdf8]/10';
     if (director.includes('TESS')) return 'text-[#ffb800] border-[#ffb800]/40 bg-[#ffb800]/10';
     if (director.includes('JACK')) return 'text-[#C5BD9F] border-[#C5BD9F]/40 bg-[#C5BD9F]/10';
-    if (director.includes('SKYLA')) return 'text-[#fbbf24] border-[#fbbf24]/40 bg-[#fbbf24]/10';
-    if (director.includes('ROXY')) return 'text-[#ef4444] border-[#ef4444]/40 bg-[#ef4444]/10';
+    if (director.includes('SILAS')) return 'text-[#a855f7] border-[#a855f7]/40 bg-[#a855f7]/10';
+    if (director.includes('ASKARI')) return 'text-[#ef4444] border-[#ef4444]/40 bg-[#ef4444]/10';
+    if (director.includes('ROXY')) return 'text-[#f43f5e] border-[#f43f5e]/40 bg-[#f43f5e]/10';
     return 'text-[#10b981] border-[#10b981]/40 bg-[#10b981]/10';
   };
 
@@ -731,7 +869,7 @@ function TaskCard({ task, onAdvance, onDelete, onToggleJudge, isShipped }) {
           {task.id}
         </span>
         <div className="flex items-center gap-1.5">
-          <span className="text-[8px] font-mono text-[#C5BD9F] truncate max-w-[90px]">
+          <span className="text-[8px] font-mono text-[#C5BD9F] truncate max-w-[110px]">
             {task.project}
           </span>
           <button

@@ -48,6 +48,10 @@ const RAW_MODEL_TIERS = [
   }
 ];
 
+function normalizeProjectKey(name) {
+  return String(name || '').trim().replace(/[\s_]+/g, '_').toLowerCase();
+}
+
 export default function Tab01Exec({ ws }) {
   // --- Active Operational Discipline Mode (Persisted) ---
   const [activeMode, setActiveModeState] = useState(() => {
@@ -104,7 +108,7 @@ export default function Tab01Exec({ ws }) {
   };
 
   // --- Multi-Chat & Master Ledger State ---
-  const [activeProject, setActiveProject] = useState('John Tanton - Project Management Book');
+  const [activeProject, setActiveProject] = useState('Bounty_Engine');
   const [activeChatId, setActiveChatId] = useState(null);
   const [activeChatTitle, setActiveChatTitle] = useState('IDLE');
   const [isMasterChat, setIsMasterChat] = useState(true);
@@ -197,11 +201,19 @@ export default function Tab01Exec({ ws }) {
       fetchChatCatalog();
     };
 
+    const handleProjectPurged = (e) => {
+      const purgedName = e?.detail?.projectName || e?.detail?.project;
+      if (purgedName && normalizeProjectKey(purgedName) === normalizeProjectKey(activeProject)) {
+        setZeroState();
+      }
+      fetchChatCatalog();
+    };
+
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('kaggle-status-changed', handleCustomKaggleEvent);
     window.addEventListener('MCNC_REVERT_CHAT', handleRevert);
     window.addEventListener('mcnc-project-created', handleRevert);
-    window.addEventListener('mcnc-project-purged', handleRevert);
+    window.addEventListener('mcnc-project-purged', handleProjectPurged);
 
     return () => {
       isRecordingRef.current = false;
@@ -209,23 +221,73 @@ export default function Tab01Exec({ ws }) {
       window.removeEventListener('kaggle-status-changed', handleCustomKaggleEvent);
       window.removeEventListener('MCNC_REVERT_CHAT', handleRevert);
       window.removeEventListener('mcnc-project-created', handleRevert);
-      window.removeEventListener('mcnc-project-purged', handleRevert);
+      window.removeEventListener('mcnc-project-purged', handleProjectPurged);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (recognitionRef.current) recognitionRef.current.abort();
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     };
-  }, [selectedBrain, activeMode]);
+  }, [selectedBrain, activeMode, activeProject]);
 
-  // --- Catalog API Calls (Dynamic Disk Mount) ---
+  // --- Catalog API Calls (Strict Disk-Truth Filter + Deduplication) ---
   const fetchChatCatalog = async () => {
     try {
-      const res = await fetch('http://localhost:8082/api/chats/all');
-      const data = await res.json();
+      const [chatsRes, projectsRes] = await Promise.all([
+        fetch('http://localhost:8082/api/chats/all'),
+        fetch('http://localhost:8082/api/projects').catch(() => null)
+      ]);
+      const data = await chatsRes.json();
+      const projData = projectsRes && projectsRes.ok ? await projectsRes.json() : null;
+
+      // Build canonical map of active on-disk projects from Tab 03 Projects endpoint
+      const canonicalDiskMap = new Map();
+      canonicalDiskMap.set('general_chats', 'General_Chats');
+
+      if (projData && projData.success && Array.isArray(projData.projects)) {
+        projData.projects
+          .filter(p => p.status !== 'ARCHIVED')
+          .forEach(p => {
+            const canonicalId = String(p.id || p.name || '').trim().replace(/\s+/g, '_');
+            const key = normalizeProjectKey(canonicalId);
+            if (key && !canonicalDiskMap.has(key)) {
+              canonicalDiskMap.set(key, canonicalId);
+            }
+          });
+      }
+
       if (data.success && data.catalog) {
-        setChatCatalog(data.catalog);
-        const projects = Object.keys(data.catalog);
-        if (projects.length > 0 && !data.catalog[activeProject]) {
-          setActiveProject(projects[0]);
+        const cleanCatalog = {};
+
+        // Seed General_Chats + all active disk projects in exact canonical order
+        canonicalDiskMap.forEach((canonicalName) => {
+          cleanCatalog[canonicalName] = [];
+        });
+
+        Object.entries(data.catalog).forEach(([rawKey, threads]) => {
+          const norm = normalizeProjectKey(rawKey);
+          const hasDiskList = canonicalDiskMap.size > 1;
+          if (hasDiskList && !canonicalDiskMap.has(norm)) {
+            return; // Drop orphaned ledgers whose project was deleted (e.g. RHYTHM TRADING)
+          }
+
+          const targetLabel = canonicalDiskMap.get(norm) || rawKey;
+          if (!cleanCatalog[targetLabel]) {
+            cleanCatalog[targetLabel] = [];
+          }
+
+          const existingIds = new Set(cleanCatalog[targetLabel].map(t => t.id));
+          (threads || []).forEach(thread => {
+            if (!existingIds.has(thread.id)) {
+              existingIds.add(thread.id);
+              cleanCatalog[targetLabel].push({ ...thread, project: targetLabel });
+            }
+          });
+        });
+
+        setChatCatalog(cleanCatalog);
+        const validKeys = Object.keys(cleanCatalog);
+        if (validKeys.length > 0 && !cleanCatalog[activeProject]) {
+          const preferred = validKeys.find(p => normalizeProjectKey(p) === 'bounty_engine') || validKeys[0];
+          setActiveProject(preferred);
         }
       }
     } catch (err) {
@@ -354,8 +416,28 @@ export default function Tab01Exec({ ws }) {
       await fetch('http://localhost:8082/api/chats/delete?project=' + encodeURIComponent(project) + '&id=' + chatId, {
         method: 'DELETE'
       });
+      await fetchChatCatalog();
     } catch (err) {
       console.error('Delete chat error:', err);
+    }
+  };
+
+  const handleDeleteLedger = async (e, project) => {
+    e.stopPropagation();
+    if (normalizeProjectKey(project) === 'general_chats') return;
+    if (!window.confirm(`Purge all chat threads in ledger [${project}] and re-initialize clean Master Chat?`)) return;
+
+    if (normalizeProjectKey(activeProject) === normalizeProjectKey(project)) {
+      setZeroState();
+    }
+
+    try {
+      await fetch('http://localhost:8082/api/chats/delete?project=' + encodeURIComponent(project) + '&deleteLedger=true', {
+        method: 'DELETE'
+      });
+      await fetchChatCatalog();
+    } catch (err) {
+      console.error('Delete ledger error:', err);
     }
   };
 
@@ -1021,7 +1103,7 @@ export default function Tab01Exec({ ws }) {
           })}
         </div>
 
-        {/* DYNAMIC CHAT CATALOG LEDGERS (DRIVEN BY DISK VIA /api/chats/all) */}
+        {/* DYNAMIC CHAT CATALOG LEDGERS (DRIVEN BY DISK TRUTH) */}
         <div className="mt-6 border-t border-[#1f242d] pt-3 p-2 flex flex-col shrink-0 bg-[#0d0f12]">
           <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#1f242d]">
             <span className="text-[10px] font-bold text-[#DAA520] tracking-wider uppercase">
@@ -1039,7 +1121,19 @@ export default function Tab01Exec({ ws }) {
           <div className="flex flex-col gap-2.5">
             {Object.keys(chatCatalog).map((proj) => (
               <div key={proj} className="flex flex-col gap-1">
-                <span className="text-[9px] font-bold text-[#DAA520] uppercase px-1">{proj}</span>
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[9px] font-bold text-[#DAA520] uppercase truncate">{proj}</span>
+                  {normalizeProjectKey(proj) !== 'general_chats' && (
+                    <button
+                      type="button"
+                      title={`Reset/purge chat ledger for ${proj}`}
+                      onClick={(e) => handleDeleteLedger(e, proj)}
+                      className="text-gray-500 hover:text-red-400 text-[8px] px-1 rounded hover:bg-[#1f242d] cursor-pointer"
+                    >
+                      [DEL]
+                    </button>
+                  )}
+                </div>
 
                 <button
                   type="button"
@@ -1167,7 +1261,7 @@ export default function Tab01Exec({ ws }) {
                       onClick={() => handleDeleteMessage(i)}
                       className="text-gray-600 hover:text-red-400 text-[9px] font-bold px-1 rounded hover:bg-[#1f242d] cursor-pointer"
                     >
-                      Ã—
+                      ×
                     </button>
                   )}
                 </div>
@@ -1430,7 +1524,7 @@ export default function Tab01Exec({ ws }) {
             )}
           />
 
-          {/* SINGLE-ROW COCKPIT CONTROLS: COMPACT DOCK WITH RIGHT-ALIGNED MODES */}
+          {/* SINGLE-ROW COCKPIT CONTROLS */}
           <div className="flex flex-nowrap items-center gap-1.5 pt-0.5 overflow-x-auto w-full" style={{ scrollbarWidth: 'none' }}>
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -1526,7 +1620,6 @@ export default function Tab01Exec({ ws }) {
                 {copyFeedback ? 'COPIED' : 'COPY ALL'}
               </button>
 
-              {/* PRUNE CRAP ACTION BUTTON */}
               <button
                 type="button"
                 onClick={handlePruneCrap}
@@ -1553,10 +1646,8 @@ export default function Tab01Exec({ ws }) {
               </button>
             </div>
 
-            {/* FLEXIBLE GAP SPACER: ABSORBS ALL REMAINING SPACE BETWEEN ALL STOP AND NEW CHAT */}
             <div className="flex-1 min-w-[20px]" />
 
-            {/* + NEW CHAT PUSHED RIGHT-OF-CENTER */}
             <button
               type="button"
               onClick={() => setNewChatPromptOpen(true)}
@@ -1567,7 +1658,6 @@ export default function Tab01Exec({ ws }) {
 
             <div className="h-5 w-[1px] bg-[#1f242d] mx-0.5 shrink-0"></div>
 
-            {/* MODE SELECTOR ANCHORED FLUSH TO THE RIGHT-HAND MARGIN */}
             <div className="flex items-center gap-1 bg-[#080a0c] border border-[#1f242d] px-1.5 py-1 rounded shadow-inner shrink-0">
               <span className="text-[9px] text-[#DAA520] uppercase font-bold tracking-wider mr-0.5">
                 MODE:
