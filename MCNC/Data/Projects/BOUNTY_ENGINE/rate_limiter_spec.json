@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0.0",
+  "created_at": "2026-11-26T05:40:00.000Z",
+  "authority": "THE_ASKARI // SECURITY & PERIMETER SENTRY",
+  "enforcement_domain": "BOUNTY_ENGINE_DISPATCH_GOVERNOR",
+  
+  "rate_limits": {
+    "global_daily_cap": 6,
+    "per_campaign_daily_cap": 3,
+    "enforcement_timezone": "Africa/Johannesburg"
+  },
+  
+  "counter_persistence": {
+    "storage_type": "SQLITE",
+    "database_path": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\Bounty_Engine\\rate_limiter.db",
+    "table_schema": {
+      "table_name": "Daily_Post_Counters",
+      "columns": [
+        {
+          "name": "Date_Key",
+          "type": "TEXT PRIMARY KEY",
+          "description": "ISO date string (YYYY-MM-DD) in SAST timezone"
+        },
+        {
+          "name": "Global_Posts_Used",
+          "type": "INTEGER DEFAULT 0",
+          "description": "Total posts dispatched across all campaigns today"
+        },
+        {
+          "name": "Campaign_Counters_JSON",
+          "type": "TEXT",
+          "description": "JSON object mapping campaign_id -> posts_used_today"
+        },
+        {
+          "name": "Last_Updated_At",
+          "type": "TEXT",
+          "description": "ISO timestamp of last counter increment"
+        }
+      ]
+    },
+    "init_sql": "CREATE TABLE IF NOT EXISTS Daily_Post_Counters (Date_Key TEXT PRIMARY KEY, Global_Posts_Used INTEGER DEFAULT 0, Campaign_Counters_JSON TEXT DEFAULT '{}', Last_Updated_At TEXT);"
+  },
+  
+  "reset_schedule": {
+    "reset_type": "UTC_MIDNIGHT_SAST",
+    "reset_time": "22:00:00 UTC",
+    "equivalent_sast": "00:00:00 SAST",
+    "cron_expression": "0 22 * * *",
+    "reset_behavior": "ZERO_ALL_COUNTERS",
+    "reset_handler": "Auto_Bounty_Engine.js::resetDailyCounters()",
+    "fallback_mechanism": "Rolling 24-hour window from first post of the day if cron fails"
+  },
+  
+  "breach_response_protocol": {
+    "global_cap_breach": {
+      "action": "SILENT_DROP",
+      "log_destination": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\telemetry\\active_telemetry.md",
+      "log_format": "[RATE_LIMITER_BREACH] Global cap exceeded (6/6 used). Dispatch request silently dropped.",
+      "ui_notification": "NONE",
+      "retry_behavior": "QUEUE_UNTIL_MIDNIGHT_RESET"
+    },
+    "per_campaign_cap_breach": {
+      "action": "QUEUE_DELAY",
+      "delay_duration_hours": 2,
+      "log_destination": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\vault\\telemetry\\active_telemetry.md",
+      "log_format": "[RATE_LIMITER_BREACH] Campaign {campaign_id} exceeded 3/3 daily cap. Queued for next available slot.",
+      "ui_notification": "SILENT",
+      "retry_behavior": "ROTATE_TO_NEXT_ELIGIBLE_CAMPAIGN"
+    },
+    "escalation_threshold": {
+      "consecutive_breach_count": 5,
+      "escalation_action": "LOG_TO_TELEMETRY_WITH_ALERT",
+      "escalation_log_format": "[SECURITY_ALERT] Rate limiter breached 5+ times consecutively. Manual audit required.",
+      "notify_mike": false
+    }
+  },
+  
+  "integration_points": {
+    "primary_daemon": "Auto_Bounty_Engine.js",
+    "ledger_file": "C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\Bounty_Engine\\bounties_ledger.json",
+    "cron_governor": "server.js::cron.schedule('0 8-22/2 * * *')",
+    "websocket_broadcast_channel": "SCHEDULE_UPDATE",
+    "ui_status_indicator": "Tab 05 Calendar // Bounty Governor Status Badge"
+  },
+  
+  "operational_notes": {
+    "stealth_compliance": "All counters and breach logs are silent. No external API calls or user-facing alerts unless escalation threshold is met.",
+    "disk_persistence": "SQLite database ensures counter state survives daemon restarts and system reboots.",
+    "zero_state_init": "If rate_limiter.db does not exist on boot, Auto_Bounty_Engine.js will auto-initialize the schema on first dispatch attempt.",
+    "audit_trail": "All counter increments and breach events are logged to active_telemetry.md with ISO timestamps for forensic review."
+  }
+}

@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // WARLORD WASP // MCNC BACKEND PIPELINE & EXECUTION SERVER
 // PORT: 8082
 // RUNTIME: C:\Warlord_Inc\Warlord_WASP\MCNC
@@ -7,6 +7,8 @@
 
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
@@ -59,6 +61,48 @@ if (!fs.existsSync(STATE_LEDGER)) {
   }
 }
 
+// ============================================================================
+// WEBSOCKET SERVER INSTANCE (PORT 8082)
+// ============================================================================
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+const broadcast = (type, payload) => {
+  const message = JSON.stringify({
+    type,
+    payload,
+    timestamp: new Date().toISOString()
+  });
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+};
+
+wss.on('connection', (ws) => {
+  console.log('[PIPELINE WS] Client connected to Port 8082');
+  ws.send(JSON.stringify({ type: 'CONNECTION_ESTABLISHED', port: 8082 }));
+  
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      if (data.type === 'PING') {
+        ws.send(JSON.stringify({ type: 'PONG', timestamp: new Date().toISOString() }));
+      }
+    } catch (e) {
+      console.error('[PIPELINE WS] Invalid message format:', e.message);
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('[PIPELINE WS] Client disconnected from Port 8082');
+  });
+});
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 function normKey(s) {
   return String(s || '').trim().replace(/[\s_]+/g, '_').toLowerCase();
 }
@@ -268,6 +312,13 @@ app.post('/api/projects/create', (req, res) => {
     };
     fs.writeFileSync(path.join(prjChatDir, `${seedId}.json`), JSON.stringify(seedPayload, null, 2), 'utf8');
 
+    // WEBSOCKET BROADCAST: PROJECT_SCAFFOLDED
+    broadcast('PROJECT_SCAFFOLDED', {
+      projectName: cleanName,
+      path: targetDir,
+      directories: dirsToCreate
+    });
+
     return res.json({ success: true, project: cleanName, path: targetDir });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -301,6 +352,12 @@ app.post('/api/projects/purge', (req, res) => {
     const prdPattern = `01_PRD_${safeSlug.replace(/[\s_]+/g, '_')}.md`;
     const rootPrd = path.join(docsRoot, prdPattern);
     if (fs.existsSync(rootPrd)) fs.unlinkSync(rootPrd);
+
+    // WEBSOCKET BROADCAST: PROJECT_PURGED
+    broadcast('PROJECT_PURGED', {
+      projectName: safeSlug,
+      removedPaths: matchedDirs
+    });
 
     console.log(`[NUCLEAR PURGE] Physically obliterated project & chats: ${safeSlug} (${matchedDirs.length} dirs removed)`);
     return res.json({ success: true, purged: safeSlug, removedPaths: matchedDirs });
@@ -503,6 +560,15 @@ app.post('/api/chats/save', (req, res) => {
       messages
     };
     fs.writeFileSync(targetFile, JSON.stringify(payload, null, 2), 'utf8');
+
+    // WEBSOCKET BROADCAST: CHAT_UPDATED
+    broadcast('CHAT_UPDATED', {
+      project,
+      chatId: id,
+      title,
+      filePath: targetFile
+    });
+
     return res.json({ success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -644,6 +710,15 @@ app.post('/api/previews/action', (req, res) => {
     if (action === 'ACCEPT') {
       const line = `"${ts}","${project}","${artifactPath}","STAGED_APPROVED","EXEC_VERIFIED"\n`;
       fs.appendFileSync(STATE_LEDGER, line, 'utf8');
+      
+      // WEBSOCKET BROADCAST: ARTIFACT_PERSISTED
+      broadcast('ARTIFACT_PERSISTED', {
+        project,
+        artifactPath,
+        action: 'ACCEPT',
+        timestamp: ts
+      });
+      
       return res.json({ status: 'COMMITTED', ledger: STATE_LEDGER });
     }
 
@@ -687,12 +762,13 @@ app.use((req, res) => {
   });
 });
 
-const server = app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log('====================================================');
   console.log('[PILLAR 2] MCNC PIPELINE ENGINE ONLINE');
   console.log(`[PORT]             : ${PORT}`);
   console.log(`[CANONICAL ROOT]   : ${PROJECTS_ROOT}`);
   console.log(`[CHATS ROOT]       : ${CHATS_ROOT}`);
+  console.log(`[WEBSOCKET]        : ACTIVE (Port ${PORT})`);
   console.log(`[STATUS]           : DISK-TRUTH ACTIVE`);
   console.log('====================================================');
 });

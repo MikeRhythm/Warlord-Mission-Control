@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Manual Campaign Import Schema",
+  "description": "Template for Mike to manually paste authenticated Vyro/Whop campaign data extracted from logged-in dashboard sessions. Tess will parse this structure to build CPM filtering logic against real campaign parameters instead of hallucinating scraped placeholders.",
+  "type": "object",
+  "properties": {
+    "importTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when Mike exported this data from authenticated dashboard session."
+    },
+    "platform": {
+      "type": "string",
+      "enum": ["Vyro", "Whop"],
+      "description": "Source platform (Vyro or Whop)."
+    },
+    "campaigns": {
+      "type": "array",
+      "description": "Array of active campaign objects extracted from authenticated dashboard.",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "cpmRate", "viewFloor", "poolStatus"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique campaign identifier (e.g., vyro_abc_scrubs, whop_viral_podcast_clips)."
+          },
+          "title": {
+            "type": "string",
+            "description": "Campaign display name (e.g., 'ABC: Scrubs // Humorous Clips Only')."
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["Vyro", "Whop"],
+            "description": "Platform origin (Vyro or Whop)."
+          },
+          "cpmRate": {
+            "type": "string",
+            "pattern": "^\\$[0-9]+(\\.[0-9]{2})?$",
+            "description": "CPM rate in USD (e.g., '$2.00', '$2.50'). Tess will parse this for net yield scoring."
+          },
+          "flatFeeBonus": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Optional flat-fee scalp bonus in USD (e.g., 1.50 for Whop instant-approval clips). Default: 0."
+          },
+          "viewFloor": {
+            "type": "string",
+            "description": "Minimum view threshold to qualify for payout (e.g., '1000', '5000')."
+          },
+          "poolStatus": {
+            "type": "string",
+            "description": "Campaign pool status string (e.g., 'ACTIVE // 88% Pool Left (~14 Days)', 'LOCKED FOR NEW POSTS', 'ENDED')."
+          },
+          "runwayDays": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Estimated days remaining before pool depletion (e.g., 14, 10, 0 for dry campaigns)."
+          },
+          "dailyPostCap": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Maximum posts allowed per day per creator (e.g., 5). Default: 5."
+          },
+          "mandatoryTags": {
+            "type": "string",
+            "description": "Required hashtags for post compliance (e.g., '#scrubs #abc #comedy #shorts #viral')."
+          },
+          "hookHeadline": {
+            "type": "string",
+            "description": "Suggested viral hook headline for clip overlay (e.g., 'THIS SCRUBS SCENE BROKE CHARACTER')."
+          },
+          "campaignUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Optional direct URL to campaign dashboard page (if available)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional operational notes (e.g., 'Requires manual approval', 'Auto-approved within 24h')."
+          }
+        }
+      }
+    }
+  },
+  "required": ["importTimestamp", "platform", "campaigns"],
+  "examples": [
+    {
+      "importTimestamp": "2026-11-26T12:00:00Z",
+      "platform": "Vyro",
+      "campaigns": [
+        {
+          "id": "vyro_abc_scrubs",
+          "title": "ABC: Scrubs // Humorous Clips Only",
+          "platform": "Vyro",
+          "cpmRate": "$2.00",
+          "flatFeeBonus": 0,
+          "viewFloor": "1000",
+          "poolStatus": "ACTIVE // 88% Pool Left (~14 Days)",
+          "runwayDays": 14,
+          "dailyPostCap": 5,
+          "mandatoryTags": "#scrubs #abc #comedy #shorts #viral",
+          "hookHeadline": "THIS SCRUBS SCENE BROKE CHARACTER",
+          "campaignUrl": "https://app.vyro.com/campaigns/abc-scrubs",
+          "notes": "Auto-approved within 48 hours if view floor met."
+        }
+      ]
+    },
+    {
+      "importTimestamp": "2026-11-26T12:00:00Z",
+      "platform": "Whop",
+      "campaigns": [
+        {
+          "id": "whop_viral_podcast_clips",
+          "title": "Whop Content Rewards // Viral Podcast Clips",
+          "platform": "Whop",
+          "cpmRate": "$2.50",
+          "flatFeeBonus": 1.50,
+          "viewFloor": "1000",
+          "poolStatus": "ACTIVE // 90% Pool Left (~14 Days)",
+          "runwayDays": 14,
+          "dailyPostCap": 5,
+          "mandatoryTags": "#podcast #viralclips #shorts #fyp",
+          "hookHeadline": "HE SAID WHAT NOBODY DARED TO SAY",
+          "campaignUrl": "https://whop.com/content-rewards/viral-podcast-clips",
+          "notes": "Whop takes 10% clipper fee on CPM payouts. Flat-fee bonus pays out immediately upon approval."
+        }
+      ]
+    }
+  ]
+}

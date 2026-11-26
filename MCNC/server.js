@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const multer = require('multer');
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 const { YoutubeTranscript } = require('youtube-transcript');
@@ -72,6 +72,21 @@ function isPathSafe(targetPath) {
     return resolved.toLowerCase().startsWith(WORKSPACE_ROOT.toLowerCase());
 }
 
+function writeRollingSnapshot(targetFile) {
+    if (!fs.existsSync(targetFile)) return;
+    const dir = path.dirname(targetFile);
+    const base = path.basename(targetFile);
+    try {
+        fs.readdirSync(dir)
+            .filter(f => f.startsWith(`${base}.bak_`))
+            .forEach(oldBak => {
+                try { fs.unlinkSync(path.join(dir, oldBak)); } catch (e) {}
+            });
+        const ts = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+        fs.copyFileSync(targetFile, path.join(dir, `${base}.bak_${ts}`));
+    } catch (e) {}
+}
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_PATH),
     filename: (req, file, cb) => cb(null, `${Date.now()}_${file.originalname}`)
@@ -83,6 +98,8 @@ Operational control, planning, and agent orchestration under Rhythm Holdings and
 Mike is supreme CEO. Address Mike only as "Mike".
 DIRECTORS: Tess (Quant), Silas (Database), Charlie (MQL5/Node), Roxy (UI/UX), Jack (Backend), Skyla (Media), Atlas (Infrastructure), Ares (Execution), Vance (Finance), Orion (Strategic Intel), The Askari (Security), Amber (Copywriter), Jax (Artwork Omega), Valerie (Relations), Maverick (SEO), Justin (Risk Legal).
 SOP: Full functional code only when generating code. Solid DodgerBlue, OrangeRed, Goldenrod lines only for chart indicators. Zero fluff. Zero filler.
+DISK PERSISTENCE PROTOCOL: Whenever creating or updating a file on disk, include the exact header comment "// TARGET_FILE: <full_windows_path>" inside the fenced code block so Base 1 commits it physically and runs syntax validation.
+CANONICAL PROJECT ROOT: Project-specific files belong inside C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\<Project_Name>\\ (never loose in MCNC\\ root unless editing a core daemon script like Auto_Bounty_Engine.js).
 RHYTHM MULTIPLIER: Enforce 0.0 to 1.0 scaling on quantitative and telemetry arrays. Default 1.0.`;
 
 // ==========================================
@@ -100,10 +117,10 @@ const broadcast = (type, msg) => {
 // ==========================================
 const cron = require('node-cron');
 
-const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'Bounty_Engine');
 const BOUNTY_CAMPAIGNS_DIR = path.join(BOUNTY_ROOT, 'campaigns');
 const BOUNTY_LEDGER_FILE = path.join(BOUNTY_ROOT, 'bounties_ledger.json');
-const BOUNTY_DATA_DIR = path.join(__dirname, 'Data', 'Projects', 'BOUNTY_ENGINE');
+const BOUNTY_DATA_DIR = path.join(__dirname, 'Data', 'Projects', 'Bounty_Engine');
 
 let ACTIVE_BOUNTY_JOB = {
     running: false,
@@ -122,7 +139,7 @@ function getBountyGovernorSnapshot() {
     let ledger = { lastDispatchDate: today, active: [] };
     if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
         try {
-            const parsed = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+            const parsed = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8').replace(/^\uFEFF/, ''));
             ledger = {
                 lastDispatchDate: parsed.lastDispatchDate || today,
                 active: Array.isArray(parsed.active) ? parsed.active : []
@@ -263,7 +280,6 @@ function triggerBountyGovernor(bountyOverride = null, sourceTrigger = 'MANUAL') 
     return { started: true, job: ACTIVE_BOUNTY_JOB };
 }
 
-// Daily 06:30 SAST - Bounty Pool & Auto-Purge Audit
 cron.schedule('30 6 * * *', () => {
     logTelemetry('CRON_RUNWAY', 'Running daily Bounty Pool & Auto-Purge Audit...');
     broadcast('TRACE', '[CRON DAEMON] 06:30 SAST: Auditing bounty pools & purging dry/expired funnels.');
@@ -274,7 +290,6 @@ cron.schedule('30 6 * * *', () => {
     }
 }, { timezone: 'Africa/Johannesburg' });
 
-// Daily 07:00 SAST - New Bounty Scout (Runs even at 5/5 if a better CPM bounty appears)
 cron.schedule('0 7 * * *', async () => {
     logTelemetry('CRON_RADAR', 'Running daily New Bounty Scout (Tess)...');
     const snap = getBountyGovernorSnapshot();
@@ -306,7 +321,6 @@ cron.schedule('0 7 * * *', async () => {
     }
 }, { timezone: 'Africa/Johannesburg' });
 
-// Every 2 Hours (08:00 - 22:00 SAST) - Slot-Gated Bounty Dispatch Governor
 cron.schedule('0 8-22/2 * * *', () => {
     const snap = getBountyGovernorSnapshot();
     sendScheduleUpdate();
@@ -342,7 +356,7 @@ wss.on('connection', (ws) => {
 // ATOMIC PROJECT SCAFFOLDER & EXACT CASING
 // ==========================================
 function sanitizeProjectName(text) {
-    return (text || 'Unnamed Project')
+    return (text || 'Unnamed_Project')
         .toString()
         .trim()
         .replace(/[<>:"\/\\|?*]+/g, '');
@@ -908,7 +922,7 @@ async function tryGroqDispatch(systemPrompt, validContent, isCodeExecution) {
                         model,
                         messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
                         temperature: 0.2,
-                        max_tokens: isCodeExecution ? 8192 : 4096
+                        max_tokens: isCodeExecution ? 16384 : 8192
                     })
                 });
                 if (res.ok) {
@@ -933,7 +947,7 @@ async function tryGeminiDispatch(systemPrompt, validContent, isCodeExecution) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + validContent }] }],
-                        generationConfig: { temperature: 0.2, maxOutputTokens: isCodeExecution ? 8192 : 4096 }
+                        generationConfig: { temperature: 0.2, maxOutputTokens: isCodeExecution ? 16384 : 8192 }
                     })
                 });
                 if (res.ok) {
@@ -967,7 +981,7 @@ async function tryNimDispatch(systemPrompt, validContent, requestedModel, isCode
                         model,
                         messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
                         temperature: 0.2,
-                        max_tokens: isCodeExecution ? 4096 : 3000
+                        max_tokens: isCodeExecution ? 8192 : 4096
                     })
                 });
                 if (res.ok) {
@@ -992,7 +1006,7 @@ async function tryOllamaDispatch(systemPrompt, validContent, requestedModel, isC
                     model,
                     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
                     stream: false,
-                    options: { temperature: 0.2, num_ctx: isCodeExecution ? 8192 : 4096 }
+                    options: { temperature: 0.2, num_ctx: isCodeExecution ? 16384 : 8192 }
                 })
             });
             if (res.ok) {
@@ -1021,7 +1035,7 @@ async function tryOpenRouterDispatch(systemPrompt, validContent, requestedModel,
         liveModels.find(id => id.startsWith('anthropic/') && id.includes('sonnet'))
     ])).filter(Boolean);
 
-    const tokenLimit = isCodeExecution ? 8192 : 4096;
+    const tokenLimit = isCodeExecution ? 16384 : 8192;
 
     for (const cand of candidates) {
         try {
@@ -1051,7 +1065,7 @@ async function tryOpenRouterDispatch(systemPrompt, validContent, requestedModel,
 }
 
 // ==========================================
-// MASTER BRAIN DISPATCHER WITH AUTOMATIC FAILOVER
+// MASTER BRAIN DISPATCHER WITH AUTOMATIC FAILOVER & HIGH-TOKEN CODE ROUTING
 // ==========================================
 async function dispatchToBrain(systemPrompt, rawBody) {
     let validContent = extractPromptText(rawBody);
@@ -1063,10 +1077,16 @@ async function dispatchToBrain(systemPrompt, rawBody) {
     if (referencedFiles) validContent += `\n\n[DIRECTOR TOOL NOTICE: Ingested files]:${referencedFiles}`;
 
     let requestedModel = (rawBody.model || 'anthropic/claude-3.7-sonnet').trim();
+    const agentTag = String(rawBody.agentId || rawBody.agent || rawBody.role || '').toLowerCase();
     const isCodeExecution = Boolean(
-        rawBody.role === 'Full Code Generation Lead' || 
+        rawBody.role === 'Full Code Generation Lead' ||
+        agentTag.includes('charlie') ||
+        agentTag.includes('jack') ||
+        agentTag.includes('code') ||
         validContent.includes('EXECUTE: STAGE 2') ||
-        validContent.includes('<!DOCTYPE html>')
+        validContent.includes('<!DOCTYPE html>') ||
+        validContent.includes('TARGET_FILE:') ||
+        /\.(js|jsx|json|py|html|mq5|css)\b/i.test(validContent)
     );
 
     if (requestedModel.startsWith('KAGGLE/') || rawBody.useKaggle) {
@@ -1088,7 +1108,7 @@ async function dispatchToBrain(systemPrompt, rawBody) {
                     model: targetModel,
                     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: validContent }],
                     temperature: 0.2,
-                    max_tokens: isCodeExecution ? 8192 : 4096
+                    max_tokens: isCodeExecution ? 16384 : 8192
                 })
             });
             if (response.ok) {
@@ -1167,7 +1187,7 @@ app.post('/api/tools/write', async (req, res) => {
         if (!isPathSafe(target)) return res.status(403).json({ status: 'ERROR', message: 'Access denied.' });
         const parentDir = path.dirname(target);
         if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
-        if (fs.existsSync(target)) fs.copyFileSync(target, `${target}.bak_${Date.now()}`);
+        writeRollingSnapshot(target);
         fs.writeFileSync(target, content, 'utf8');
         res.json({ status: 'SUCCESS', message: `Saved: ${path.basename(target)}`, filePath: target });
     } catch (err) { res.status(500).json({ status: 'ERROR', message: err.message }); }
@@ -1608,10 +1628,43 @@ function warlordJudgeInterceptor(text) {
 }
 
 // ==========================================
-// AUTOMATED STAGE 2 ARTIFACT WRITER
+// UNIVERSAL PHYSICAL ARTIFACT WRITER (HTML + JS + JSON + MD + PY)
 // ==========================================
 function autoPersistCodeArtifact(projectName, replyText) {
-    if (!replyText || (!replyText.includes('<!DOCTYPE html>') && !replyText.includes('<html'))) {
+    if (!replyText) return null;
+
+    // 1. Check for explicit // TARGET_FILE: <path> or /* TARGET_FILE: <path> */ blocks
+    const targetMatch = replyText.match(/(?:\/\/|#|\/\*)\s*TARGET_FILE:\s*([^\r\n\*]+?)(?:\s*\*\/)?\s*\r?\n([\s\S]*?)```/i);
+    if (targetMatch) {
+        try {
+            const rawTarget = targetMatch[1].trim().replace(/^["'`]|["'`]$/g, '');
+            const resolvedTarget = path.isAbsolute(rawTarget) ? rawTarget : path.join(WORKSPACE_ROOT, rawTarget);
+            if (isPathSafe(resolvedTarget)) {
+                let codeBody = targetMatch[2].replace(/\r\n/g, '\n').trim();
+                const parentDir = path.dirname(resolvedTarget);
+                if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+                writeRollingSnapshot(resolvedTarget);
+                fs.writeFileSync(resolvedTarget, codeBody, 'utf8');
+
+                let syntaxOk = true;
+                if (resolvedTarget.toLowerCase().endsWith('.js')) {
+                    try {
+                        execSync(`node -c "${resolvedTarget}"`, { stdio: 'pipe' });
+                    } catch (synErr) {
+                        syntaxOk = false;
+                        broadcast('TRACE', `[SYNTAX FAULT] ${path.basename(resolvedTarget)}: ${synErr.message}`);
+                    }
+                }
+
+                logTelemetry('ARTIFACT_COMMITTED', `Committed ${resolvedTarget} (syntaxValid=${syntaxOk})`);
+                broadcast('TRACE', `[DISK WRITE] Physical artifact committed: ${resolvedTarget}`);
+                return resolvedTarget;
+            }
+        } catch (err) {}
+    }
+
+    // 2. Fallback: Single-file HTML Stage 2 delivery
+    if (!replyText.includes('<!DOCTYPE html>') && !replyText.includes('<html')) {
         return null;
     }
 
@@ -1634,10 +1687,7 @@ function autoPersistCodeArtifact(projectName, replyText) {
         if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const targetFile = path.join(targetDir, 'index.html');
-        
-        if (fs.existsSync(targetFile)) {
-            fs.copyFileSync(targetFile, `${targetFile}.bak_${Date.now()}`);
-        }
+        writeRollingSnapshot(targetFile);
 
         let cleanHtml = replyText;
         if (cleanHtml.includes('```html')) {
@@ -1663,16 +1713,19 @@ app.post('/api/chat', creditMeterMiddleware, async (req, res) => {
     const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
     const PROJECTS_PATH = __tCtx.projectsRoot;
     const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
+    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'Bounty_Engine');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'Bounty_Engine');
     const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const montySoul = loadSoul('monty');
         const liveTelemetry = getLiveSystemSnapshot();
         const agentId = (req.body.agentId || req.body.agent || 'charlie').toLowerCase();
         const agentMemory = getAgentDynamicMemory(agentId);
+        const activeProj = sanitizeProjectName(req.body.project || 'Bounty_Engine');
+        const canonicalProjectDir = path.join(PROJECTS_PATH, activeProj);
 
         const baseSystemPrompt = liveTelemetry + "\n\n" + CORE_DIRECTIVE + 
+            `\n\n=== ACTIVE PROJECT SCOPE ===\nProject: ${activeProj}\nCanonical Project Directory: ${canonicalProjectDir}\n` +
             `\n\n=== PERSISTENT LEARNING LEDGER: ${agentId.toUpperCase()} ===\n${agentMemory}` +
             (montySoul ? `\n\n=== PROTOCOL ===\n${montySoul}` : "");
         
@@ -1750,10 +1803,6 @@ function appendAgentRule(agentId, ruleText) {
 app.post('/api/memory/learn', (req, res) => {
     const __tCtx = resolveTenantContext(req);
     const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
     const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     const { agentId, rule } = req.body;
     if (!agentId || !rule) return res.status(400).json({ error: 'Missing agentId or rule payload.' });
@@ -1767,13 +1816,6 @@ app.post('/api/memory/learn', (req, res) => {
 });
 
 app.get('/api/memory/read/:agentId', (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     const { agentId } = req.params;
     const memory = getAgentDynamicMemory(agentId);
     res.json({ agentId: agentId.toLowerCase(), memory });
@@ -1860,7 +1902,7 @@ initBountyEngineOnBoot();
 
 function getBountyLedger() {
     initBountyEngineOnBoot();
-    return JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+    return JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8').replace(/^\uFEFF/, ''));
 }
 
 function saveBountyLedger(data) {
@@ -1872,12 +1914,8 @@ function saveBountyLedger(data) {
 // ==========================================
 app.post('/api/campaigns/discover', async (req, res) => {
     const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
     const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
+    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'Bounty_Engine');
     try {
         broadcast('TRACE', '[DISCOVERY] Dispatching Jack & Tess to sync open Vyro CPM campaigns...');
         delete require.cache[require.resolve('./Bounty_Scraper')];
@@ -1887,7 +1925,7 @@ app.post('/api/campaigns/discover', async (req, res) => {
         let ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] };
         if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
             try {
-                ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+                ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8').replace(/^\uFEFF/, ''));
                 if (!Array.isArray(ledger.active)) ledger.active = [];
             } catch (e) { ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] }; }
         }
@@ -1919,55 +1957,27 @@ app.post('/api/campaigns/discover', async (req, res) => {
 });
 
 app.get('/api/campaigns/bounty/job-status', (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     res.json(ACTIVE_BOUNTY_JOB);
 });
 
 app.post('/api/campaigns/bounty/clear-logs', (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] [TELEMETRY CLEARED] Ready for dispatch.`];
     if (!ACTIVE_BOUNTY_JOB.running) ACTIVE_BOUNTY_JOB.status = 'IDLE';
     res.json({ success: true, job: ACTIVE_BOUNTY_JOB });
 });
 
 app.post('/api/campaigns/bounty/auto-execute', (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     const bounty = req.body && req.body.bounty ? req.body.bounty : null;
     const outcome = triggerBountyGovernor(bounty, 'UI-BUTTON');
     return res.json({ success: true, ...outcome });
 });
 
 app.post('/api/bounties/update-stats', (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const { id, totalClicks, dailyPostsUsed, poolStatus, runwayDays, cpmRate, viewFloor, mandatoryTags, hookHeadline, sourcePath } = req.body;
         let ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] };
         if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
-            ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
+            ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8').replace(/^\uFEFF/, ''));
         }
         ledger.active = (ledger.active || []).map(b => {
             if (b.id === id) {
@@ -1996,24 +2006,10 @@ app.post('/api/bounties/update-stats', (req, res) => {
 });
 
 app.get('/api/bounties', (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     res.json(getBountyLedger());
 });
 
 app.post('/api/bounties', (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     const { id, title, cpmRate, viewFloor, mandatoryTags, hookHeadline, sourcePath } = req.body;
     const ledger = getBountyLedger();
     const safeId = (id || title || `bounty_${Date.now()}`).toString().trim().replace(/[<>:"\/\\|?*]+/g, '').replace(/\s+/g, '_').toLowerCase();
@@ -2077,13 +2073,6 @@ function buildFfmpegRenderCommand(sourceFile, hookText, startTimestamp, endTimes
 }
 
 app.post('/api/campaigns/bounty/find-hooks', async (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const { youtubeUrl, bountyId, clipCount = 3 } = req.body;
         if (!youtubeUrl || !bountyId) {
@@ -2171,13 +2160,6 @@ ${timestampedTranscript.slice(0, 45000)}`;
 // MANUAL SINGLE CUT EXECUTION ENGINE
 // ==========================================
 app.post('/api/campaigns/bounty/run', async (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const { sourceFile, hookText, startTimestamp, endTimestamp, outputFilename, bountyId } = req.body;
         
@@ -2208,12 +2190,7 @@ app.post('/api/campaigns/bounty/run', async (req, res) => {
 // ==========================================
 app.get('/api/campaigns/artifacts/:projectId', (req, res) => {
     const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
     const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
     try {
         const { projectId } = req.params;
         const { bountyId } = req.query;
@@ -2286,11 +2263,30 @@ app.post('/api/projects/purge', (req, res) => {
 });
 
 const { scrapeBounties } = require('./Bounty_Scraper');
-
 const { resolveTenantContext } = require('./Tenant_Scope_Resolver');
 const PORT = process.env.PORT || 8081;
 
 require('./Auth_Middleware')(app, DATA_PATH);
+
+app.post('/api/campaigns/artifacts/delete', (req, res) => {
+  try {
+    const { projectId, bountyId, fileName } = req.body || {};
+    if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return res.status(400).json({ success: false, error: 'Invalid fileName' });
+    }
+    const baseDir = projectId === 'BOUNTY_ENGINE' && bountyId
+      ? path.join(__dirname, 'Data', 'Projects', 'Bounty_Engine', 'campaigns', bountyId, 'clips')
+      : path.join(__dirname, 'Data', 'Projects', projectId || 'Bounty_Engine');
+    const targetFile = path.join(baseDir, fileName);
+    if (fs.existsSync(targetFile)) {
+      fs.unlinkSync(targetFile);
+      return res.json({ success: true, deleted: fileName });
+    }
+    return res.status(404).json({ success: false, error: 'File not found on disk' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 server.listen(PORT, () => {
     console.log(`====================================================`);
@@ -2304,42 +2300,8 @@ server.listen(PORT, () => {
     console.log(`[CLUSTER MANAGERS]       : NIM, GROQ, GEMINI ONLINE`);
     console.log(`[DYNAMIC MEMORY ENGINE]  : 16 DIRECTORS (vault/Memory/)`);
     console.log(`[QUALIFICATION ENGINE]   : /api/qualify/artifact ACTIVE`);
-    console.log(`[STAGE 2 AUTO-WRITER]    : ACTIVE (8192 Max Tokens Enabled)`);
+    console.log(`[UNIVERSAL DISK WRITER]  : ACTIVE (16K Code Tokens + Syntax Gate)`);
     console.log(`[CAMPAIGN ENGINE]        : SELF-GOVERNING BOUNTY + CALENDAR CRON ACTIVE`);
     console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });
-
-
-
-// [WARLORD] Delete individual staged disk artifact after manual social publish
-app.post('/api/campaigns/artifacts/delete', (req, res) => {
-    const __tCtx = resolveTenantContext(req);
-    const __isMasterMike = (__tCtx.role === 'EXEC_ADMIN' && __tCtx.effectiveTenant === 'Mike');
-    const PROJECTS_PATH = __tCtx.projectsRoot;
-    const CHATS_PATH = __tCtx.chatsRoot;
-    const BOUNTY_ROOT = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'BOUNTY_ENGINE');
-    const MEMORY_DIR = __isMasterMike ? path.join(VAULT_DIR, 'Memory') : path.join('C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Tenants', __tCtx.effectiveTenant, 'Memory');
-  try {
-    const { projectId, bountyId, fileName } = req.body || {};
-    if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
-      return res.status(400).json({ success: false, error: 'Invalid fileName' });
-    }
-    const baseDir = projectId === 'BOUNTY_ENGINE' && bountyId
-      ? path.join(__dirname, 'Data', 'Projects', 'BOUNTY_ENGINE', 'campaigns', bountyId, 'clips')
-      : path.join(__dirname, 'Data', 'Projects', projectId || 'BOUNTY_ENGINE');
-    const targetFile = path.join(baseDir, fileName);
-    if (fs.existsSync(targetFile)) {
-      fs.unlinkSync(targetFile);
-      return res.json({ success: true, deleted: fileName });
-    }
-    return res.status(404).json({ success: false, error: 'File not found on disk' });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-
-

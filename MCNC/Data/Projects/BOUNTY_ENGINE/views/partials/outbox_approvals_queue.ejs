@@ -1,0 +1,479 @@
+<%
+// ============================================================================
+// OUTBOX / APPROVALS QUEUE COMPONENT
+// PROJECT: Bounty_Engine
+// TAB: 11 Campaigns
+// WEBSOCKET LISTENER: clip_verified (Port 8081)
+// PALETTE: Obsidian/Wire/Gold Core (Tab 11 Standard)
+// ============================================================================
+%>
+
+<div class="outbox-approvals-container">
+  <div class="outbox-header">
+    <h2 class="outbox-title">Outbox & Approvals Queue</h2>
+    <div class="outbox-stats">
+      <span class="stat-badge" id="queue-count">0 Clips Ready</span>
+      <span class="stat-badge" id="posted-count">0 Posted Today</span>
+    </div>
+  </div>
+
+  <div class="queue-scroll-wrapper" id="queue-scroll-wrapper">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">📦</div>
+      <p>No verified clips in queue.</p>
+      <p class="empty-hint">Clips will appear here after AI verification completes.</p>
+    </div>
+    <div class="queue-grid" id="queue-grid"></div>
+  </div>
+</div>
+
+<style>
+.outbox-approvals-container {
+  background: var(--bg-obsidian, #0C0C0C);
+  border: 1px solid var(--wire-border, #1E1E1E);
+  border-radius: 8px;
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.outbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--wire-border, #1E1E1E);
+}
+
+.outbox-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-glint, #F8FAFC);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.outbox-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-badge {
+  background: rgba(218, 165, 32, 0.1);
+  border: 1px solid var(--gold-core, #DAA520);
+  color: var(--gold-core, #DAA520);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.queue-scroll-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.queue-scroll-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.queue-scroll-wrapper::-webkit-scrollbar-track {
+  background: rgba(30, 30, 30, 0.4);
+  border-radius: 4px;
+}
+
+.queue-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: var(--wire-border, #1E1E1E);
+  border-radius: 4px;
+}
+
+.queue-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(218, 165, 32, 0.3);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-mist, #94A3B8);
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.4;
+}
+
+.empty-state p {
+  margin: 8px 0;
+  font-size: 15px;
+}
+
+.empty-hint {
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.queue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  padding: 4px;
+}
+
+.clip-card {
+  background: rgba(30, 30, 30, 0.6);
+  border: 1px solid var(--wire-border, #1E1E1E);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.clip-card:hover {
+  border-color: var(--gold-core, #DAA520);
+  box-shadow: 0 4px 12px rgba(218, 165, 32, 0.15);
+  transform: translateY(-2px);
+}
+
+.clip-thumbnail {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+
+.clip-thumbnail video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.clip-thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(218, 165, 32, 0.1), rgba(30, 30, 30, 0.8));
+  color: var(--text-mist, #94A3B8);
+  font-size: 48px;
+}
+
+.clip-duration-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--text-glint, #F8FAFC);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.clip-hook {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-glint, #F8FAFC);
+  line-height: 1.4;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.clip-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-mist, #94A3B8);
+}
+
+.clip-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clip-meta-label {
+  opacity: 0.7;
+}
+
+.clip-meta-value {
+  font-weight: 600;
+  color: var(--text-smoke, #E2E8F0);
+}
+
+.clip-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.clip-action-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.btn-post-tiktok {
+  background: var(--gold-core, #DAA520);
+  color: #000;
+}
+
+.btn-post-tiktok:hover {
+  background: #FFD700;
+  box-shadow: 0 4px 12px rgba(218, 165, 32, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-post-tiktok:active {
+  transform: translateY(0);
+}
+
+.btn-preview {
+  background: rgba(30, 30, 30, 0.8);
+  color: var(--text-smoke, #E2E8F0);
+  border: 1px solid var(--wire-border, #1E1E1E);
+}
+
+.btn-preview:hover {
+  background: rgba(50, 50, 50, 0.9);
+  border-color: var(--gold-core, #DAA520);
+}
+
+.clip-status-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(4, 120, 87, 0.9);
+  color: var(--emerald-core, #047857);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid var(--emerald-core, #047857);
+}
+
+.clip-status-badge.posted {
+  background: rgba(185, 28, 28, 0.9);
+  color: var(--ruby-core, #B91C1C);
+  border-color: var(--ruby-core, #B91C1C);
+}
+
+@media (max-width: 768px) {
+  .queue-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .outbox-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .outbox-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+</style>
+
+<script>
+(function() {
+  const queueGrid = document.getElementById('queue-grid');
+  const emptyState = document.getElementById('empty-state');
+  const queueCountBadge = document.getElementById('queue-count');
+  const postedCountBadge = document.getElementById('posted-count');
+  
+  let verifiedClips = [];
+  let postedToday = 0;
+  
+  function updateStats() {
+    const readyCount = verifiedClips.filter(c => !c.posted).length;
+    queueCountBadge.textContent = `${readyCount} Clip${readyCount !== 1 ? 's' : ''} Ready`;
+    postedCountBadge.textContent = `${postedToday} Posted Today`;
+  }
+  
+  function renderQueue() {
+    if (verifiedClips.length === 0) {
+      emptyState.style.display = 'flex';
+      queueGrid.style.display = 'none';
+      return;
+    }
+    
+    emptyState.style.display = 'none';
+    queueGrid.style.display = 'grid';
+    
+    queueGrid.innerHTML = verifiedClips.map((clip, idx) => {
+      const videoSrc = clip.clipPath ? `/api/campaigns/artifacts/BOUNTY_ENGINE?bountyId=${clip.bountyId}&file=${encodeURIComponent(clip.filename)}` : '';
+      const duration = clip.duration || '0:45';
+      const hookText = clip.hookHeadline || 'VIRAL MOMENT';
+      const campaign = clip.campaignName || 'Unknown Campaign';
+      const timestamp = clip.timestamp ? new Date(clip.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'Now';
+      
+      return `
+        <div class="clip-card" data-clip-id="${clip.id || idx}">
+          ${clip.posted ? '<div class="clip-status-badge posted">POSTED</div>' : '<div class="clip-status-badge">VERIFIED</div>'}
+          
+          <div class="clip-thumbnail" onclick="previewClip('${videoSrc}')">
+            ${videoSrc ? `<video src="${videoSrc}" muted></video>` : '<div class="clip-thumbnail-placeholder">🎬</div>'}
+            <div class="clip-duration-badge">${duration}</div>
+          </div>
+          
+          <h3 class="clip-hook">${hookText}</h3>
+          
+          <div class="clip-meta">
+            <div class="clip-meta-row">
+              <span class="clip-meta-label">Campaign:</span>
+              <span class="clip-meta-value">${campaign}</span>
+            </div>
+            <div class="clip-meta-row">
+              <span class="clip-meta-label">Verified:</span>
+              <span class="clip-meta-value">${timestamp}</span>
+            </div>
+            <div class="clip-meta-row">
+              <span class="clip-meta-label">Filename:</span>
+              <span class="clip-meta-value">${clip.filename || 'clip.mp4'}</span>
+            </div>
+          </div>
+          
+          <div class="clip-actions">
+            ${!clip.posted ? `
+              <button class="clip-action-btn btn-post-tiktok" onclick="postToTikTok('${clip.id || idx}')">
+                Post to TikTok
+              </button>
+            ` : `
+              <button class="clip-action-btn btn-preview" disabled style="opacity: 0.5; cursor: not-allowed;">
+                Already Posted
+              </button>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    updateStats();
+  }
+  
+  window.previewClip = function(videoSrc) {
+    if (!videoSrc) return;
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="position:relative;max-width:90%;max-height:90%;">
+        <video src="${videoSrc}" controls autoplay style="max-width:100%;max-height:90vh;border-radius:8px;"></video>
+        <button onclick="this.parentElement.parentElement.remove()" style="position:absolute;top:-40px;right:0;background:var(--ruby-core,#B91C1C);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;">CLOSE</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  };
+  
+  window.postToTikTok = async function(clipId) {
+    const clip = verifiedClips.find(c => (c.id || verifiedClips.indexOf(c)) == clipId);
+    if (!clip || clip.posted) return;
+    
+    const confirmed = confirm(`Post "${clip.hookHeadline || 'this clip'}" to TikTok now?`);
+    if (!confirmed) return;
+    
+    try {
+      const response = await fetch('/api/campaigns/bounty/post-tiktok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clipPath: clip.clipPath,
+          hookHeadline: clip.hookHeadline,
+          bountyId: clip.bountyId,
+          filename: clip.filename
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        clip.posted = true;
+        postedToday++;
+        renderQueue();
+        alert(`✅ Posted to TikTok successfully!\n\nClip: ${clip.hookHeadline}`);
+      } else {
+        alert(`❌ TikTok post failed:\n${result.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`❌ Network error:\n${err.message}`);
+    }
+  };
+  
+  // WebSocket listener for clip_verified events from Port 8081
+  function connectWebSocket() {
+    const ws = new WebSocket('ws://localhost:8081');
+    
+    ws.onopen = () => {
+      console.log('[OUTBOX] WebSocket connected to Port 8081');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'clip_verified' || data.type === 'CLIP_VERIFIED') {
+          const newClip = {
+            id: data.payload?.id || `clip_${Date.now()}`,
+            filename: data.payload?.filename || 'clip.mp4',
+            clipPath: data.payload?.clipPath || '',
+            hookHeadline: data.payload?.hookHeadline || 'VIRAL MOMENT',
+            campaignName: data.payload?.campaignName || 'Unknown Campaign',
+            bountyId: data.payload?.bountyId || '',
+            duration: data.payload?.duration || '0:45',
+            timestamp: data.payload?.timestamp || new Date().toISOString(),
+            posted: false
+          };
+          
+          verifiedClips.unshift(newClip);
+          renderQueue();
+          
+          console.log('[OUTBOX] New verified clip added to queue:', newClip.hookHeadline);
+        }
+      } catch (err) {
+        console.error('[OUTBOX] WebSocket message parse error:', err);
+      }
+    };
+    
+    ws.onerror = (err) => {
+      console.error('[OUTBOX] WebSocket error:', err);
+    };
+    
+    ws.onclose = () => {
+      console.log('[OUTBOX] WebSocket disconnected. Reconnecting in 5s...');
+      setTimeout(connectWebSocket, 5000);
+    };
+  }
+  
+  // Initialize
+  renderQueue();
+  connectWebSocket();
+})();
+</script>

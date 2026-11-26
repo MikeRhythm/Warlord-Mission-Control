@@ -1,0 +1,86 @@
+{
+    "project":  "Bounty_Engine",
+    "ceo":  "11 CHARLIE",
+    "initialized":  "2026-11-26T04:15:58.702Z",
+    "status":  "ACTIVE",
+    "tickets":  [
+                    {
+                        "title":  "Provision project_manifest.json and Paperclip_Tickets.json at canonical root",
+                        "status":  "SEALED",
+                        "id":  "DEL-100",
+                        "owner":  "Jack"
+                    },
+                    {
+                        "title":  "Inject provisionBountyFilesystem() into Auto_Bounty_Engine.js",
+                        "status":  "PENDING",
+                        "id":  "DEL-101",
+                        "owner":  "Charlie"
+                    },
+                    {
+                        "title":  "Inject provisionChromeSession() into Auto_Bounty_Engine.js",
+                        "status":  "PENDING",
+                        "id":  "DEL-102",
+                        "owner":  "Charlie"
+                    },
+                    {
+                        "title":  "Replace browser launch logic with Chrome_Session_Master clone",
+                        "status":  "PENDING",
+                        "id":  "DEL-103",
+                        "owner":  "Charlie"
+                    },
+                    {
+                        "title":  "Implement explicit locked/dry campaign rejection gate",
+                        "status":  "PENDING",
+                        "id":  "DEL-104",
+                        "owner":  "Charlie"
+                    },
+                    {
+                        "title":  "Wire Port 8081/8082 API routes for Bounty_Engine",
+                        "status":  "PENDING",
+                        "id":  "DEL-105",
+                        "owner":  "Jack"
+                    },
+                    {
+                        "title":  "Discover active Vyro and Whop deals",
+                        "status":  "PENDING",
+                        "id":  "DEL-106",
+                        "owner":  "Tess"
+                    },
+                    {
+                        "title":  "Output structured JSON array of active campaigns",
+                        "status":  "PENDING",
+                        "id":  "DEL-107",
+                        "owner":  "Tess"
+                    },
+                    {
+                        "title":  "Govern SQLite state persistence",
+                        "status":  "PENDING",
+                        "id":  "DEL-108",
+                        "owner":  "Silas"
+                    },
+                    {
+                        "title":  "Route verified clips into staging outbox",
+                        "status":  "PENDING",
+                        "id":  "DEL-109",
+                        "owner":  "Roxy"
+                    },
+                    {
+                        "title":  "Manage isolated worker sessions cloned from Chrome_Session_Master",
+                        "status":  "PENDING",
+                        "id":  "DEL-110",
+                        "owner":  "Roxy"
+                    },
+                    {
+                        "title":  "Enforce stealth daily posting caps (6/day global, 3/campaign)",
+                        "status":  "PENDING",
+                        "id":  "DEL-111",
+                        "owner":  "The Askari"
+                    },
+                    {
+                        "title":  "Purge locked, dry, or expired campaigns from ledger and disk",
+                        "status":  "PENDING",
+                        "id":  "DEL-112",
+                        "owner":  "The Askari"
+                    }
+                ]
+}

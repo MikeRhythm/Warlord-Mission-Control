@@ -1,0 +1,21 @@
+{
+    "project_name":  "Bounty_Engine",
+    "created_at":  "2026-11-26T04:15:58.702Z",
+    "status":  "ACTIVE",
+    "prd_data":  {
+                     "objective":  "Autonomous Bounty Clipping \u0026 Multi-Platform Short-Form Dispatch Engine",
+                     "industry":  "Digital Media \u0026 Content Bounties",
+                     "dominantMetric":  "Speed"
+                 },
+    "directories":  [
+                        "campaigns",
+                        "intake",
+                        "clips"
+                    ],
+    "pillars":  [
+
+                ],
+    "cronJobs":  [
+
+                 ]
+}
