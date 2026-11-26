@@ -1,41 +1,4 @@
 {
   "lastDispatchDate": "2026-11-26",
-  "active": [
-    {
-      "id": "vyro_made_by_dentists_ask_the_dent",
-      "title": "Made By Dentists // Ask the Dentist: Dr. Lisa Creaven",
-      "platform": "Vyro",
-      "cpmRate": "$1.40",
-      "flatFeeBonus": 0,
-      "viewFloor": "1000",
-      "poolStatus": "ACTIVE // Active Pool",
-      "runwayDays": 10,
-      "totalClicks": 0,
-      "dailyPostsUsed": 0,
-      "dailyPostCap": 3,
-      "mandatoryTags": "#madebydentistsaskt #shorts #viral",
-      "hookHeadline": "ASK THE DENTIST: DR. LISA CREAVEN",
-      "tessYieldScore": 1.12,
-      "sourcePath": "",
-      "createdAt": "2026-11-26T10:53:20.077Z"
-    },
-    {
-      "id": "vyro_apn_athlete_performance_nutri",
-      "title": "APN - ATHLETE PERFORMANCE NUTRITION // Marco Penge x APN",
-      "platform": "Vyro",
-      "cpmRate": "$1.05",
-      "flatFeeBonus": 0,
-      "viewFloor": "1000",
-      "poolStatus": "ACTIVE // Active Pool",
-      "runwayDays": 10,
-      "totalClicks": 0,
-      "dailyPostsUsed": 0,
-      "dailyPostCap": 3,
-      "mandatoryTags": "#apnathleteperforma #shorts #viral",
-      "hookHeadline": "MARCO PENGE X APN",
-      "tessYieldScore": 0.84,
-      "sourcePath": "",
-      "createdAt": "2026-11-26T10:53:20.077Z"
-    }
-  ]
+  "active": []
 }

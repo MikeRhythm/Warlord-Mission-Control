@@ -1,15 +1,35 @@
 ﻿// ============================================================================
 // WARLORD WASP // LIVE BOUNTY MARKETPLACE SCRAPER (VYRO + WHOP)
 // FILE: C:\Warlord_Inc\Warlord_WASP\MCNC\Bounty_Scraper.js
-// ZERO HARDCODED FALLBACKS — REAL LIVE MARKETPLACE TRUTH ONLY
+// ZERO HARDCODED FALLBACKS — YOUTUBE-ELIGIBLE MARKETPLACE TRUTH ONLY
 // ============================================================================
 
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 
+function isYouTubeEligibleBounty(b) {
+    if (!b) return false;
+    if (b.acceptsYouTube === false) return false;
+    if (b.acceptsYouTube === true) return true;
+
+    const blob = `${b.acceptedPlatforms || ''} ${b.platformRules || ''} ${b.title || ''} ${b.poolStatus || ''}`.toLowerCase();
+    if (
+        blob.includes('tiktok only') ||
+        blob.includes('instagram only') ||
+        blob.includes('ig only') ||
+        blob.includes('no youtube') ||
+        blob.includes('exclude youtube')
+    ) {
+        return false;
+    }
+    return /\b(youtube|yt\s*shorts?|youtubeshorts)\b/i.test(blob);
+}
+
 function isBountyLiveAndFunded(b) {
     if (!b) return false;
+    if (!isYouTubeEligibleBounty(b)) return false;
+
     const statusStr = `${b.poolStatus || ''} ${b.status || ''} ${b.title || ''}`.toUpperCase();
     if (
         statusStr.includes('DRY') ||
@@ -97,7 +117,7 @@ async function scrapeBounties() {
             ]
         });
 
-        // 1. SCAN VYRO CAMPAIGNS
+        // 1. SCAN VYRO CAMPAIGNS (YOUTUBE-ELIGIBLE ONLY)
         try {
             const vyroPage = await browser.newPage();
             await vyroPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
@@ -132,7 +152,7 @@ async function scrapeBounties() {
                         const s = str.trim();
                         if (s.length < 2) return true;
                         if (isRelativeTime(s)) return true;
-                        if (/^(just now|yesterday|today|new|active|verified|live|open|clipping|ugc|views?|per view|per post|acknowledge|newest|budget available|pay rate|campaigns for you)$/i.test(s)) return true;
+                        if (/^(just now|yesterday|today|new|active|verified|live|open|clipping|ugc|views?|per view|per post|acknowledge|newest|budget available|pay rate|campaigns for you|youtube|tiktok|instagram|shorts|reels)$/i.test(s)) return true;
                         if (/^\$[\d.,]+$/.test(s)) return true;
                         if (/^\d+(\.\d+)?%$/.test(s)) return true;
                         if (/per\s*1[mk]\s*views/i.test(s)) return true;
@@ -145,6 +165,46 @@ async function scrapeBounties() {
                             .trim();
                     };
 
+                    const detectCardPlatforms = (anchorText) => {
+                        const needle = String(anchorText || '').trim();
+                        const candidates = Array.from(document.querySelectorAll('a, article, [role="button"], div'));
+                        let bestEl = null;
+                        for (const el of candidates) {
+                            const txt = (el.innerText || '').trim();
+                            if (!txt || txt.length > 1400) continue;
+                            if (needle && txt.includes(needle) && /per\s*1[mk]\s*views|\$\d+/i.test(txt)) {
+                                if (!bestEl || txt.length < (bestEl.innerText || '').length) {
+                                    bestEl = el;
+                                }
+                            }
+                        }
+                        if (!bestEl) return { rawSignals: '', acceptsYouTube: false, platforms: [] };
+
+                        const attrSignals = Array.from(bestEl.querySelectorAll('img, svg, [aria-label], [title], [data-platform], a'))
+                            .map(node => [
+                                node.getAttribute('alt'),
+                                node.getAttribute('aria-label'),
+                                node.getAttribute('title'),
+                                node.getAttribute('data-platform'),
+                                node.getAttribute('href'),
+                                node.className && typeof node.className === 'string' ? node.className : ''
+                            ].filter(Boolean).join(' '))
+                            .join(' ');
+
+                        const combinedSignals = `${bestEl.innerText || ''} ${attrSignals}`.toLowerCase();
+                        const platforms = [];
+                        if (/\b(youtube|yt\s*shorts?|youtubeshorts)\b/.test(combinedSignals)) platforms.push('YouTube');
+                        if (/\btiktok\b/.test(combinedSignals)) platforms.push('TikTok');
+                        if (/\b(instagram|reels)\b/.test(combinedSignals)) platforms.push('Instagram');
+
+                        const explicitlyBanned = /tiktok\s*only|instagram\s*only|ig\s*only|no\s*youtube|exclude\s*youtube/.test(combinedSignals);
+                        return {
+                            rawSignals: combinedSignals.slice(0, 300),
+                            acceptsYouTube: platforms.includes('YouTube') && !explicitlyBanned,
+                            platforms
+                        };
+                    };
+
                     const lines = document.body.innerText.split('\n').map(l => l.trim()).filter(Boolean);
                     const found = [];
                     const seen = new Set();
@@ -155,7 +215,7 @@ async function scrapeBounties() {
                         const perThousandMatch = /\$(\d+(?:\.\d+)?)\s*(?:\/|PER)\s*(?:1K|1,000)\s*VIEWS?/i.exec(lines[i]);
 
                         if ((perMillionMatch && i >= 2) || perThousandMatch) {
-                            const windowLines = lines.slice(Math.max(0, i - 5), Math.min(lines.length, i + 4));
+                            const windowLines = lines.slice(Math.max(0, i - 6), Math.min(lines.length, i + 6));
                             const isDead = windowLines.some(l => {
                                 const low = l.toLowerCase();
                                 return (
@@ -184,7 +244,6 @@ async function scrapeBounties() {
 
                             const pctLine = windowLines.find(l => /\d+%/.test(l)) || 'Active Pool';
 
-                            // Walk backward from price line to find title and optional brand above the timestamp
                             let descLine = '';
                             let brandLine = '';
                             let timeIdx = -1;
@@ -209,6 +268,18 @@ async function scrapeBounties() {
 
                             if (!descLine) descLine = 'Viral Clip Campaign';
 
+                            const platformCheck = detectCardPlatforms(descLine);
+                            const windowText = windowLines.join(' ').toLowerCase();
+                            const hasYoutubeInWindow = /\b(youtube|yt\s*shorts?|youtubeshorts)\b/.test(windowText);
+                            const acceptsYouTube = platformCheck.acceptsYouTube || hasYoutubeInWindow;
+
+                            // STRICT GATE: Skip any Vyro campaign that does not explicitly accept YouTube
+                            if (!acceptsYouTube) continue;
+
+                            const acceptedList = platformCheck.platforms.length > 0
+                                ? platformCheck.platforms
+                                : ['YouTube'];
+
                             const displayTitle = (brandLine && brandLine.toLowerCase() !== descLine.toLowerCase())
                                 ? `${brandLine} // ${descLine}`
                                 : descLine;
@@ -221,10 +292,12 @@ async function scrapeBounties() {
                                     id: slug,
                                     title: displayTitle,
                                     platform: 'Vyro',
+                                    acceptedPlatforms: acceptedList.join(', '),
+                                    acceptsYouTube: true,
                                     cpmRate: `$${cpmNum.toFixed(2)}`,
                                     flatFeeBonus: 0,
                                     viewFloor: '1000',
-                                    poolStatus: `ACTIVE // ${pctLine}`,
+                                    poolStatus: `ACTIVE // ${pctLine} [YT-OK]`,
                                     runwayDays: 10,
                                     totalClicks: 0,
                                     dailyPostsUsed: 0,
@@ -239,7 +312,7 @@ async function scrapeBounties() {
                 });
 
                 diagnostics.vyro.count = vyroCards.length;
-                diagnostics.vyro.status = vyroCards.length > 0 ? 'LIVE_OK' : 'NO_OPEN_CAMPAIGNS';
+                diagnostics.vyro.status = vyroCards.length > 0 ? 'LIVE_YT_OK' : 'NO_YT_CAMPAIGNS';
             }
             await vyroPage.close().catch(() => {});
         } catch (e) {
@@ -247,7 +320,7 @@ async function scrapeBounties() {
             diagnostics.vyro.error = e.message;
         }
 
-        // 2. SCAN WHOP CONTENT REWARDS / CLIPPING
+        // 2. SCAN WHOP CONTENT REWARDS / CLIPPING (YOUTUBE-ELIGIBLE ONLY)
         try {
             const whopPage = await browser.newPage();
             await whopPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
@@ -284,10 +357,49 @@ async function scrapeBounties() {
                         const s = str.trim();
                         if (s.length < 3) return true;
                         if (/^(posted\s+)?\d+\s*(s|sec|secs|m|min|mins|h|hr|hrs|d|day|days|w|wk|wks|mo|mos)\s*ago$/i.test(s)) return true;
-                        if (/^(just now|yesterday|today|new|active|verified|live|open|clipping|ugc|content rewards|discover|browse)$/i.test(s)) return true;
+                        if (/^(just now|yesterday|today|new|active|verified|live|open|clipping|ugc|content rewards|discover|browse|youtube|tiktok|instagram|shorts|reels)$/i.test(s)) return true;
                         if (/^\$[\d.,]+(\s*\/\s*(1k|1,000|1m|1,000,000))?$/i.test(s)) return true;
                         if (/^\d+(\.\d+)?%(\s*(paid|claimed|left|remaining))?$/i.test(s)) return true;
                         return false;
+                    };
+
+                    const detectCardPlatforms = (anchorText) => {
+                        const needle = String(anchorText || '').trim();
+                        const candidates = Array.from(document.querySelectorAll('a, article, [role="button"], div'));
+                        let bestEl = null;
+                        for (const el of candidates) {
+                            const txt = (el.innerText || '').trim();
+                            if (!txt || txt.length > 1400) continue;
+                            if (needle && txt.includes(needle) && /\$\d+/.test(txt)) {
+                                if (!bestEl || txt.length < (bestEl.innerText || '').length) {
+                                    bestEl = el;
+                                }
+                            }
+                        }
+                        if (!bestEl) return { acceptsYouTube: false, platforms: [] };
+
+                        const attrSignals = Array.from(bestEl.querySelectorAll('img, svg, [aria-label], [title], [data-platform], a'))
+                            .map(node => [
+                                node.getAttribute('alt'),
+                                node.getAttribute('aria-label'),
+                                node.getAttribute('title'),
+                                node.getAttribute('data-platform'),
+                                node.getAttribute('href'),
+                                node.className && typeof node.className === 'string' ? node.className : ''
+                            ].filter(Boolean).join(' '))
+                            .join(' ');
+
+                        const combinedSignals = `${bestEl.innerText || ''} ${attrSignals}`.toLowerCase();
+                        const platforms = [];
+                        if (/\b(youtube|yt\s*shorts?|youtubeshorts)\b/.test(combinedSignals)) platforms.push('YouTube');
+                        if (/\btiktok\b/.test(combinedSignals)) platforms.push('TikTok');
+                        if (/\b(instagram|reels)\b/.test(combinedSignals)) platforms.push('Instagram');
+
+                        const explicitlyBanned = /tiktok\s*only|instagram\s*only|ig\s*only|no\s*youtube|exclude\s*youtube/.test(combinedSignals);
+                        return {
+                            acceptsYouTube: platforms.includes('YouTube') && !explicitlyBanned,
+                            platforms
+                        };
                     };
 
                     const lines = document.body.innerText.split('\n').map(l => l.trim()).filter(Boolean);
@@ -300,7 +412,7 @@ async function scrapeBounties() {
                         const flatMatch = line.match(/\$(\d+(?:\.\d+)?)\s*(?:flat\s*fee|per\s*post|per\s*clip|bonus)/i);
 
                         if (rateMatch || flatMatch) {
-                            const windowLines = lines.slice(Math.max(0, i - 5), Math.min(lines.length, i + 6));
+                            const windowLines = lines.slice(Math.max(0, i - 6), Math.min(lines.length, i + 7));
                             const isDead = windowLines.some(l => {
                                 const low = l.toLowerCase();
                                 return (
@@ -333,6 +445,18 @@ async function scrapeBounties() {
                                 }
                             }
 
+                            const platformCheck = detectCardPlatforms(titleCand);
+                            const windowText = windowLines.join(' ').toLowerCase();
+                            const hasYoutubeInWindow = /\b(youtube|yt\s*shorts?|youtubeshorts)\b/.test(windowText);
+                            const acceptsYouTube = platformCheck.acceptsYouTube || hasYoutubeInWindow;
+
+                            // STRICT GATE: Skip any Whop campaign that does not explicitly accept YouTube
+                            if (!acceptsYouTube) continue;
+
+                            const acceptedList = platformCheck.platforms.length > 0
+                                ? platformCheck.platforms
+                                : ['YouTube'];
+
                             const slug = `whop_${titleCand}`.toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 34);
 
                             if (!seenSlugs.has(slug)) {
@@ -343,10 +467,12 @@ async function scrapeBounties() {
                                         ? `${titleCand} // +$${flatFeeBonus} Scalp`
                                         : `${titleCand} // Whop Clipping`,
                                     platform: 'Whop',
+                                    acceptedPlatforms: acceptedList.join(', '),
+                                    acceptsYouTube: true,
                                     cpmRate: `$${cpm.toFixed(2)}`,
                                     flatFeeBonus,
                                     viewFloor: '1000',
-                                    poolStatus: `ACTIVE // ${pctLine}`,
+                                    poolStatus: `ACTIVE // ${pctLine} [YT-OK]`,
                                     runwayDays: 10,
                                     totalClicks: 0,
                                     dailyPostsUsed: 0,
@@ -368,7 +494,7 @@ async function scrapeBounties() {
 
             if (diagnostics.whop.status === 'NOT_RUN') {
                 diagnostics.whop.count = whopCards.length;
-                diagnostics.whop.status = whopCards.length > 0 ? 'LIVE_OK' : 'NO_OPEN_CAMPAIGNS';
+                diagnostics.whop.status = whopCards.length > 0 ? 'LIVE_YT_OK' : 'NO_YT_CAMPAIGNS';
             }
             await whopPage.close().catch(() => {});
         } catch (e) {
@@ -404,5 +530,6 @@ async function scrapeBounties() {
 module.exports = {
     scrapeBounties,
     computeTessNetYieldScore,
-    isBountyLiveAndFunded
+    isBountyLiveAndFunded,
+    isYouTubeEligibleBounty
 };

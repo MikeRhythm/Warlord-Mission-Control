@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // WARLORD WASP // AUTONOMOUS BOUNTY CLIPPING & DISPATCH ENGINE
 // FILE: C:\Warlord_Inc\Warlord_WASP\MCNC\Auto_Bounty_Engine.js
 // ============================================================================
@@ -168,8 +168,13 @@ async function resolveOrDownloadSourceVideo(bounty, intakeDir, logStep) {
     const rawQuery = (bounty.youtubeUrl || '').trim()
         || `ytsearch1:${(bounty.title || 'viral podcast highlight').replace(/\/\/.*/g, '').trim()} funny moment`;
 
+    const cookiesTxt = path.join(CHROME_SESSION_MASTER, 'youtube_cookies.txt');
+    const authFlag = fs.existsSync(cookiesTxt)
+        ? `--cookies "${cookiesTxt}"`
+        : `--cookies-from-browser "chrome:${CHROME_SESSION_MASTER}"`;
+
     logStep(`[1/4 INTAKE] Acquiring 1080p source footage via yt-dlp (${rawQuery.slice(0, 64)})...`);
-    const ytdlpCmd = `yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --max-filesize 250M --merge-output-format mp4 -o "${defaultLocal}" "${rawQuery}"`;
+    const ytdlpCmd = `python -m yt_dlp --js-runtimes node --remote-components ejs:github --extractor-args "youtube:player_client=default,web_embedded" ${authFlag} -f "best[height<=1080][protocol*=m3u8]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" --max-filesize 250M --merge-output-format mp4 -o "${defaultLocal}" "${rawQuery}"`;
     await execPromise(ytdlpCmd, { timeout: 180000 });
 
     if (!fs.existsSync(defaultLocal)) {
@@ -329,3 +334,5 @@ module.exports = {
     provisionBountyFilesystem,
     provisionChromeSession
 };
+
+
