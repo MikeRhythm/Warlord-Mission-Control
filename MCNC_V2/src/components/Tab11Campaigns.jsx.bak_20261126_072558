@@ -1,22 +1,36 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
+
+const PIPELINE_API_BASE = 'http://localhost:8082/api';
+
+const PROJECT_THEME_PALETTE = ['#ffb800', '#38bdf8', '#10b981', '#C5BD9F', '#a78bfa'];
+
+function normalizeProjectKey(name) {
+  return String(name || '')
+    .trim()
+    .replace(/[\s_]+/g, '_')
+    .toLowerCase();
+}
 
 export default function Tab11Campaigns() {
+  const [projects, setProjects] = useState([
+    { id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }
+  ]);
   const [selectedProjectId, setSelectedProjectId] = useState('BOUNTY_ENGINE');
   const [bounties, setBounties] = useState([]);
   const [activeBountyId, setActiveBountyId] = useState('');
-  const [activePlatform, setActivePlatform] = useState('Vyro');
+  const [activePlatform, setActivePlatform] = useState('');
 
   const [campaignTitle, setCampaignTitle] = useState('');
-  const [cpmRate, setCpmRate] = useState('$2.00');
-  const [viewFloor, setViewFloor] = useState('1000');
+  const [cpmRate, setCpmRate] = useState('');
+  const [viewFloor, setViewFloor] = useState('');
   const [sourceVideoPath, setSourceVideoPath] = useState('');
   const [hookHeadline, setHookHeadline] = useState('');
-  const [startTime, setStartTime] = useState('00:00:00');
-  const [endTime, setEndTime] = useState('00:01:00');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [mandatoryTags, setMandatoryTags] = useState('');
 
-  const [poolStatus, setPoolStatus] = useState('ACTIVE // 88% Pool Left (~14 Days)');
-  const [runwayDays, setRunwayDays] = useState(14);
+  const [poolStatus, setPoolStatus] = useState('');
+  const [runwayDays, setRunwayDays] = useState(0);
   const [totalClicks, setTotalClicks] = useState(0);
   const [dailyPostsUsed, setDailyPostsUsed] = useState(0);
   const [dailyPostCap] = useState(6);
@@ -25,7 +39,8 @@ export default function Tab11Campaigns() {
   const [rawTranscript, setRawTranscript] = useState('');
   const [isExtractingHooks, setIsExtractingHooks] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
-  const [copiedState, setCopiedState] = useState({});
+  const [copiedFlash, setCopiedFlash] = useState({});
+  const [copiedHistory, setCopiedHistory] = useState({});
 
   const [telemetryLog, setTelemetryLog] = useState([
     '[INIT] Universal Campaigns & Action Station mounted.',
@@ -35,20 +50,117 @@ export default function Tab11Campaigns() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [artifacts, setArtifacts] = useState([]);
 
-  const projects = [
-    { id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' },
-    { id: 'The Chief Madothi F', label: 'THE CHIEF MADOTHI FUND', color: '#38bdf8' },
-    { id: 'PEPTIDES', label: 'PEPTIDES FOR AFRICA', color: '#10b981' },
-    { id: 'John Tanton - Proje', label: 'JOHN TANTON // PM BOOK', color: '#C5BD9F' }
-  ];
+  const resetBountyFormToZeroState = () => {
+    setActiveBountyId('');
+    setActivePlatform('');
+    setCampaignTitle('');
+    setCpmRate('');
+    setViewFloor('');
+    setSourceVideoPath('');
+    setHookHeadline('');
+    setStartTime('');
+    setEndTime('');
+    setMandatoryTags('');
+    setPoolStatus('');
+    setRunwayDays(0);
+    setTotalClicks(0);
+    setDailyPostsUsed(0);
+    setTranscriptDrawerOpen(false);
+    setRawTranscript('');
+    setArtifacts([]);
+    setCopiedFlash({});
+    setCopiedHistory({});
+  };
+
+  // Sync live on-disk projects from Port 8082 + listen for purge/create broadcasts
+  const syncDiskProjects = useCallback(async () => {
+    try {
+      const res = await fetch(`${PIPELINE_API_BASE}/projects`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.projects)) {
+          const activeDiskProjects = data.projects.filter(p => p.status !== 'ARCHIVED');
+          const mapped = [];
+
+          // Always keep Bounty_Engine first if present on disk
+          const bountyEntry = activeDiskProjects.find(
+            p => normalizeProjectKey(p.id || p.name) === 'bounty_engine'
+          );
+          if (bountyEntry) {
+            mapped.push({
+              id: 'BOUNTY_ENGINE',
+              label: 'CREATOR BOUNTIES',
+              color: '#ffb800'
+            });
+          }
+
+          activeDiskProjects.forEach((p, idx) => {
+            const rawId = p.id || p.name;
+            if (normalizeProjectKey(rawId) === 'bounty_engine') return;
+            const displayLabel = String(p.name || rawId).replace(/_/g, ' ').toUpperCase();
+            mapped.push({
+              id: rawId,
+              label: displayLabel,
+              color: PROJECT_THEME_PALETTE[(idx + 1) % PROJECT_THEME_PALETTE.length]
+            });
+          });
+
+          const finalList = mapped.length > 0
+            ? mapped
+            : [{ id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }];
+
+          setProjects(finalList);
+          setSelectedProjectId(prev => {
+            const exists = finalList.some(item => normalizeProjectKey(item.id) === normalizeProjectKey(prev));
+            return exists ? prev : finalList[0].id;
+          });
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    syncDiskProjects();
+    const interval = setInterval(syncDiskProjects, 6000);
+
+    const handleProjectPurged = (event) => {
+      const deletedName = event?.detail?.projectName || event?.detail?.project;
+      if (!deletedName) return;
+      const targetKey = normalizeProjectKey(deletedName);
+
+      setProjects(prev => {
+        const filtered = prev.filter(p => normalizeProjectKey(p.id) !== targetKey);
+        const fallbackList = filtered.length > 0
+          ? filtered
+          : [{ id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }];
+
+        setSelectedProjectId(curr =>
+          normalizeProjectKey(curr) === targetKey ? fallbackList[0].id : curr
+        );
+        return fallbackList;
+      });
+    };
+
+    const handleProjectCreated = () => {
+      syncDiskProjects();
+    };
+
+    window.addEventListener('mcnc-project-purged', handleProjectPurged);
+    window.addEventListener('mcnc-project-created', handleProjectCreated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('mcnc-project-purged', handleProjectPurged);
+      window.removeEventListener('mcnc-project-created', handleProjectCreated);
+    };
+  }, [syncDiskProjects]);
 
   const getDefaultSourcePath = (bId) => {
     if (!bId) return '';
-    return `C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\BOUNTY_ENGINE\\campaigns\\${bId}\\intake\\${bId}_source.mp4`;
+    return `C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\Bounty_Engine\\Campaigns\\${bId}\\Intake\\${bId}_source.mp4`;
   };
 
   const detectPlatform = (b) => {
-    if (!b) return 'Vyro';
+    if (!b) return '';
     if (b.platform) return b.platform;
     return String(b.id || '').toLowerCase().startsWith('whop_') ? 'Whop' : 'Vyro';
   };
@@ -97,14 +209,40 @@ export default function Tab11Campaigns() {
       document.execCommand('copy');
       document.body.removeChild(ta);
     }
-    setCopiedState(prev => ({ ...prev, [key]: true }));
+    setCopiedFlash(prev => ({ ...prev, [key]: true }));
+    setCopiedHistory(prev => ({ ...prev, [key]: true }));
     setTimeout(() => {
-      setCopiedState(prev => ({ ...prev, [key]: false }));
-    }, 2200);
+      setCopiedFlash(prev => ({ ...prev, [key]: false }));
+    }, 2000);
+  };
+
+  const handleDeleteArtifact = async (fileName) => {
+    if (!window.confirm(`Delete published clip [${fileName}] from disk?`)) return;
+    try {
+      const res = await fetch('http://localhost:8081/api/campaigns/artifacts/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: selectedProjectId,
+          bountyId: activeBountyId,
+          fileName
+        })
+      });
+      if (res.ok) {
+        setArtifacts(prev => prev.filter(a => a.name !== fileName));
+      } else {
+        alert('Could not delete file on backend — make sure START_WASP.bat was restarted to load the delete endpoint.');
+      }
+    } catch (e) {
+      alert('Bridge connection error while deleting artifact.');
+    }
   };
 
   const loadBountyIntoForm = (bounty) => {
-    if (!bounty) return;
+    if (!bounty) {
+      resetBountyFormToZeroState();
+      return;
+    }
     const autoPath = (bounty.sourcePath && bounty.sourcePath.trim())
       ? bounty.sourcePath.trim()
       : getDefaultSourcePath(bounty.id);
@@ -112,15 +250,15 @@ export default function Tab11Campaigns() {
     setActiveBountyId(bounty.id);
     setActivePlatform(detectPlatform(bounty));
     setCampaignTitle(bounty.campaignTitle || bounty.title || bounty.name || '');
-    setCpmRate(bounty.cpmRate || bounty.cpm_rate || '$2.00');
-    setViewFloor(bounty.viewFloor || bounty.view_floor || '1000');
+    setCpmRate(bounty.cpmRate || bounty.cpm_rate || '');
+    setViewFloor(bounty.viewFloor || bounty.view_floor || '');
     setSourceVideoPath(autoPath);
     setHookHeadline(bounty.hookHeadline || '');
     setStartTime(bounty.startTime || '00:00:00');
     setEndTime(bounty.endTime || '00:01:00');
     setMandatoryTags(bounty.mandatoryTags || '');
-    setPoolStatus(bounty.poolStatus || 'ACTIVE // 85% Pool Left (~12 Days)');
-    setRunwayDays(bounty.runwayDays !== undefined ? bounty.runwayDays : 12);
+    setPoolStatus(bounty.poolStatus || '');
+    setRunwayDays(bounty.runwayDays !== undefined ? bounty.runwayDays : 0);
     setTotalClicks(bounty.totalClicks || 0);
     setDailyPostsUsed(bounty.dailyPostsUsed || 0);
     loadDiskArtifacts('BOUNTY_ENGINE', bounty.id);
@@ -136,6 +274,8 @@ export default function Tab11Campaigns() {
         if (activeList.length > 0) {
           const current = activeList.find(b => b.id === activeBountyId) || activeList[0];
           loadBountyIntoForm(current);
+        } else {
+          resetBountyFormToZeroState();
         }
       }
     } catch (e) {}
@@ -160,18 +300,18 @@ export default function Tab11Campaigns() {
           if (job.status === 'COMPLETE' && job.lastResult && job.lastResult.activeList) {
             const updatedList = job.lastResult.activeList.slice(0, 5);
             setBounties(updatedList);
-            if (job.lastResult.updatedBounty) {
-              const target = updatedList.find(b => b.id === activeBountyId) || job.lastResult.updatedBounty;
+            if (updatedList.length === 0) {
+              resetBountyFormToZeroState();
+            } else if (activeBountyId) {
+              const target = updatedList.find(b => b.id === activeBountyId);
               if (target) {
                 setActiveBountyId(target.id);
                 setActivePlatform(detectPlatform(target));
                 setDailyPostsUsed(target.dailyPostsUsed || 0);
                 setSourceVideoPath(target.sourcePath || getDefaultSourcePath(target.id));
+                loadDiskArtifacts('BOUNTY_ENGINE', target.id);
               }
-            } else if (updatedList.length > 0) {
-              loadBountyIntoForm(updatedList[0]);
             }
-            loadDiskArtifacts('BOUNTY_ENGINE', job.bountyId || activeBountyId);
           }
         }
       } catch (e) {}
@@ -188,6 +328,9 @@ export default function Tab11Campaigns() {
   useEffect(() => {
     if (selectedProjectId === 'BOUNTY_ENGINE') {
       fetchBounties();
+    } else {
+      resetBountyFormToZeroState();
+      loadDiskArtifacts(selectedProjectId);
     }
   }, [selectedProjectId]);
 
@@ -261,7 +404,11 @@ export default function Tab11Campaigns() {
       if (data.success) {
         const list = (data.bounties || []).slice(0, 5);
         setBounties(list);
-        if (list.length > 0) loadBountyIntoForm(list[0]);
+        if (list.length > 0) {
+          loadBountyIntoForm(list[0]);
+        } else {
+          resetBountyFormToZeroState();
+        }
       }
     } catch (err) {} finally {
       setIsDiscovering(false);
@@ -344,6 +491,10 @@ export default function Tab11Campaigns() {
   };
 
   const handlePurgeBounty = async () => {
+    if (!activeBountyId) {
+      resetBountyFormToZeroState();
+      return;
+    }
     if (!window.confirm(`Permanently delete [${activeBountyId}] and its physical clips?`)) return;
     const targetId = activeBountyId;
     try {
@@ -351,14 +502,18 @@ export default function Tab11Campaigns() {
       if (res.ok) {
         const remaining = bounties.filter(b => b.id !== targetId);
         setBounties(remaining);
-        if (remaining.length > 0) loadBountyIntoForm(remaining[0]);
+        resetBountyFormToZeroState();
+        setTelemetryLog(prev => [
+          `[${new Date().toLocaleTimeString()}] [PURGE COMPLETE] Cleared [${targetId}] and reset workspace to clean slate.`,
+          ...prev
+        ]);
       }
     } catch (e) {}
   };
 
   const totalDailyUsedAcrossAll = bounties.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
   const remainingGlobalSlots = Math.max(0, dailyPostCap - totalDailyUsedAcrossAll);
-  const estEarnings = ((totalClicks / 1000) * (parseFloat(String(cpmRate).replace(/[^0-9.]/g, '')) || 2.0)).toFixed(2);
+  const estEarnings = ((totalClicks / 1000) * (parseFloat(String(cpmRate).replace(/[^0-9.]/g, '')) || 0)).toFixed(2);
   const formatTimer = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   return (
@@ -380,9 +535,11 @@ export default function Tab11Campaigns() {
         justifyContent: 'space-between',
         paddingBottom: '10px',
         borderBottom: '1px solid #1f242d',
-        marginBottom: '12px'
+        marginBottom: '12px',
+        flexWrap: 'wrap',
+        gap: '8px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '13px' }}>ACTION STATION //</span>
           {projects.map(proj => (
             <button
@@ -465,7 +622,7 @@ export default function Tab11Campaigns() {
                   </span>
                   <span>{b.title || b.id}</span>
                   <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '2px', backgroundColor: 'rgba(16,185,129,0.18)', color: '#10b981' }}>
-                    {b.cpmRate || '$2.00'} • {b.runwayDays !== undefined ? `${b.runwayDays}d` : '12d'}
+                    {b.cpmRate || '$0.00'} • {b.runwayDays !== undefined ? `${b.runwayDays}d` : '0d'}
                   </span>
                 </button>
               );
@@ -526,8 +683,8 @@ export default function Tab11Campaigns() {
               <span style={{ fontSize: '10px', color: '#94A3B8' }}>BOUNTY RUNWAY // POOL STATUS</span>
               <span style={{ fontSize: '9px', color: '#10b981', border: '1px solid #1f242d', padding: '1px 5px' }}>AUTO-PURGE ON DRY</span>
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: poolStatus.includes('DRY') ? '#ef4444' : '#10b981' }}>{poolStatus}</div>
-            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>PLATFORM: <strong style={{ color: activePlatform === 'Whop' ? '#38bdf8' : '#ffb800' }}>{activePlatform.toUpperCase()}</strong> • EST. REMAINING: <strong style={{ color: '#E2E8F0' }}>{runwayDays} DAYS</strong></div>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: poolStatus.includes('DRY') ? '#ef4444' : '#10b981' }}>{poolStatus || 'STANDBY'}</div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>PLATFORM: <strong style={{ color: activePlatform === 'Whop' ? '#38bdf8' : '#ffb800' }}>{(activePlatform || 'NONE').toUpperCase()}</strong> • EST. REMAINING: <strong style={{ color: '#E2E8F0' }}>{runwayDays} DAYS</strong></div>
           </div>
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
@@ -539,7 +696,7 @@ export default function Tab11Campaigns() {
               </div>
             </div>
             <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#fff' }}>{totalClicks.toLocaleString()} CLICKS <span style={{ fontSize: '11px', color: '#10b981' }}>(${estEarnings} EST.)</span></div>
-            <div style={{ fontSize: '10px', color: totalClicks >= Number(viewFloor) ? '#10b981' : '#ffb800', marginTop: '4px' }}>VIEW FLOOR: {Number(viewFloor).toLocaleString()}</div>
+            <div style={{ fontSize: '10px', color: totalClicks >= Number(viewFloor || 0) ? '#10b981' : '#ffb800', marginTop: '4px' }}>VIEW FLOOR: {Number(viewFloor || 0).toLocaleString()}</div>
           </div>
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
@@ -557,8 +714,8 @@ export default function Tab11Campaigns() {
 
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
             <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '6px' }}>TESS QUANT VERDICT</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffb800' }}>{cpmRate} CPM // {poolStatus.includes('DRY') ? 'AUTO-PURGING' : 'KEEP RUNNING'}</div>
-            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>NETWORK: <strong style={{ color: '#fff' }}>{activePlatform.toUpperCase()}</strong> • {(campaignTitle || '').split('//')[0]}</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffb800' }}>{cpmRate || '$0.00'} CPM // {poolStatus.includes('DRY') ? 'AUTO-PURGING' : 'KEEP RUNNING'}</div>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>NETWORK: <strong style={{ color: '#fff' }}>{(activePlatform || 'NONE').toUpperCase()}</strong> • {(campaignTitle || '').split('//')[0]}</div>
           </div>
         </div>
       )}
@@ -568,7 +725,7 @@ export default function Tab11Campaigns() {
         {/* COLUMN 01: BOUNTY RULES */}
         <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES ({activePlatform.toUpperCase()})</span>
+            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES ({(activePlatform || 'STANDBY').toUpperCase()})</span>
             {activeBountyId && (
               <button onClick={handlePurgeBounty} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '10px', padding: '3px 8px', cursor: 'pointer' }}>[ PURGE FUNNEL ]</button>
             )}
@@ -576,23 +733,23 @@ export default function Tab11Campaigns() {
 
           <div>
             <label style={{ fontSize: '10px', color: '#94A3B8' }}>CAMPAIGN TARGET</label>
-            <input type="text" value={campaignTitle} onChange={e => setCampaignTitle(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            <input type="text" value={campaignTitle} onChange={e => setCampaignTitle(e.target.value)} onBlur={() => syncBountyStats()} placeholder="No active bounty selected" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <div>
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>CPM RATE</label>
-              <input type="text" value={cpmRate} onChange={e => setCpmRate(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#10b981', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              <input type="text" value={cpmRate} onChange={e => setCpmRate(e.target.value)} onBlur={() => syncBountyStats()} placeholder="$0.00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#10b981', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
             </div>
             <div>
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>VIEW FLOOR</label>
-              <input type="text" value={viewFloor} onChange={e => setViewFloor(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              <input type="text" value={viewFloor} onChange={e => setViewFloor(e.target.value)} onBlur={() => syncBountyStats()} placeholder="0" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
             </div>
           </div>
 
           <div>
             <label style={{ fontSize: '10px', color: '#94A3B8' }}>SOURCE PATH (AUTO-ASSIGNED PER BOUNTY)</label>
-            <input type="text" value={sourceVideoPath} onChange={e => setSourceVideoPath(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            <input type="text" value={sourceVideoPath} onChange={e => setSourceVideoPath(e.target.value)} onBlur={() => syncBountyStats()} placeholder="Clean slate" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
           </div>
 
           <div>
@@ -600,7 +757,7 @@ export default function Tab11Campaigns() {
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>HOOK HEADLINE</label>
               <button onClick={() => setTranscriptDrawerOpen(!transcriptDrawerOpen)} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '10px', cursor: 'pointer' }}>{transcriptDrawerOpen ? '[ CLOSE DRAWER ]' : '[ AI HOOK / YT URL ]'}</button>
             </div>
-            <input type="text" value={hookHeadline} onChange={e => setHookHeadline(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            <input type="text" value={hookHeadline} onChange={e => setHookHeadline(e.target.value)} onBlur={() => syncBountyStats()} placeholder="" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
           </div>
 
           {transcriptDrawerOpen && (
@@ -613,17 +770,17 @@ export default function Tab11Campaigns() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <div>
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>START TIME</label>
-              <input type="text" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              <input type="text" value={startTime} onChange={e => setStartTime(e.target.value)} placeholder="00:00:00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
             </div>
             <div>
               <label style={{ fontSize: '10px', color: '#94A3B8' }}>END TIME</label>
-              <input type="text" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              <input type="text" value={endTime} onChange={e => setEndTime(e.target.value)} placeholder="00:01:00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
             </div>
           </div>
 
           <div>
             <label style={{ fontSize: '10px', color: '#94A3B8' }}>MANDATORY TAGS (SEO CLUSTER)</label>
-            <input type="text" value={mandatoryTags} onChange={e => setMandatoryTags(e.target.value)} onBlur={() => syncBountyStats()} style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            <input type="text" value={mandatoryTags} onChange={e => setMandatoryTags(e.target.value)} onBlur={() => syncBountyStats()} placeholder="" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
           </div>
 
           <button
@@ -705,14 +862,34 @@ export default function Tab11Campaigns() {
             ) : (
               artifacts.map((art, idx) => {
                 const artKey = art.id || art.name || String(idx);
-                const titleCopied = !!copiedState[`title_${artKey}`];
-                const descCopied = !!copiedState[`desc_${artKey}`];
+                const titleFlashing = !!copiedFlash[`title_${artKey}`];
+                const titleEverCopied = !!copiedHistory[`title_${artKey}`];
+                const descFlashing = !!copiedFlash[`desc_${artKey}`];
+                const descEverCopied = !!copiedHistory[`desc_${artKey}`];
                 const previewTitle = buildOrganicTitle(art.name, idx);
                 return (
                   <div key={artKey} style={{ backgroundColor: '#080a0c', border: '1px solid #1f242d', padding: '10px', borderRadius: '3px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>{art.name}</span>
-                      <span style={{ color: '#10b981', fontSize: '10px' }}>{art.sizeKb || art.size || '0'} KB</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '8px' }}>
+                      <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{art.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <span style={{ color: '#10b981', fontSize: '10px' }}>{art.sizeKb || art.size || '0'} KB</span>
+                        <button
+                          onClick={() => handleDeleteArtifact(art.name)}
+                          title="Delete published clip from disk"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.45)',
+                            color: '#ef4444',
+                            fontSize: '10px',
+                            padding: '1px 5px',
+                            cursor: 'pointer',
+                            borderRadius: '2px',
+                            lineHeight: 1.2
+                          }}
+                        >
+                          DEL
+                        </button>
+                      </div>
                     </div>
                     <div style={{ fontSize: '10px', color: '#ffb800', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       TITLE: {previewTitle}
@@ -723,33 +900,33 @@ export default function Tab11Campaigns() {
                         onClick={() => triggerCopyWithFeedback(`title_${artKey}`, previewTitle)}
                         style={{
                           flex: 1,
-                          backgroundColor: titleCopied ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
-                          border: titleCopied ? '1px solid #10b981' : '1px solid #1f242d',
-                          color: titleCopied ? '#10b981' : '#94A3B8',
-                          fontWeight: titleCopied ? 'bold' : 'normal',
+                          backgroundColor: titleFlashing ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
+                          border: titleFlashing ? '1px solid #10b981' : '1px solid #1f242d',
+                          color: titleFlashing ? '#10b981' : '#94A3B8',
+                          fontWeight: titleFlashing ? 'bold' : 'normal',
                           fontSize: '10px',
                           padding: '5px',
                           cursor: 'pointer',
                           borderRadius: '2px'
                         }}
                       >
-                        {titleCopied ? '✓ COPIED TITLE' : 'COPY TITLE'}
+                        {titleFlashing ? '✓ COPIED TITLE' : (titleEverCopied ? '✓ COPY TITLE' : 'COPY TITLE')}
                       </button>
                       <button
                         onClick={() => triggerCopyWithFeedback(`desc_${artKey}`, buildCreativeSeoDesc(art.name, idx))}
                         style={{
                           flex: 1,
-                          backgroundColor: descCopied ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
-                          border: descCopied ? '1px solid #10b981' : '1px solid #1f242d',
-                          color: descCopied ? '#10b981' : '#94A3B8',
-                          fontWeight: descCopied ? 'bold' : 'normal',
+                          backgroundColor: descFlashing ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
+                          border: descFlashing ? '1px solid #10b981' : '1px solid #1f242d',
+                          color: descFlashing ? '#10b981' : '#94A3B8',
+                          fontWeight: descFlashing ? 'bold' : 'normal',
                           fontSize: '10px',
                           padding: '5px',
                           cursor: 'pointer',
                           borderRadius: '2px'
                         }}
                       >
-                        {descCopied ? '✓ COPIED SEO' : 'COPY SEO DESC'}
+                        {descFlashing ? '✓ COPIED SEO' : (descEverCopied ? '✓ COPY SEO DESC' : 'COPY SEO DESC')}
                       </button>
                     </div>
                   </div>

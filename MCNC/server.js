@@ -134,6 +134,63 @@ let ACTIVE_BOUNTY_JOB = {
     lastResult: null
 };
 
+function appendJobLog(msg) {
+    const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    ACTIVE_BOUNTY_JOB.logs = [entry, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
+    broadcast('TRACE', msg);
+}
+
+function reconcileLedgerWithLiveScrape(discoveredList, targetBountyDir, targetLedgerFile) {
+    const today = new Date().toISOString().slice(0, 10);
+    let existingLedger = { lastDispatchDate: today, active: [] };
+    if (fs.existsSync(targetLedgerFile)) {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(targetLedgerFile, 'utf8').replace(/^\uFEFF/, ''));
+            existingLedger = {
+                lastDispatchDate: parsed.lastDispatchDate || today,
+                active: Array.isArray(parsed.active) ? parsed.active : []
+            };
+        } catch (e) {}
+    }
+
+    const liveItems = Array.isArray(discoveredList) ? discoveredList : [];
+    const liveIds = new Set(liveItems.map(item => item.id));
+
+    // Purge any old/stale entries from ledger and disk that are no longer live
+    let purgedCount = 0;
+    existingLedger.active.forEach(oldItem => {
+        if (!liveIds.has(oldItem.id)) {
+            purgedCount++;
+            const deadDir = path.join(targetBountyDir, 'campaigns', oldItem.id);
+            if (fs.existsSync(deadDir)) {
+                try { fs.rmSync(deadDir, { recursive: true, force: true }); } catch (e) {}
+            }
+        }
+    });
+
+    // Build fresh active queue preserving today's post counts and source paths for still-live items
+    const nextActive = liveItems.slice(0, 5).map(item => {
+        const prev = existingLedger.active.find(p => p.id === item.id);
+        const campDir = path.join(targetBountyDir, 'campaigns', item.id);
+        fs.mkdirSync(path.join(campDir, 'clips'), { recursive: true });
+        fs.mkdirSync(path.join(campDir, 'intake'), { recursive: true });
+        return {
+            ...item,
+            dailyPostsUsed: prev ? (Number(prev.dailyPostsUsed) || 0) : 0,
+            totalClicks: prev ? (Number(prev.totalClicks) || 0) : 0,
+            sourcePath: prev && prev.sourcePath ? prev.sourcePath : '',
+            createdAt: prev && prev.createdAt ? prev.createdAt : new Date().toISOString()
+        };
+    });
+
+    const reconciled = {
+        lastDispatchDate: existingLedger.lastDispatchDate || today,
+        active: nextActive
+    };
+    fs.writeFileSync(targetLedgerFile, JSON.stringify(reconciled, null, 2), 'utf8');
+    return { ledger: reconciled, purgedCount };
+}
+
 function getBountyGovernorSnapshot() {
     const today = new Date().toISOString().slice(0, 10);
     let ledger = { lastDispatchDate: today, active: [] };
@@ -205,35 +262,30 @@ function triggerBountyGovernor(bountyOverride = null, sourceTrigger = 'MANUAL') 
 
     const snap = getBountyGovernorSnapshot();
     if (!bountyOverride && snap.activeCount === 0 && snap.openSlots > 0) {
-        const scoutMsg = `[CRON / AUTO-SCOUT] Open slots detected (${snap.openSlots}/6) with empty queue. Dispatching Tess to hunt Vyro + Whop deals now...`;
-        ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] ${scoutMsg}`, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
-        broadcast('TRACE', scoutMsg);
+        appendJobLog(`[CRON / AUTO-SCOUT] Open slots detected (${snap.openSlots}/6) with empty queue. Dispatching Tess to hunt Vyro + Whop deals now...`);
         (async () => {
             try {
                 delete require.cache[require.resolve('./Bounty_Scraper')];
                 const { scrapeBounties } = require('./Bounty_Scraper');
                 const discovered = await scrapeBounties();
-                if (Array.isArray(discovered) && discovered.length > 0) {
-                    const freshLedger = {
-                        lastDispatchDate: new Date().toISOString().slice(0, 10),
-                        active: discovered.slice(0, 5).map(item => ({ ...item, dailyPostsUsed: 0, sourcePath: '', createdAt: new Date().toISOString() }))
-                    };
-                    fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(freshLedger, null, 2), 'utf8');
-                    sendScheduleUpdate();
-                    triggerBountyGovernor(freshLedger.active[0], 'AUTO-SCOUT-FULFILL');
+                const { ledger, purgedCount } = reconcileLedgerWithLiveScrape(discovered, BOUNTY_DATA_DIR, BOUNTY_LEDGER_FILE);
+                if (purgedCount > 0) {
+                    appendJobLog(`[AUTO-PURGE] Purged ${purgedCount} stale/expired campaign(s).`);
+                }
+                sendScheduleUpdate();
+                if (ledger.active.length > 0) {
+                    triggerBountyGovernor(ledger.active[0], 'AUTO-SCOUT-FULFILL');
                 }
             } catch (err) {
-                broadcast('TRACE', `[AUTO-SCOUT ERROR] ${err.message}`);
+                appendJobLog(`[AUTO-SCOUT ERROR] ${err.message}`);
             }
         })();
         return { started: true, autoScouting: true, job: ACTIVE_BOUNTY_JOB };
     }
 
     if (snap.openSlots <= 0) {
-        const msg = `[CRON / DISPATCH GATE] 6 / 6 daily stealth slots already used for ${snap.today}. Skipping media run until tomorrow.`;
+        appendJobLog(`[CRON / DISPATCH GATE] 6 / 6 daily stealth slots already used for ${snap.today}. Skipping media run until tomorrow.`);
         ACTIVE_BOUNTY_JOB.status = 'COMPLETE';
-        ACTIVE_BOUNTY_JOB.logs = [`[${new Date().toLocaleTimeString()}] ${msg}`, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
-        broadcast('TRACE', msg);
         sendScheduleUpdate();
         return { started: false, skipped: true, reason: 'DAILY_CAP_FULL', job: ACTIVE_BOUNTY_JOB };
     }
@@ -249,9 +301,7 @@ function triggerBountyGovernor(bountyOverride = null, sourceTrigger = 'MANUAL') 
     };
 
     const logStep = (msg) => {
-        const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        ACTIVE_BOUNTY_JOB.logs = [entry, ...ACTIVE_BOUNTY_JOB.logs.slice(0, 49)];
-        broadcast('TRACE', msg);
+        appendJobLog(msg);
     };
 
     (async () => {
@@ -282,7 +332,7 @@ function triggerBountyGovernor(bountyOverride = null, sourceTrigger = 'MANUAL') 
 
 cron.schedule('30 6 * * *', () => {
     logTelemetry('CRON_RUNWAY', 'Running daily Bounty Pool & Auto-Purge Audit...');
-    broadcast('TRACE', '[CRON DAEMON] 06:30 SAST: Auditing bounty pools & purging dry/expired funnels.');
+    appendJobLog('[CRON DAEMON] 06:30 SAST: Auditing bounty pools & purging dry/expired funnels.');
     const snap = getBountyGovernorSnapshot();
     sendScheduleUpdate();
     if (snap.openSlots > 0 && snap.activeCount > 0) {
@@ -293,31 +343,23 @@ cron.schedule('30 6 * * *', () => {
 cron.schedule('0 7 * * *', async () => {
     logTelemetry('CRON_RADAR', 'Running daily New Bounty Scout (Tess)...');
     const snap = getBountyGovernorSnapshot();
-    broadcast('TRACE', `[CRON DAEMON] 07:00 SAST: Tess scanning Vyro (Slots Open: ${snap.openSlots}/6 | Current Max CPM: $${snap.maxCurrentCpm.toFixed(2)}).`);
+    appendJobLog(`[CRON DAEMON] 07:00 SAST: Tess scanning Vyro + Whop (Slots Open: ${snap.openSlots}/6 | Current Max CPM: $${snap.maxCurrentCpm.toFixed(2)}).`);
     try {
         delete require.cache[require.resolve('./Bounty_Scraper')];
         const { scrapeBounties } = require('./Bounty_Scraper');
         const discovered = await scrapeBounties();
-        const betterBounties = (discovered || []).filter(b => {
-            const cpm = parseFloat(String(b.cpmRate || '0').replace(/[^0-9.]/g, '')) || 0;
-            return cpm > snap.maxCurrentCpm || snap.activeCount < 5;
-        });
-        if (betterBounties.length > 0 && fs.existsSync(BOUNTY_LEDGER_FILE)) {
-            const ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8'));
-            ledger.active = Array.isArray(ledger.active) ? ledger.active : [];
-            for (const item of betterBounties) {
-                if (!ledger.active.some(existing => existing.id === item.id) && ledger.active.length < 5) {
-                    ledger.active.push({ ...item, dailyPostsUsed: 0, sourcePath: '', createdAt: new Date().toISOString() });
-                }
-            }
-            fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
-            broadcast('TRACE', `[CRON DAEMON] Tess queued ${betterBounties.length} high-value bounty target(s).`);
-            sendScheduleUpdate();
-        } else {
-            broadcast('TRACE', '[CRON DAEMON] No higher-CPM bounties found; keeping current lineup.');
+        const diag = discovered.diagnostics || {};
+        if (diag.vyro) appendJobLog(`[VYRO SCAN] ${diag.vyro.status} (${diag.vyro.count} live) — "${diag.vyro.title || diag.vyro.error}"`);
+        if (diag.whop) appendJobLog(`[WHOP SCAN] ${diag.whop.status} (${diag.whop.count} live) — "${diag.whop.title || diag.whop.error}"`);
+
+        const { ledger, purgedCount } = reconcileLedgerWithLiveScrape(discovered, BOUNTY_DATA_DIR, BOUNTY_LEDGER_FILE);
+        if (purgedCount > 0) {
+            appendJobLog(`[AUTO-PURGE] Purged ${purgedCount} expired/offline funnel(s) from ledger & disk.`);
         }
+        appendJobLog(`[CRON DAEMON] Tess synced ${ledger.active.length} live bounty target(s).`);
+        sendScheduleUpdate();
     } catch (e) {
-        broadcast('TRACE', `[CRON ERROR] Radar failed: ${e.message}`);
+        appendJobLog(`[CRON ERROR] Radar failed: ${e.message}`);
     }
 }, { timezone: 'Africa/Johannesburg' });
 
@@ -1633,7 +1675,6 @@ function warlordJudgeInterceptor(text) {
 function autoPersistCodeArtifact(projectName, replyText) {
     if (!replyText) return null;
 
-    // 1. Check for explicit // TARGET_FILE: <path> or /* TARGET_FILE: <path> */ blocks
     const targetMatch = replyText.match(/(?:\/\/|#|\/\*)\s*TARGET_FILE:\s*([^\r\n\*]+?)(?:\s*\*\/)?\s*\r?\n([\s\S]*?)```/i);
     if (targetMatch) {
         try {
@@ -1663,7 +1704,6 @@ function autoPersistCodeArtifact(projectName, replyText) {
         } catch (err) {}
     }
 
-    // 2. Fallback: Single-file HTML Stage 2 delivery
     if (!replyText.includes('<!DOCTYPE html>') && !replyText.includes('<html')) {
         return null;
     }
@@ -1876,20 +1916,6 @@ function initBountyEngineOnBoot() {
         if (!fs.existsSync(BOUNTY_ROOT)) fs.mkdirSync(BOUNTY_ROOT, { recursive: true });
         if (!fs.existsSync(BOUNTY_CAMPAIGNS_DIR)) fs.mkdirSync(BOUNTY_CAMPAIGNS_DIR, { recursive: true });
 
-        const joyClipsDir = path.join(BOUNTY_CAMPAIGNS_DIR, 'joy_101', 'clips');
-        const joyIntakeDir = path.join(BOUNTY_CAMPAIGNS_DIR, 'joy_101', 'intake');
-        if (!fs.existsSync(joyClipsDir)) fs.mkdirSync(joyClipsDir, { recursive: true });
-        if (!fs.existsSync(joyIntakeDir)) fs.mkdirSync(joyIntakeDir, { recursive: true });
-
-        const legacyClipsDir = path.join(BOUNTY_ROOT, 'clips');
-        if (fs.existsSync(legacyClipsDir)) {
-            const files = fs.readdirSync(legacyClipsDir).filter(f => f.endsWith('.mp4'));
-            files.forEach(file => {
-                fs.renameSync(path.join(legacyClipsDir, file), path.join(joyClipsDir, file));
-            });
-            try { fs.rmSync(legacyClipsDir, { recursive: true, force: true }); } catch (e) {}
-        }
-
         if (!fs.existsSync(BOUNTY_LEDGER_FILE)) {
             fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify({ lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] }, null, 2), 'utf8');
         }
@@ -1910,48 +1936,43 @@ function saveBountyLedger(data) {
 }
 
 // ==========================================
-// PRIORITY BOUNTY DISCOVERY & TELEMETRY STATS OVERRIDE
+// PRIORITY BOUNTY DISCOVERY & LIVE RECONCILIATION
 // ==========================================
 app.post('/api/campaigns/discover', async (req, res) => {
     const __tCtx = resolveTenantContext(req);
     const PROJECTS_PATH = __tCtx.projectsRoot;
     const BOUNTY_DATA_DIR = path.join(PROJECTS_PATH, 'Bounty_Engine');
+    const TARGET_LEDGER = path.join(BOUNTY_DATA_DIR, 'bounties_ledger.json');
     try {
-        broadcast('TRACE', '[DISCOVERY] Dispatching Jack & Tess to sync open Vyro CPM campaigns...');
+        appendJobLog('[DISCOVERY] Dispatching Jack & Tess to scan live Vyro + Whop marketplaces...');
         delete require.cache[require.resolve('./Bounty_Scraper')];
         const { scrapeBounties } = require('./Bounty_Scraper');
         const discovered = await scrapeBounties();
+        const diag = discovered.diagnostics || {};
 
-        let ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] };
-        if (fs.existsSync(BOUNTY_LEDGER_FILE)) {
-            try {
-                ledger = JSON.parse(fs.readFileSync(BOUNTY_LEDGER_FILE, 'utf8').replace(/^\uFEFF/, ''));
-                if (!Array.isArray(ledger.active)) ledger.active = [];
-            } catch (e) { ledger = { lastDispatchDate: new Date().toISOString().slice(0, 10), active: [] }; }
+        if (diag.vyro) {
+            appendJobLog(`[VYRO SCAN] ${diag.vyro.status} (${diag.vyro.count} live) — "${diag.vyro.title || diag.vyro.error || diag.vyro.url}"`);
+        }
+        if (diag.whop) {
+            appendJobLog(`[WHOP SCAN] ${diag.whop.status} (${diag.whop.count} live) — "${diag.whop.title || diag.whop.error || diag.whop.url}"`);
         }
 
-        let addedCount = 0;
-        for (const item of discovered) {
-            if (!ledger.active.some(b => b.id === item.id)) {
-                ledger.active.push({
-                    ...item,
-                    dailyPostsUsed: 0,
-                    sourcePath: '',
-                    createdAt: new Date().toISOString()
-                });
-                const campDir = path.join(BOUNTY_DATA_DIR, 'campaigns', item.id);
-                fs.mkdirSync(path.join(campDir, 'clips'), { recursive: true });
-                fs.mkdirSync(path.join(campDir, 'intake'), { recursive: true });
-                addedCount++;
-            }
+        const { ledger, purgedCount } = reconcileLedgerWithLiveScrape(discovered, BOUNTY_DATA_DIR, TARGET_LEDGER);
+        if (purgedCount > 0) {
+            appendJobLog(`[AUTO-PURGE] Purged ${purgedCount} expired/offline funnel(s) from ledger & disk.`);
         }
-        ledger.active = ledger.active.slice(0, 5);
-        fs.writeFileSync(BOUNTY_LEDGER_FILE, JSON.stringify(ledger, null, 2), 'utf8');
+
         sendScheduleUpdate();
-        broadcast('TRACE', `[DISCOVERY COMPLETE] Tess synced ${ledger.active.length} active CPM bounties (${addedCount} newly added).`);
-        return res.json({ success: true, added: ledger.active.length, bounties: ledger.active });
+        appendJobLog(`[DISCOVERY COMPLETE] ${ledger.active.length} verified live bounty funnel(s) active.`);
+        return res.json({
+            success: true,
+            added: ledger.active.length,
+            purged: purgedCount,
+            diagnostics: diag,
+            bounties: ledger.active
+        });
     } catch (err) {
-        broadcast('TRACE', `[DISCOVERY ERROR] ${err.message}`);
+        appendJobLog(`[DISCOVERY ERROR] ${err.message}`);
         return res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -2301,7 +2322,7 @@ server.listen(PORT, () => {
     console.log(`[DYNAMIC MEMORY ENGINE]  : 16 DIRECTORS (vault/Memory/)`);
     console.log(`[QUALIFICATION ENGINE]   : /api/qualify/artifact ACTIVE`);
     console.log(`[UNIVERSAL DISK WRITER]  : ACTIVE (16K Code Tokens + Syntax Gate)`);
-    console.log(`[CAMPAIGN ENGINE]        : SELF-GOVERNING BOUNTY + CALENDAR CRON ACTIVE`);
+    console.log(`[CAMPAIGN ENGINE]        : SELF-GOVERNING BOUNTY + LIVE RECONCILIATION ACTIVE`);
     console.log(`[STATUS]                 : 100% OPERATIONAL // UNIVERSAL FAILOVER ACTIVE`);
     console.log(`====================================================`);
 });

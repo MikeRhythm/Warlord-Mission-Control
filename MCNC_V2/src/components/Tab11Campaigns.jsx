@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 
 const PIPELINE_API_BASE = 'http://localhost:8082/api';
+const MASTER_API_BASE = 'http://localhost:8081/api';
 
 const PROJECT_THEME_PALETTE = ['#ffb800', '#38bdf8', '#10b981', '#C5BD9F', '#a78bfa'];
 
@@ -9,6 +10,25 @@ function normalizeProjectKey(name) {
     .trim()
     .replace(/[\s_]+/g, '_')
     .toLowerCase();
+}
+
+function isBountyDryOrExpired(b) {
+  if (!b) return true;
+  const statusStr = `${b.poolStatus || ''} ${b.status || ''} ${b.title || ''}`.toUpperCase();
+  if (
+    statusStr.includes('DRY') ||
+    statusStr.includes('LOCKED') ||
+    statusStr.includes('EXPIRED') ||
+    statusStr.includes('ENDED') ||
+    statusStr.includes('CLOSED') ||
+    statusStr.includes('0% POOL')
+  ) {
+    return true;
+  }
+  if (b.runwayDays !== undefined && Number(b.runwayDays) <= 0) {
+    return true;
+  }
+  return false;
 }
 
 export default function Tab11Campaigns() {
@@ -39,6 +59,7 @@ export default function Tab11Campaigns() {
   const [rawTranscript, setRawTranscript] = useState('');
   const [isExtractingHooks, setIsExtractingHooks] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [discoverSeconds, setDiscoverSeconds] = useState(0);
   const [copiedFlash, setCopiedFlash] = useState({});
   const [copiedHistory, setCopiedHistory] = useState({});
 
@@ -49,6 +70,17 @@ export default function Tab11Campaigns() {
   const [pipelineState, setPipelineState] = useState('IDLE');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [artifacts, setArtifacts] = useState([]);
+
+  // Elapsed timer for discovery / hook extraction spinners
+  useEffect(() => {
+    if (!isDiscovering && !isExtractingHooks) {
+      setDiscoverSeconds(0);
+      return;
+    }
+    setDiscoverSeconds(1);
+    const t = setInterval(() => setDiscoverSeconds(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [isDiscovering, isExtractingHooks]);
 
   const resetBountyFormToZeroState = () => {
     setActiveBountyId('');
@@ -82,7 +114,6 @@ export default function Tab11Campaigns() {
           const activeDiskProjects = data.projects.filter(p => p.status !== 'ARCHIVED');
           const mapped = [];
 
-          // Always keep Bounty_Engine first if present on disk
           const bountyEntry = activeDiskProjects.find(
             p => normalizeProjectKey(p.id || p.name) === 'bounty_engine'
           );
@@ -156,7 +187,7 @@ export default function Tab11Campaigns() {
 
   const getDefaultSourcePath = (bId) => {
     if (!bId) return '';
-    return `C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\Bounty_Engine\\Campaigns\\${bId}\\Intake\\${bId}_source.mp4`;
+    return `C:\\Warlord_Inc\\Warlord_WASP\\MCNC\\Data\\Projects\\Bounty_Engine\\campaigns\\${bId}\\intake\\${bId}_source.mp4`;
   };
 
   const detectPlatform = (b) => {
@@ -219,7 +250,7 @@ export default function Tab11Campaigns() {
   const handleDeleteArtifact = async (fileName) => {
     if (!window.confirm(`Delete published clip [${fileName}] from disk?`)) return;
     try {
-      const res = await fetch('http://localhost:8081/api/campaigns/artifacts/delete', {
+      const res = await fetch(`${MASTER_API_BASE}/campaigns/artifacts/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -264,12 +295,39 @@ export default function Tab11Campaigns() {
     loadDiskArtifacts('BOUNTY_ENGINE', bounty.id);
   };
 
+  // Auto-purge dry/expired bounties from ledger & disk whenever fetched
+  const purgeDryBountiesFromList = async (rawList) => {
+    const valid = [];
+    const expired = [];
+    (rawList || []).forEach(b => {
+      if (isBountyDryOrExpired(b)) {
+        expired.push(b);
+      } else {
+        valid.push(b);
+      }
+    });
+
+    if (expired.length > 0) {
+      for (const dead of expired) {
+        try {
+          await fetch(`${MASTER_API_BASE}/bounties/${dead.id}`, { method: 'DELETE' });
+        } catch (e) {}
+      }
+      setTelemetryLog(prev => [
+        `[${new Date().toLocaleTimeString()}] [AUTO-PURGE] Purged ${expired.length} dry/expired funnel(s): ${expired.map(x => x.id).join(', ')}`,
+        ...prev
+      ]);
+    }
+    return valid.slice(0, 5);
+  };
+
   const fetchBounties = async () => {
     try {
-      const res = await fetch('http://localhost:8081/api/bounties');
+      const res = await fetch(`${MASTER_API_BASE}/bounties`);
       if (res.ok) {
         const data = await res.json();
-        const activeList = (Array.isArray(data) ? data : (data.active || data.value || [])).slice(0, 5);
+        const rawList = Array.isArray(data) ? data : (data.active || data.value || []);
+        const activeList = await purgeDryBountiesFromList(rawList);
         setBounties(activeList);
         if (activeList.length > 0) {
           const current = activeList.find(b => b.id === activeBountyId) || activeList[0];
@@ -285,7 +343,7 @@ export default function Tab11Campaigns() {
     let active = true;
     const pollJob = async () => {
       try {
-        const res = await fetch('http://localhost:8081/api/campaigns/bounty/job-status');
+        const res = await fetch(`${MASTER_API_BASE}/campaigns/bounty/job-status`);
         if (res.ok && active) {
           const job = await res.json();
           if (Array.isArray(job.logs) && job.logs.length > 0) {
@@ -298,7 +356,7 @@ export default function Tab11Campaigns() {
             setElapsedSeconds(0);
           }
           if (job.status === 'COMPLETE' && job.lastResult && job.lastResult.activeList) {
-            const updatedList = job.lastResult.activeList.slice(0, 5);
+            const updatedList = await purgeDryBountiesFromList(job.lastResult.activeList);
             setBounties(updatedList);
             if (updatedList.length === 0) {
               resetBountyFormToZeroState();
@@ -336,7 +394,7 @@ export default function Tab11Campaigns() {
 
   const handleClearTelemetry = async () => {
     try {
-      const res = await fetch('http://localhost:8081/api/campaigns/bounty/clear-logs', { method: 'POST' });
+      const res = await fetch(`${MASTER_API_BASE}/campaigns/bounty/clear-logs`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setTelemetryLog(data.job.logs);
@@ -363,14 +421,17 @@ export default function Tab11Campaigns() {
       sourcePath: sourceVideoPath || getDefaultSourcePath(activeBountyId)
     };
     try {
-      const res = await fetch('http://localhost:8081/api/bounties/update-stats', {
+      const res = await fetch(`${MASTER_API_BASE}/bounties/update-stats`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.active) setBounties(data.active.slice(0, 5));
+        if (data.active) {
+          const clean = await purgeDryBountiesFromList(data.active);
+          setBounties(clean);
+        }
       }
     } catch (e) {}
   };
@@ -383,8 +444,8 @@ export default function Tab11Campaigns() {
         return;
       }
       const url = projId === 'BOUNTY_ENGINE'
-        ? `http://localhost:8081/api/campaigns/artifacts/${projId}?bountyId=${targetBounty}`
-        : `http://localhost:8081/api/campaigns/artifacts/${projId}`;
+        ? `${MASTER_API_BASE}/campaigns/artifacts/${projId}?bountyId=${targetBounty}`
+        : `${MASTER_API_BASE}/campaigns/artifacts/${projId}`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -394,23 +455,37 @@ export default function Tab11Campaigns() {
   };
 
   const handleDiscoverBounties = async () => {
+    if (isDiscovering) return;
     setIsDiscovering(true);
+    setTelemetryLog(prev => [
+      `[${new Date().toLocaleTimeString()}] [TESS RADAR] Scanning Vyro + Whop marketplaces & purging dry/expired pools...`,
+      ...prev
+    ]);
     try {
-      const res = await fetch('http://localhost:8081/api/campaigns/discover', {
+      const res = await fetch(`${MASTER_API_BASE}/campaigns/discover`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
       const data = await res.json();
       if (data.success) {
-        const list = (data.bounties || []).slice(0, 5);
+        const list = await purgeDryBountiesFromList(data.bounties || []);
         setBounties(list);
+        setTelemetryLog(prev => [
+          `[${new Date().toLocaleTimeString()}] [TESS RADAR COMPLETE] Synced ${list.length} verified active bounties.`,
+          ...prev
+        ]);
         if (list.length > 0) {
           loadBountyIntoForm(list[0]);
         } else {
           resetBountyFormToZeroState();
         }
       }
-    } catch (err) {} finally {
+    } catch (err) {
+      setTelemetryLog(prev => [
+        `[${new Date().toLocaleTimeString()}] [TESS RADAR ERROR] ${err.message}`,
+        ...prev
+      ]);
+    } finally {
       setIsDiscovering(false);
     }
   };
@@ -419,10 +494,10 @@ export default function Tab11Campaigns() {
     if (!rawTranscript.trim()) return;
     setIsExtractingHooks(true);
     try {
-      const res = await fetch('http://localhost:8081/api/campaigns/bounty/find-hooks', {
+      const res = await fetch(`${MASTER_API_BASE}/campaigns/bounty/find-hooks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bountyId: activeBountyId, intakeInput: rawTranscript })
+        body: JSON.stringify({ bountyId: activeBountyId, youtubeUrl: rawTranscript, intakeInput: rawTranscript })
       });
       const data = await res.json();
       if (data.success && data.hook) {
@@ -430,6 +505,9 @@ export default function Tab11Campaigns() {
         setStartTime(data.hook.startTime || startTime);
         setEndTime(data.hook.endTime || endTime);
         if (data.hook.mandatoryTags) setMandatoryTags(data.hook.mandatoryTags);
+        setTranscriptDrawerOpen(false);
+      } else if (data.success && Array.isArray(data.rendered)) {
+        loadDiskArtifacts('BOUNTY_ENGINE', activeBountyId);
         setTranscriptDrawerOpen(false);
       }
     } catch (err) {} finally {
@@ -445,7 +523,7 @@ export default function Tab11Campaigns() {
     if (resolvedSource) setSourceVideoPath(resolvedSource);
 
     try {
-      await fetch('http://localhost:8081/api/campaigns/bounty/auto-execute', {
+      await fetch(`${MASTER_API_BASE}/campaigns/bounty/auto-execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -498,13 +576,17 @@ export default function Tab11Campaigns() {
     if (!window.confirm(`Permanently delete [${activeBountyId}] and its physical clips?`)) return;
     const targetId = activeBountyId;
     try {
-      const res = await fetch(`http://localhost:8081/api/bounties/${targetId}`, { method: 'DELETE' });
+      const res = await fetch(`${MASTER_API_BASE}/bounties/${targetId}`, { method: 'DELETE' });
       if (res.ok) {
         const remaining = bounties.filter(b => b.id !== targetId);
         setBounties(remaining);
-        resetBountyFormToZeroState();
+        if (remaining.length > 0) {
+          loadBountyIntoForm(remaining[0]);
+        } else {
+          resetBountyFormToZeroState();
+        }
         setTelemetryLog(prev => [
-          `[${new Date().toLocaleTimeString()}] [PURGE COMPLETE] Cleared [${targetId}] and reset workspace to clean slate.`,
+          `[${new Date().toLocaleTimeString()}] [PURGE COMPLETE] Obliterated [${targetId}] from ledger & disk.`,
           ...prev
         ]);
       }
@@ -516,6 +598,16 @@ export default function Tab11Campaigns() {
   const estEarnings = ((totalClicks / 1000) * (parseFloat(String(cpmRate).replace(/[^0-9.]/g, '')) || 0)).toFixed(2);
   const formatTimer = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
+  const isOverlayActive = isDiscovering || pipelineState === 'RUNNING' || isExtractingHooks;
+  const overlayTitle = isDiscovering
+    ? 'TESS SCANNING VYRO + WHOP MARKETPLACES...'
+    : isExtractingHooks
+      ? 'EXTRACTING VIRAL HOOKS & TIMESTAMPS...'
+      : 'EXECUTING AUTONOMOUS BOUNTY DISPATCH...';
+  const overlayTimer = isDiscovering || isExtractingHooks
+    ? formatTimer(discoverSeconds)
+    : formatTimer(elapsedSeconds);
+
   return (
     <div style={{
       backgroundColor: '#080a0c',
@@ -526,7 +618,105 @@ export default function Tab11Campaigns() {
       fontFamily: 'monospace',
       position: 'relative'
     }}>
-      <style>{`@keyframes mcncSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes mcncSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes mcncSpinReverse { 0% { transform: rotate(360deg); } 100% { transform: rotate(0deg); } }
+      `}</style>
+
+      {/* FULL-VIEWPORT ORBITAL HUD SPINNER */}
+      {isOverlayActive && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(8, 10, 12, 0.86)',
+            backdropFilter: 'blur(7px)',
+            WebkitBackdropFilter: 'blur(7px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999
+          }}
+        >
+          <div style={{ position: 'relative', width: '124px', height: '124px', marginBottom: '20px' }}>
+            <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+              <circle
+                cx="50"
+                cy="50"
+                r="44"
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray="75 160"
+                style={{ transformOrigin: '50% 50%', animation: 'mcncSpin 2.2s linear infinite' }}
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="34"
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray="50 120"
+                style={{ transformOrigin: '50% 50%', animation: 'mcncSpinReverse 1.6s linear infinite' }}
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="24"
+                fill="none"
+                stroke="#ffb800"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="38 90"
+                style={{ transformOrigin: '50% 50%', animation: 'mcncSpin 1.1s ease-in-out infinite' }}
+              />
+            </svg>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffb800' }}>⚡</span>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#38bdf8', marginTop: '2px' }}>
+                {overlayTimer}
+              </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              fontSize: '13px',
+              fontWeight: 900,
+              letterSpacing: '2px',
+              color: '#ffb800',
+              textTransform: 'uppercase',
+              marginBottom: '8px',
+              textShadow: '0 0 14px rgba(255, 184, 0, 0.45)'
+            }}
+          >
+            {overlayTitle}
+          </div>
+
+          <div style={{ fontSize: '11px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>CONDUIT:</span>
+            <span style={{ color: '#10b981', border: '1px solid #10b981', padding: '2px 8px', borderRadius: '3px', fontWeight: 'bold' }}>
+              PORT 8081 // AUTO-PURGE ARMED
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* TOP DECK */}
       <div style={{
@@ -649,10 +839,16 @@ export default function Tab11Campaigns() {
                 fontSize: '11px',
                 fontWeight: 'bold',
                 cursor: pipelineState === 'RUNNING' ? 'not-allowed' : 'pointer',
-                borderRadius: '3px'
+                borderRadius: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
-              {pipelineState === 'RUNNING' ? `UPDATING (${formatTimer(elapsedSeconds)})...` : '⚡ UPDATE DAILY DISPATCHES'}
+              {pipelineState === 'RUNNING' && (
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', border: '2px solid #ffb800', borderTopColor: 'transparent', borderRadius: '50%', animation: 'mcncSpin 0.8s linear infinite' }} />
+              )}
+              <span>{pipelineState === 'RUNNING' ? `UPDATING (${formatTimer(elapsedSeconds)})...` : '⚡ UPDATE DAILY DISPATCHES'}</span>
             </button>
 
             <button
@@ -666,10 +862,16 @@ export default function Tab11Campaigns() {
                 fontSize: '11px',
                 fontWeight: 'bold',
                 cursor: isDiscovering ? 'not-allowed' : 'pointer',
-                borderRadius: '3px'
+                borderRadius: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
-              {isDiscovering ? 'SYNCING VYRO + WHOP...' : '⚡ AUTO-DISCOVER VYRO + WHOP (TESS)'}
+              {isDiscovering && (
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'mcncSpin 0.8s linear infinite' }} />
+              )}
+              <span>{isDiscovering ? `SYNCING VYRO + WHOP (${formatTimer(discoverSeconds)})...` : '⚡ AUTO-DISCOVER VYRO + WHOP (TESS)'}</span>
             </button>
           </div>
         </div>
@@ -763,7 +965,9 @@ export default function Tab11Campaigns() {
           {transcriptDrawerOpen && (
             <div style={{ backgroundColor: '#14171c', border: '1px solid #38bdf8', padding: '10px', borderRadius: '4px' }}>
               <textarea rows={2} value={rawTranscript} onChange={e => setRawTranscript(e.target.value)} placeholder="Paste YouTube URL or Transcript..." style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', fontSize: '10px', padding: '6px' }} />
-              <button onClick={handleExtractHooks} disabled={isExtractingHooks} style={{ width: '100%', marginTop: '6px', backgroundColor: '#38bdf8', color: '#080a0c', border: 'none', fontWeight: 'bold', padding: '6px', cursor: 'pointer', fontSize: '11px' }}>EXTRACT VIRAL HOOKS</button>
+              <button onClick={handleExtractHooks} disabled={isExtractingHooks} style={{ width: '100%', marginTop: '6px', backgroundColor: '#38bdf8', color: '#080a0c', border: 'none', fontWeight: 'bold', padding: '6px', cursor: 'pointer', fontSize: '11px' }}>
+                {isExtractingHooks ? `EXTRACTING (${formatTimer(discoverSeconds)})...` : 'EXTRACT VIRAL HOOKS'}
+              </button>
             </div>
           )}
 
