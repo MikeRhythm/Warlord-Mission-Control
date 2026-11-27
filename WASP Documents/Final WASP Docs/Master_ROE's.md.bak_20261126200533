@@ -23,6 +23,8 @@ The Mission Control Nerve Center (MCNC) operates as a high-precision, server-agn
 
 ## TIER 2: TECHNICAL, COMPILATION & SECURITY PROTOCOLS
 
+* **The Single-Artifact Dispatch Mandate (Zero Fragmented Scripts):** Agents must never provide split multi-part operational scripts ("Part 1", "Part 2") in a single transmission. Every dispatch must be delivered as either a single, unified, atomic execution block or sequenced across discrete user verification turns one step at a time.
+
 * **Core Framework Triad:** System architecture runs on Paperclip (Management & Orchestration), OpenClaw (Execution & Tool Interface), and Hermes (Context & Agent Memory).
 * **Infrastructure Isolation:** 
   * Financial execution, live MT4/MT5 terminals, and brokers are isolated exclusively to the France VPS / Contabo environment (The Sniper Tower).

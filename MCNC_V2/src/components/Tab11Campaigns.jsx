@@ -2,8 +2,15 @@
 
 const PIPELINE_API_BASE = 'http://localhost:8082/api';
 const MASTER_API_BASE = 'http://localhost:8081/api';
+const ORACLE_API_BASE = 'http://localhost:8081/api/oracle';
 
 const PROJECT_THEME_PALETTE = ['#ffb800', '#38bdf8', '#10b981', '#C5BD9F', '#a78bfa'];
+
+const PINNED_ORACLE_PROJECTS = [
+  { id: 'ORACLE_CMF', label: 'CHIEF MADOTHI FUND', color: '#10b981', oracleKey: 'cmf', port: 8788 },
+  { id: 'ORACLE_CAMPAIGNS', label: 'AUTOMATED CAMPAIGNS', color: '#38bdf8', oracleKey: 'campaigns', port: 8789 },
+  { id: 'ORACLE_BSA', label: 'BECKS SOCCER ACADEMY', color: '#a78bfa', oracleKey: 'bsa', port: 8790 }
+];
 
 function normalizeProjectKey(name) {
   return String(name || '')
@@ -31,9 +38,36 @@ function isBountyDryOrExpired(b) {
   return false;
 }
 
+function HelpTip({ text }) {
+  return (
+    <span
+      title={text}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '15px',
+        height: '15px',
+        borderRadius: '50%',
+        border: '1px solid #DAA520',
+        backgroundColor: 'rgba(218, 165, 32, 0.16)',
+        color: '#DAA520',
+        fontSize: '10px',
+        fontWeight: 'bold',
+        cursor: 'help',
+        marginLeft: '6px',
+        flexShrink: 0
+      }}
+    >
+      ?
+    </span>
+  );
+}
+
 export default function Tab11Campaigns() {
   const [projects, setProjects] = useState([
-    { id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }
+    { id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' },
+    ...PINNED_ORACLE_PROJECTS
   ]);
   const [selectedProjectId, setSelectedProjectId] = useState('BOUNTY_ENGINE');
   const [bounties, setBounties] = useState([]);
@@ -65,22 +99,69 @@ export default function Tab11Campaigns() {
 
   const [telemetryLog, setTelemetryLog] = useState([
     '[INIT] Universal Campaigns & Action Station mounted.',
-    '[BRIDGE] Connected to Port 8081 execution conduits (Vyro + Whop).'
+    '[BRIDGE] Connected to Port 8081 execution conduits + Warlord-Oracle Hub (8787-8789).'
   ]);
   const [pipelineState, setPipelineState] = useState('IDLE');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [artifacts, setArtifacts] = useState([]);
 
-  // Elapsed timer for discovery / hook extraction spinners
+  // Oracle Hub State (NIM 8787, Chief Madothi Fund 8788, Automated Campaigns 8789)
+  const [oracleHealth, setOracleHealth] = useState({ onlineCount: 0, total: 4, services: {} });
+  const [oracleState, setOracleState] = useState({ campaigns: [], archived: [], history: [] });
+  const [oracleCampaignTitle, setOracleCampaignTitle] = useState('');
+  const [oracleCampaignCategory, setOracleCampaignCategory] = useState('FUNDRAISING');
+  const [oracleCampaignNotes, setOracleCampaignNotes] = useState('');
+  const [oracleTaskPrompt, setOracleTaskPrompt] = useState('');
+  const [isOracleRunning, setIsOracleRunning] = useState(false);
+
+  const isOracleLane = ['ORACLE_CMF', 'ORACLE_CAMPAIGNS', 'ORACLE_BSA'].includes(selectedProjectId);
+  const activeOracleService = selectedProjectId === 'ORACLE_CMF' ? 'cmf' : selectedProjectId === 'ORACLE_BSA' ? 'bsa' : 'campaigns';
+
+  // Elapsed timer for discovery / hook extraction / Oracle AI worker spinners
   useEffect(() => {
-    if (!isDiscovering && !isExtractingHooks) {
+    if (!isDiscovering && !isExtractingHooks && !isOracleRunning) {
       setDiscoverSeconds(0);
       return;
     }
     setDiscoverSeconds(1);
     const t = setInterval(() => setDiscoverSeconds(s => s + 1), 1000);
     return () => clearInterval(t);
-  }, [isDiscovering, isExtractingHooks]);
+  }, [isDiscovering, isExtractingHooks, isOracleRunning]);
+
+  const fetchOracleHealth = useCallback(async () => {
+    try {
+      const res = await fetch(`${ORACLE_API_BASE}/health`);
+      if (res.ok) {
+        const data = await res.json();
+        const svcs = data.services || {};
+        const onlineCount = ['nim', 'cmf', 'campaigns', 'bsa'].filter(k => svcs[k]?.reachable).length;
+        setOracleHealth({ onlineCount, total: 4, services: svcs });
+      }
+    } catch (e) {
+      setOracleHealth(prev => ({ ...prev, onlineCount: 0 }));
+    }
+  }, []);
+
+  const fetchOracleLaneState = useCallback(async (laneId) => {
+    const svc = laneId === 'ORACLE_CMF' ? 'cmf' : laneId === 'ORACLE_BSA' ? 'bsa' : 'campaigns';
+    try {
+      const res = await fetch(`${ORACLE_API_BASE}/${svc}/state`);
+      if (res.ok) {
+        const data = await res.json();
+        setOracleState({
+          campaigns: Array.isArray(data.campaigns) ? data.campaigns : [],
+          archived: Array.isArray(data.archived) ? data.archived : [],
+          history: Array.isArray(data.history) ? data.history : []
+        });
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    fetchOracleHealth();
+    const timer = setInterval(fetchOracleHealth, 15000);
+    return () => clearInterval(timer);
+  }, [fetchOracleHealth]);
 
   const resetBountyFormToZeroState = () => {
     setActiveBountyId('');
@@ -104,7 +185,7 @@ export default function Tab11Campaigns() {
     setCopiedHistory({});
   };
 
-  // Sync live on-disk projects from Port 8082 + listen for purge/create broadcasts
+  // Sync live on-disk projects from Port 8082 + preserve pinned Oracle lanes
   const syncDiskProjects = useCallback(async () => {
     try {
       const res = await fetch(`${PIPELINE_API_BASE}/projects`);
@@ -112,22 +193,15 @@ export default function Tab11Campaigns() {
         const data = await res.json();
         if (data.success && Array.isArray(data.projects)) {
           const activeDiskProjects = data.projects.filter(p => p.status !== 'ARCHIVED');
-          const mapped = [];
-
-          const bountyEntry = activeDiskProjects.find(
-            p => normalizeProjectKey(p.id || p.name) === 'bounty_engine'
-          );
-          if (bountyEntry) {
-            mapped.push({
-              id: 'BOUNTY_ENGINE',
-              label: 'CREATOR BOUNTIES',
-              color: '#ffb800'
-            });
-          }
+          const mapped = [
+            { id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' },
+            ...PINNED_ORACLE_PROJECTS
+          ];
 
           activeDiskProjects.forEach((p, idx) => {
             const rawId = p.id || p.name;
-            if (normalizeProjectKey(rawId) === 'bounty_engine') return;
+            const norm = normalizeProjectKey(rawId);
+            if (['bounty_engine', 'chief_madothi_fund', 'the_chief_madothi_fund', 'automated_campaigns', 'becks_soccer_academy'].includes(norm)) return;
             const displayLabel = String(p.name || rawId).replace(/_/g, ' ').toUpperCase();
             mapped.push({
               id: rawId,
@@ -136,14 +210,10 @@ export default function Tab11Campaigns() {
             });
           });
 
-          const finalList = mapped.length > 0
-            ? mapped
-            : [{ id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }];
-
-          setProjects(finalList);
+          setProjects(mapped);
           setSelectedProjectId(prev => {
-            const exists = finalList.some(item => normalizeProjectKey(item.id) === normalizeProjectKey(prev));
-            return exists ? prev : finalList[0].id;
+            const exists = mapped.some(item => normalizeProjectKey(item.id) === normalizeProjectKey(prev));
+            return exists ? prev : mapped[0].id;
           });
         }
       }
@@ -163,7 +233,7 @@ export default function Tab11Campaigns() {
         const filtered = prev.filter(p => normalizeProjectKey(p.id) !== targetKey);
         const fallbackList = filtered.length > 0
           ? filtered
-          : [{ id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }];
+          : [{ id: 'BOUNTY_ENGINE', label: 'CREATOR BOUNTIES', color: '#ffb800' }, ...PINNED_ORACLE_PROJECTS];
 
         setSelectedProjectId(curr =>
           normalizeProjectKey(curr) === targetKey ? fallbackList[0].id : curr
@@ -295,7 +365,6 @@ export default function Tab11Campaigns() {
     loadDiskArtifacts('BOUNTY_ENGINE', bounty.id);
   };
 
-  // Auto-purge dry/expired bounties from ledger & disk whenever fetched
   const purgeDryBountiesFromList = async (rawList) => {
     const valid = [];
     const expired = [];
@@ -386,11 +455,15 @@ export default function Tab11Campaigns() {
   useEffect(() => {
     if (selectedProjectId === 'BOUNTY_ENGINE') {
       fetchBounties();
+    } else if (['ORACLE_CMF', 'ORACLE_CAMPAIGNS', 'ORACLE_BSA'].includes(selectedProjectId)) {
+      resetBountyFormToZeroState();
+      setOracleCampaignCategory(selectedProjectId === 'ORACLE_CMF' ? 'FUNDRAISING' : selectedProjectId === 'ORACLE_BSA' ? 'ACADEMY' : 'AUTOMATION');
+      fetchOracleLaneState(selectedProjectId);
     } else {
       resetBountyFormToZeroState();
       loadDiskArtifacts(selectedProjectId);
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, fetchOracleLaneState]);
 
   const handleClearTelemetry = async () => {
     try {
@@ -593,18 +666,134 @@ export default function Tab11Campaigns() {
     } catch (e) {}
   };
 
+  // Oracle Hub Handlers (Chief Madothi Fund 8788 & Automated Campaigns 8789)
+  const handleSaveOracleCampaign = async () => {
+    const title = oracleCampaignTitle.trim();
+    if (!title) return;
+    const endpoint = activeOracleService !== 'campaigns'
+      ? `${ORACLE_API_BASE}/${activeOracleService}/campaign/upsert`
+      : `${ORACLE_API_BASE}/campaigns/upsert`;
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          category: oracleCampaignCategory,
+          notes: oracleCampaignNotes.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.campaign) {
+        setOracleCampaignTitle('');
+        setOracleCampaignNotes('');
+        fetchOracleLaneState(selectedProjectId);
+        fetchOracleHealth();
+        setTelemetryLog(prev => [
+          `[${new Date().toLocaleTimeString()}] [ORACLE ${activeOracleService.toUpperCase()}] Saved campaign "${data.campaign.title}" (${data.campaign.id})`,
+          ...prev
+        ]);
+      }
+    } catch (err) {
+      setTelemetryLog(prev => [
+        `[${new Date().toLocaleTimeString()}] [ORACLE ERROR] ${err.message}`,
+        ...prev
+      ]);
+    }
+  };
+
+  const handleArchiveOracleCampaign = async (id, title) => {
+    if (!window.confirm(`Archive "${title}" and purge its saved video clips on Oracle?`)) return;
+    try {
+      const res = await fetch(`${ORACLE_API_BASE}/campaigns/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, deleteClips: true })
+      });
+      if (res.ok) {
+        fetchOracleLaneState(selectedProjectId);
+        fetchOracleHealth();
+        setTelemetryLog(prev => [
+          `[${new Date().toLocaleTimeString()}] [ORACLE ARCHIVED] Archived "${title}" & purged associated clips.`,
+          ...prev
+        ]);
+      }
+    } catch (err) {}
+  };
+
+  const handleDeleteOracleCampaign = async (id, title) => {
+    if (!window.confirm(`Permanently delete "${title}" and any associated clips on Oracle?`)) return;
+    const endpoint = activeOracleService !== 'campaigns'
+      ? `${ORACLE_API_BASE}/${activeOracleService}/campaign/${encodeURIComponent(id)}`
+      : `${ORACLE_API_BASE}/campaigns/${encodeURIComponent(id)}`;
+    try {
+      const res = await fetch(endpoint, { method: 'DELETE' });
+      if (res.ok) {
+        fetchOracleLaneState(selectedProjectId);
+        fetchOracleHealth();
+        setTelemetryLog(prev => [
+          `[${new Date().toLocaleTimeString()}] [ORACLE DELETED] Deleted "${title}" (${id}) & purged clips.`,
+          ...prev
+        ]);
+      }
+    } catch (err) {}
+  };
+
+  const handleRunOracleAiTask = async () => {
+    const task = oracleTaskPrompt.trim();
+    if (!task || isOracleRunning) return;
+    setIsOracleRunning(true);
+    setTelemetryLog(prev => [
+      `[${new Date().toLocaleTimeString()}] [ORACLE ${activeOracleService.toUpperCase()} -> KIMI K3.1-PRO] Dispatching task to Warlord-Oracle...`,
+      ...prev
+    ]);
+    const endpoint = activeOracleService !== 'campaigns'
+      ? `${ORACLE_API_BASE}/${activeOracleService}/run`
+      : `${ORACLE_API_BASE}/campaigns/run`;
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task })
+      });
+      const data = await res.json();
+      if (res.ok && data.run) {
+        setOracleTaskPrompt('');
+        fetchOracleLaneState(selectedProjectId);
+        setTelemetryLog(prev => [
+          `[${new Date().toLocaleTimeString()}] [ORACLE COMPLETE // ${data.run.model || 'NIM'}] ${data.run.output}`,
+          ...prev
+        ]);
+      } else {
+        setTelemetryLog(prev => [
+          `[${new Date().toLocaleTimeString()}] [ORACLE FAILED] ${data.error || 'Worker returned error'}`,
+          ...prev
+        ]);
+      }
+    } catch (err) {
+      setTelemetryLog(prev => [
+        `[${new Date().toLocaleTimeString()}] [ORACLE ERROR] ${err.message}`,
+        ...prev
+      ]);
+    } finally {
+      setIsOracleRunning(false);
+    }
+  };
+
   const totalDailyUsedAcrossAll = bounties.reduce((sum, b) => sum + (Number(b.dailyPostsUsed) || 0), 0);
   const remainingGlobalSlots = Math.max(0, dailyPostCap - totalDailyUsedAcrossAll);
   const estEarnings = ((totalClicks / 1000) * (parseFloat(String(cpmRate).replace(/[^0-9.]/g, '')) || 0)).toFixed(2);
   const formatTimer = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-  const isOverlayActive = isDiscovering || pipelineState === 'RUNNING' || isExtractingHooks;
+  const isOverlayActive = isDiscovering || pipelineState === 'RUNNING' || isExtractingHooks || isOracleRunning;
   const overlayTitle = isDiscovering
     ? 'TESS SCANNING VYRO + WHOP MARKETPLACES...'
     : isExtractingHooks
       ? 'EXTRACTING VIRAL HOOKS & TIMESTAMPS...'
-      : 'EXECUTING AUTONOMOUS BOUNTY DISPATCH...';
-  const overlayTimer = isDiscovering || isExtractingHooks
+      : isOracleRunning
+        ? `WARLORD-ORACLE (${activeOracleService.toUpperCase()}) EXECUTING VIA KIMI K3.1-PRO...`
+        : 'EXECUTING AUTONOMOUS BOUNTY DISPATCH...';
+  const overlayTimer = isDiscovering || isExtractingHooks || isOracleRunning
     ? formatTimer(discoverSeconds)
     : formatTimer(elapsedSeconds);
 
@@ -712,7 +901,7 @@ export default function Tab11Campaigns() {
           <div style={{ fontSize: '11px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>CONDUIT:</span>
             <span style={{ color: '#10b981', border: '1px solid #10b981', padding: '2px 8px', borderRadius: '3px', fontWeight: 'bold' }}>
-              PORT 8081 // AUTO-PURGE ARMED
+              {isOracleRunning ? 'TAILSCALE 100.124.198.111 // WARLORD-ORACLE' : 'PORT 8081 // AUTO-PURGE ARMED'}
             </span>
           </div>
         </div>
@@ -730,7 +919,10 @@ export default function Tab11Campaigns() {
         gap: '8px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '13px' }}>ACTION STATION //</span>
+          <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '13px', display: 'inline-flex', alignItems: 'center' }}>
+            ACTION STATION //
+            <HelpTip text="Switch between Creator Bounties, Chief Madothi Fund (Oracle Port 8788), and Automated Campaigns (Oracle Port 8789)." />
+          </span>
           {projects.map(proj => (
             <button
               key={proj.id}
@@ -741,6 +933,7 @@ export default function Tab11Campaigns() {
                 color: selectedProjectId === proj.id ? proj.color : '#94A3B8',
                 padding: '6px 14px',
                 fontSize: '11px',
+                fontWeight: selectedProjectId === proj.id ? 'bold' : 'normal',
                 cursor: 'pointer',
                 borderRadius: '3px'
               }}
@@ -750,19 +943,70 @@ export default function Tab11Campaigns() {
           ))}
         </div>
 
-        <div style={{ fontSize: '11px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div style={{ fontSize: '11px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
           {pipelineState === 'RUNNING' && (
             <span style={{ color: '#ffb800', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ display: 'inline-block', width: '10px', height: '10px', border: '2px solid #ffb800', borderTopColor: 'transparent', borderRadius: '50%', animation: 'mcncSpin 0.8s linear infinite' }} />
               AUTO-PILOT ACTIVE ({formatTimer(elapsedSeconds)})
             </span>
           )}
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+            ORACLE HUB:{' '}
+            <strong style={{ color: oracleHealth.onlineCount === 3 ? '#10b981' : '#ffb800', marginLeft: '4px' }}>
+              {oracleHealth.onlineCount}/{oracleHealth.total} ONLINE
+            </strong>
+            <HelpTip text="Warlord-Oracle Tailscale Mesh (100.124.198.111): Port 8787 NIM Bridge, Port 8788 Chief Madothi Fund, Port 8789 Automated Campaigns." />
+          </span>
           <span>GLOBAL DAILY ALLOCATION: <strong style={{ color: totalDailyUsedAcrossAll >= 6 ? '#ef4444' : '#38bdf8' }}>{totalDailyUsedAcrossAll} / 6 POSTS TODAY</strong></span>
           <span>PORT 8081 DAEMON: <strong style={{ color: '#10b981' }}>READY</strong></span>
         </div>
       </div>
 
-      {/* TOP 5 BOUNTY BUTTON BAR + MASTER UPDATE TRIGGER */}
+      {/* ORACLE CAMPAIGN LANE BANNER (CHIEF MADOTHI FUND / AUTOMATED CAMPAIGNS) */}
+      {isOracleLane && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1.2fr 1fr 1fr',
+          gap: '12px',
+          marginBottom: '14px'
+        }}>
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '4px', display: 'flex', alignItems: 'center' }}>
+              WARLORD-ORACLE WORKER NODE
+              <HelpTip text="Isolated Docker worker running on warlord-oracle-vnic over Tailscale." />
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: selectedProjectId === 'ORACLE_CMF' ? '#10b981' : '#38bdf8' }}>
+              {selectedProjectId === 'ORACLE_CMF'
+                ? 'CHIEF MADOTHI FUND // PORT 8788'
+                : 'AUTOMATED CAMPAIGNS // PORT 8789'}
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>
+              TAILSCALE: <strong style={{ color: '#E2E8F0' }}>100.124.198.111</strong> • AI ENGINE: <strong style={{ color: '#ffb800' }}>KIMI K3.1-PRO (8787)</strong>
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '4px' }}>ACTIVE ORACLE CAMPAIGNS</div>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#fff' }}>
+              {oracleState.campaigns.length} ACTIVE
+              {selectedProjectId === 'ORACLE_CAMPAIGNS' && (
+                <span style={{ fontSize: '11px', color: '#94A3B8', marginLeft: '8px' }}>
+                  ({oracleState.archived.length} ARCHIVED)
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>PERSISTED IN /OPT/ DATA VOLUME</div>
+          </div>
+
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '4px' }}>AI TASK EXECUTIONS</div>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffb800' }}>{oracleState.history.length} COMPLETED RUNS</div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>ZERO-LOAD ON BASE ONE CPU/RAM</div>
+          </div>
+        </div>
+      )}
+
+      {/* TOP 5 BOUNTY BUTTON BAR + MASTER UPDATE TRIGGER (CREATOR BOUNTIES ONLY) */}
       {selectedProjectId === 'BOUNTY_ENGINE' && (
         <div style={{
           display: 'flex',
@@ -877,7 +1121,7 @@ export default function Tab11Campaigns() {
         </div>
       )}
 
-      {/* 4-CARD BREAKDOWN HUD */}
+      {/* 4-CARD BREAKDOWN HUD (CREATOR BOUNTIES) */}
       {selectedProjectId === 'BOUNTY_ENGINE' && activeBountyId && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr', gap: '12px', marginBottom: '14px' }}>
           <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
@@ -924,102 +1168,198 @@ export default function Tab11Campaigns() {
 
       {/* 3-COLUMN COCKPIT */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-        {/* COLUMN 01: BOUNTY RULES */}
-        <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES ({(activePlatform || 'STANDBY').toUpperCase()})</span>
-            {activeBountyId && (
-              <button onClick={handlePurgeBounty} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '10px', padding: '3px 8px', cursor: 'pointer' }}>[ PURGE FUNNEL ]</button>
-            )}
-          </div>
-
-          <div>
-            <label style={{ fontSize: '10px', color: '#94A3B8' }}>CAMPAIGN TARGET</label>
-            <input type="text" value={campaignTitle} onChange={e => setCampaignTitle(e.target.value)} onBlur={() => syncBountyStats()} placeholder="No active bounty selected" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <div>
-              <label style={{ fontSize: '10px', color: '#94A3B8' }}>CPM RATE</label>
-              <input type="text" value={cpmRate} onChange={e => setCpmRate(e.target.value)} onBlur={() => syncBountyStats()} placeholder="$0.00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#10b981', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '10px', color: '#94A3B8' }}>VIEW FLOOR</label>
-              <input type="text" value={viewFloor} onChange={e => setViewFloor(e.target.value)} onBlur={() => syncBountyStats()} placeholder="0" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ fontSize: '10px', color: '#94A3B8' }}>SOURCE PATH (AUTO-ASSIGNED PER BOUNTY)</label>
-            <input type="text" value={sourceVideoPath} onChange={e => setSourceVideoPath(e.target.value)} onBlur={() => syncBountyStats()} placeholder="Clean slate" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
-          </div>
-
-          <div>
+        {/* COLUMN 01: ORACLE CAMPAIGN ACTION STATION OR BOUNTY RULES */}
+        {isOracleLane ? (
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontSize: '10px', color: '#94A3B8' }}>HOOK HEADLINE</label>
-              <button onClick={() => setTranscriptDrawerOpen(!transcriptDrawerOpen)} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '10px', cursor: 'pointer' }}>{transcriptDrawerOpen ? '[ CLOSE DRAWER ]' : '[ AI HOOK / YT URL ]'}</button>
+              <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px', display: 'inline-flex', alignItems: 'center' }}>
+                01 // {selectedProjectId === 'ORACLE_CMF' ? 'CHIEF MADOTHI FUND CONTROLS' : selectedProjectId === 'ORACLE_BSA' ? 'BECKS SOCCER ACADEMY CONTROLS' : 'AUTOMATED CAMPAIGN CONTROLS'}
+                <HelpTip text="Create new Oracle-hosted campaigns or dispatch live AI tasks to Kimi K3.1-Pro on Warlord-Oracle." />
+              </span>
             </div>
-            <input type="text" value={hookHeadline} onChange={e => setHookHeadline(e.target.value)} onBlur={() => syncBountyStats()} placeholder="" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
-          </div>
 
-          {transcriptDrawerOpen && (
-            <div style={{ backgroundColor: '#14171c', border: '1px solid #38bdf8', padding: '10px', borderRadius: '4px' }}>
-              <textarea rows={2} value={rawTranscript} onChange={e => setRawTranscript(e.target.value)} placeholder="Paste YouTube URL or Transcript..." style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', fontSize: '10px', padding: '6px' }} />
-              <button onClick={handleExtractHooks} disabled={isExtractingHooks} style={{ width: '100%', marginTop: '6px', backgroundColor: '#38bdf8', color: '#080a0c', border: 'none', fontWeight: 'bold', padding: '6px', cursor: 'pointer', fontSize: '11px' }}>
-                {isExtractingHooks ? `EXTRACTING (${formatTimer(discoverSeconds)})...` : 'EXTRACT VIRAL HOOKS'}
+            <div>
+              <label style={{ fontSize: '10px', color: '#94A3B8' }}>NEW CAMPAIGN TITLE</label>
+              <input
+                type="text"
+                value={oracleCampaignTitle}
+                onChange={e => setOracleCampaignTitle(e.target.value)}
+                placeholder={selectedProjectId === 'ORACLE_CMF' ? 'e.g., Q4 Donor Outreach Drive' : 'e.g., EchoPod Automated Clipping Batch'}
+                style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '10px', color: '#94A3B8' }}>CAMPAIGN CATEGORY / TAG</label>
+              <input
+                type="text"
+                value={oracleCampaignCategory}
+                onChange={e => setOracleCampaignCategory(e.target.value)}
+                style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '10px', color: '#94A3B8' }}>OBJECTIVE / NOTES</label>
+              <textarea
+                rows={2}
+                value={oracleCampaignNotes}
+                onChange={e => setOracleCampaignNotes(e.target.value)}
+                placeholder="Campaign parameters, target channels, or milestone notes..."
+                style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#E2E8F0', padding: '6px', fontSize: '11px', marginTop: '4px' }}
+              />
+            </div>
+
+            <button
+              onClick={handleSaveOracleCampaign}
+              style={{
+                backgroundColor: '#10b981',
+                color: '#080a0c',
+                border: 'none',
+                fontWeight: 'bold',
+                padding: '8px',
+                fontSize: '11px',
+                cursor: 'pointer',
+                borderRadius: '3px'
+              }}
+            >
+              + SAVE CAMPAIGN TO ORACLE ({selectedProjectId === 'ORACLE_CMF' ? '8788' : selectedProjectId === 'ORACLE_BSA' ? '8790' : '8789'})
+            </button>
+
+            <div style={{ borderTop: '1px solid #1f242d', paddingTop: '10px', marginTop: '4px' }}>
+              <label style={{ fontSize: '10px', color: '#ffb800', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                DISPATCH AI WORKER TASK (KIMI K3.1-PRO)
+                <HelpTip text="Sends this prompt directly to the Oracle worker container, which executes via Port 8787 NIM Bridge and logs the output." />
+              </label>
+              <textarea
+                rows={3}
+                value={oracleTaskPrompt}
+                onChange={e => setOracleTaskPrompt(e.target.value)}
+                placeholder={selectedProjectId === 'ORACLE_CMF'
+                  ? 'Draft a donor update message or analyze Chief Madothi Fund campaign priorities...'
+                  : 'Generate a campaign execution checklist or social copy sequence...'}
+                style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }}
+              />
+              <button
+                onClick={handleRunOracleAiTask}
+                disabled={isOracleRunning}
+                style={{
+                  width: '100%',
+                  marginTop: '6px',
+                  backgroundColor: isOracleRunning ? '#1f242d' : '#ffb800',
+                  color: isOracleRunning ? '#ffb800' : '#080a0c',
+                  border: isOracleRunning ? '1px solid #ffb800' : 'none',
+                  fontWeight: 'bold',
+                  padding: '9px',
+                  fontSize: '11px',
+                  cursor: isOracleRunning ? 'not-allowed' : 'pointer',
+                  borderRadius: '3px'
+                }}
+              >
+                {isOracleRunning ? `EXECUTING ON ORACLE (${formatTimer(discoverSeconds)})...` : '⚡ RUN ON WARLORD-ORACLE'}
               </button>
             </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <div>
-              <label style={{ fontSize: '10px', color: '#94A3B8' }}>START TIME</label>
-              <input type="text" value={startTime} onChange={e => setStartTime(e.target.value)} placeholder="00:00:00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '10px', color: '#94A3B8' }}>END TIME</label>
-              <input type="text" value={endTime} onChange={e => setEndTime(e.target.value)} placeholder="00:01:00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
-            </div>
           </div>
+        ) : (
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>01 // BOUNTY RULES ({(activePlatform || 'STANDBY').toUpperCase()})</span>
+              {activeBountyId && (
+                <button onClick={handlePurgeBounty} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '10px', padding: '3px 8px', cursor: 'pointer' }}>[ PURGE FUNNEL ]</button>
+              )}
+            </div>
 
-          <div>
-            <label style={{ fontSize: '10px', color: '#94A3B8' }}>MANDATORY TAGS (SEO CLUSTER)</label>
-            <input type="text" value={mandatoryTags} onChange={e => setMandatoryTags(e.target.value)} onBlur={() => syncBountyStats()} placeholder="" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
-          </div>
+            <div>
+              <label style={{ fontSize: '10px', color: '#94A3B8' }}>CAMPAIGN TARGET</label>
+              <input type="text" value={campaignTitle} onChange={e => setCampaignTitle(e.target.value)} onBlur={() => syncBountyStats()} placeholder="No active bounty selected" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            </div>
 
-          <button
-            onClick={handleUpdateDailyDispatches}
-            disabled={pipelineState === 'RUNNING'}
-            style={{
-              backgroundColor: pipelineState === 'RUNNING' ? '#1f242d' : '#ffb800',
-              color: pipelineState === 'RUNNING' ? '#ffb800' : '#080a0c',
-              border: pipelineState === 'RUNNING' ? '1px solid #ffb800' : 'none',
-              fontWeight: 'bold',
-              padding: '10px',
-              fontSize: '11px',
-              cursor: pipelineState === 'RUNNING' ? 'not-allowed' : 'pointer',
-              marginTop: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            {pipelineState === 'RUNNING' ? (
-              <>
-                <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #ffb800', borderTopColor: 'transparent', borderRadius: '50%', animation: 'mcncSpin 0.8s linear infinite' }} />
-                <span>UPDATING DAILY DISPATCHES ({formatTimer(elapsedSeconds)})</span>
-              </>
-            ) : (
-              '⚡ UPDATE DAILY DISPATCHES'
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '10px', color: '#94A3B8' }}>CPM RATE</label>
+                <input type="text" value={cpmRate} onChange={e => setCpmRate(e.target.value)} onBlur={() => syncBountyStats()} placeholder="$0.00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#10b981', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '10px', color: '#94A3B8' }}>VIEW FLOOR</label>
+                <input type="text" value={viewFloor} onChange={e => setViewFloor(e.target.value)} onBlur={() => syncBountyStats()} placeholder="0" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '10px', color: '#94A3B8' }}>SOURCE PATH (AUTO-ASSIGNED PER BOUNTY)</label>
+              <input type="text" value={sourceVideoPath} onChange={e => setSourceVideoPath(e.target.value)} onBlur={() => syncBountyStats()} placeholder="Clean slate" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '10px', color: '#94A3B8' }}>HOOK HEADLINE</label>
+                <button onClick={() => setTranscriptDrawerOpen(!transcriptDrawerOpen)} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '10px', cursor: 'pointer' }}>{transcriptDrawerOpen ? '[ CLOSE DRAWER ]' : '[ AI HOOK / YT URL ]'}</button>
+              </div>
+              <input type="text" value={hookHeadline} onChange={e => setHookHeadline(e.target.value)} onBlur={() => syncBountyStats()} placeholder="" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#ffb800', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            </div>
+
+            {transcriptDrawerOpen && (
+              <div style={{ backgroundColor: '#14171c', border: '1px solid #38bdf8', padding: '10px', borderRadius: '4px' }}>
+                <textarea rows={2} value={rawTranscript} onChange={e => setRawTranscript(e.target.value)} placeholder="Paste YouTube URL or Transcript..." style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', fontSize: '10px', padding: '6px' }} />
+                <button onClick={handleExtractHooks} disabled={isExtractingHooks} style={{ width: '100%', marginTop: '6px', backgroundColor: '#38bdf8', color: '#080a0c', border: 'none', fontWeight: 'bold', padding: '6px', cursor: 'pointer', fontSize: '11px' }}>
+                  {isExtractingHooks ? `EXTRACTING (${formatTimer(discoverSeconds)})...` : 'EXTRACT VIRAL HOOKS'}
+                </button>
+              </div>
             )}
-          </button>
-        </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '10px', color: '#94A3B8' }}>START TIME</label>
+                <input type="text" value={startTime} onChange={e => setStartTime(e.target.value)} placeholder="00:00:00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '10px', color: '#94A3B8' }}>END TIME</label>
+                <input type="text" value={endTime} onChange={e => setEndTime(e.target.value)} placeholder="00:01:00" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#fff', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '10px', color: '#94A3B8' }}>MANDATORY TAGS (SEO CLUSTER)</label>
+              <input type="text" value={mandatoryTags} onChange={e => setMandatoryTags(e.target.value)} onBlur={() => syncBountyStats()} placeholder="" style={{ width: '100%', backgroundColor: '#080a0c', border: '1px solid #1f242d', color: '#38bdf8', padding: '6px', fontSize: '11px', marginTop: '4px' }} />
+            </div>
+
+            <button
+              onClick={handleUpdateDailyDispatches}
+              disabled={pipelineState === 'RUNNING'}
+              style={{
+                backgroundColor: pipelineState === 'RUNNING' ? '#1f242d' : '#ffb800',
+                color: pipelineState === 'RUNNING' ? '#ffb800' : '#080a0c',
+                border: pipelineState === 'RUNNING' ? '1px solid #ffb800' : 'none',
+                fontWeight: 'bold',
+                padding: '10px',
+                fontSize: '11px',
+                cursor: pipelineState === 'RUNNING' ? 'not-allowed' : 'pointer',
+                marginTop: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              {pipelineState === 'RUNNING' ? (
+                <>
+                  <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #ffb800', borderTopColor: 'transparent', borderRadius: '50%', animation: 'mcncSpin 0.8s linear infinite' }} />
+                  <span>UPDATING DAILY DISPATCHES ({formatTimer(elapsedSeconds)})</span>
+                </>
+              ) : (
+                '⚡ UPDATE DAILY DISPATCHES'
+              )}
+            </button>
+          </div>
+        )}
 
         {/* COLUMN 02: CLINICAL TELEMETRY FEED */}
         <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>02 // TELEMETRY</span>
+            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px', display: 'inline-flex', alignItems: 'center' }}>
+              02 // TELEMETRY
+              <HelpTip text="Real-time execution log from Base One and Warlord-Oracle workers." />
+            </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ color: pipelineState === 'RUNNING' ? '#ffb800' : pipelineState === 'COMPLETE' ? '#10b981' : pipelineState === 'FAILED' ? '#ef4444' : '#94A3B8', fontSize: '11px', fontWeight: 'bold' }}>
                 [{pipelineState === 'RUNNING' ? `RUNNING ${formatTimer(elapsedSeconds)}` : pipelineState}]
@@ -1038,11 +1378,11 @@ export default function Tab11Campaigns() {
               <div
                 key={index}
                 style={{
-                  color: log.includes('FAILED') || log.includes('ERROR') || log.includes('PURGE')
+                  color: log.includes('FAILED') || log.includes('ERROR') || log.includes('PURGE') || log.includes('DELETED')
                     ? '#ef4444'
-                    : log.includes('COMPLETE') || log.includes('SAVED') || log.includes('UPLOADED') || log.includes('VERIFIED')
+                    : log.includes('COMPLETE') || log.includes('SAVED') || log.includes('UPLOADED') || log.includes('VERIFIED') || log.includes('ARCHIVED')
                     ? '#10b981'
-                    : log.includes('[1/4') || log.includes('[2/4') || log.includes('[3/4') || log.includes('[4/4') || log.includes('[GOVERNOR') || log.includes('[CRON')
+                    : log.includes('[1/4') || log.includes('[2/4') || log.includes('[3/4') || log.includes('[4/4') || log.includes('[GOVERNOR') || log.includes('[CRON') || log.includes('[ORACLE')
                     ? '#38bdf8'
                     : '#94A3B8'
                 }}
@@ -1053,93 +1393,182 @@ export default function Tab11Campaigns() {
           </div>
         </div>
 
-        {/* COLUMN 03: DISK ARTIFACTS */}
-        <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>03 // DISK ARTIFACTS ({artifacts.length})</span>
-            <button onClick={() => loadDiskArtifacts(selectedProjectId, activeBountyId)} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontSize: '11px' }}>[SCAN DISK]</button>
-          </div>
+        {/* COLUMN 03: ORACLE CAMPAIGN LEDGER OR DISK ARTIFACTS */}
+        {isOracleLane ? (
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px', display: 'inline-flex', alignItems: 'center' }}>
+                03 // ORACLE LEDGER ({oracleState.campaigns.length} ACTIVE)
+                <HelpTip text="Manage active Oracle campaigns. Archiving or deleting automatically removes any associated video clips from Oracle storage." />
+              </span>
+              <button
+                onClick={() => fetchOracleLaneState(selectedProjectId)}
+                style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontSize: '11px' }}
+              >
+                [SYNC ORACLE]
+              </button>
+            </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {artifacts.length === 0 ? (
-              <div style={{ color: '#64748B', fontSize: '11px', textAlign: 'center', marginTop: '20px' }}>No physical artifacts found in workspace.</div>
-            ) : (
-              artifacts.map((art, idx) => {
-                const artKey = art.id || art.name || String(idx);
-                const titleFlashing = !!copiedFlash[`title_${artKey}`];
-                const titleEverCopied = !!copiedHistory[`title_${artKey}`];
-                const descFlashing = !!copiedFlash[`desc_${artKey}`];
-                const descEverCopied = !!copiedHistory[`desc_${artKey}`];
-                const previewTitle = buildOrganicTitle(art.name, idx);
-                return (
-                  <div key={artKey} style={{ backgroundColor: '#080a0c', border: '1px solid #1f242d', padding: '10px', borderRadius: '3px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '8px' }}>
-                      <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{art.name}</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                        <span style={{ color: '#10b981', fontSize: '10px' }}>{art.sizeKb || art.size || '0'} KB</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '420px', overflowY: 'auto' }}>
+              {oracleState.campaigns.length === 0 ? (
+                <div style={{ color: '#64748B', fontSize: '11px', textAlign: 'center', marginTop: '20px' }}>
+                  No active campaigns saved on this Oracle worker yet. Add one in Column 01.
+                </div>
+              ) : (
+                oracleState.campaigns.map(c => (
+                  <div key={c.id} style={{ backgroundColor: '#080a0c', border: '1px solid #1f242d', padding: '10px', borderRadius: '3px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>{c.title}</span>
+                      <span style={{ color: '#10b981', fontSize: '9px', border: '1px solid rgba(16,185,129,0.4)', padding: '1px 5px' }}>
+                        {c.category || c.status || 'ACTIVE'}
+                      </span>
+                    </div>
+                    {c.notes && (
+                      <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '6px' }}>{c.notes}</div>
+                    )}
+                    <div style={{ fontSize: '9px', color: '#64748B', marginBottom: '8px' }}>ID: {c.id}</div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {selectedProjectId === 'ORACLE_CAMPAIGNS' && (
                         <button
-                          onClick={() => handleDeleteArtifact(art.name)}
-                          title="Delete published clip from disk"
+                          onClick={() => handleArchiveOracleCampaign(c.id, c.title)}
                           style={{
-                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                            border: '1px solid rgba(239, 68, 68, 0.45)',
-                            color: '#ef4444',
+                            flex: 1,
+                            backgroundColor: 'rgba(255, 184, 0, 0.14)',
+                            border: '1px solid #ffb800',
+                            color: '#ffb800',
                             fontSize: '10px',
-                            padding: '1px 5px',
+                            padding: '4px',
                             cursor: 'pointer',
-                            borderRadius: '2px',
-                            lineHeight: 1.2
+                            borderRadius: '2px'
                           }}
                         >
-                          DEL
+                          ARCHIVE + PURGE CLIPS
                         </button>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '10px', color: '#ffb800', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      TITLE: {previewTitle}
-                    </div>
-                    <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '8px' }}>MODIFIED: {art.modified || 'N/A'} | STATE: {art.status || 'SYNCED'}</div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                      )}
                       <button
-                        onClick={() => triggerCopyWithFeedback(`title_${artKey}`, previewTitle)}
+                        onClick={() => handleDeleteOracleCampaign(c.id, c.title)}
                         style={{
                           flex: 1,
-                          backgroundColor: titleFlashing ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
-                          border: titleFlashing ? '1px solid #10b981' : '1px solid #1f242d',
-                          color: titleFlashing ? '#10b981' : '#94A3B8',
-                          fontWeight: titleFlashing ? 'bold' : 'normal',
+                          backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                          border: '1px solid #ef4444',
+                          color: '#ef4444',
                           fontSize: '10px',
-                          padding: '5px',
+                          padding: '4px',
                           cursor: 'pointer',
                           borderRadius: '2px'
                         }}
                       >
-                        {titleFlashing ? '✓ COPIED TITLE' : (titleEverCopied ? '✓ COPY TITLE' : 'COPY TITLE')}
-                      </button>
-                      <button
-                        onClick={() => triggerCopyWithFeedback(`desc_${artKey}`, buildCreativeSeoDesc(art.name, idx))}
-                        style={{
-                          flex: 1,
-                          backgroundColor: descFlashing ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
-                          border: descFlashing ? '1px solid #10b981' : '1px solid #1f242d',
-                          color: descFlashing ? '#10b981' : '#94A3B8',
-                          fontWeight: descFlashing ? 'bold' : 'normal',
-                          fontSize: '10px',
-                          padding: '5px',
-                          cursor: 'pointer',
-                          borderRadius: '2px'
-                        }}
-                      >
-                        {descFlashing ? '✓ COPIED SEO' : (descEverCopied ? '✓ COPY SEO DESC' : 'COPY SEO DESC')}
+                        DELETE + PURGE CLIPS
                       </button>
                     </div>
                   </div>
-                );
-              })
-            )}
+                ))
+              )}
+
+              {oracleState.history.length > 0 && (
+                <div style={{ marginTop: '10px', borderTop: '1px solid #1f242d', paddingTop: '8px' }}>
+                  <div style={{ fontSize: '10px', color: '#38bdf8', fontWeight: 'bold', marginBottom: '6px' }}>
+                    RECENT KIMI K3.1-PRO OUTPUTS ({oracleState.history.length})
+                  </div>
+                  {oracleState.history.slice(0, 5).map(run => (
+                    <div key={run.runId} style={{ backgroundColor: '#080a0c', border: '1px solid #1f242d', padding: '8px', borderRadius: '3px', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '10px', color: '#ffb800', marginBottom: '3px' }}>TASK: {run.task}</div>
+                      <div style={{ fontSize: '10px', color: '#E2E8F0', whiteSpace: 'pre-wrap' }}>{run.output}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ backgroundColor: '#0d0f12', border: '1px solid #1f242d', borderRadius: '4px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ color: '#ffb800', fontWeight: 'bold', fontSize: '12px' }}>03 // DISK ARTIFACTS ({artifacts.length})</span>
+              <button onClick={() => loadDiskArtifacts(selectedProjectId, activeBountyId)} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontSize: '11px' }}>[SCAN DISK]</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {artifacts.length === 0 ? (
+                <div style={{ color: '#64748B', fontSize: '11px', textAlign: 'center', marginTop: '20px' }}>No physical artifacts found in workspace.</div>
+              ) : (
+                artifacts.map((art, idx) => {
+                  const artKey = art.id || art.name || String(idx);
+                  const titleFlashing = !!copiedFlash[`title_${artKey}`];
+                  const titleEverCopied = !!copiedHistory[`title_${artKey}`];
+                  const descFlashing = !!copiedFlash[`desc_${artKey}`];
+                  const descEverCopied = !!copiedHistory[`desc_${artKey}`];
+                  const previewTitle = buildOrganicTitle(art.name, idx);
+                  return (
+                    <div key={artKey} style={{ backgroundColor: '#080a0c', border: '1px solid #1f242d', padding: '10px', borderRadius: '3px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '8px' }}>
+                        <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{art.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <span style={{ color: '#10b981', fontSize: '10px' }}>{art.sizeKb || art.size || '0'} KB</span>
+                          <button
+                            onClick={() => handleDeleteArtifact(art.name)}
+                            title="Delete published clip from disk"
+                            style={{
+                              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                              border: '1px solid rgba(239, 68, 68, 0.45)',
+                              color: '#ef4444',
+                              fontSize: '10px',
+                              padding: '1px 5px',
+                              cursor: 'pointer',
+                              borderRadius: '2px',
+                              lineHeight: 1.2
+                            }}
+                          >
+                            DEL
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#ffb800', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        TITLE: {previewTitle}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#94A3B8', marginBottom: '8px' }}>MODIFIED: {art.modified || 'N/A'} | STATE: {art.status || 'SYNCED'}</div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => triggerCopyWithFeedback(`title_${artKey}`, previewTitle)}
+                          style={{
+                            flex: 1,
+                            backgroundColor: titleFlashing ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
+                            border: titleFlashing ? '1px solid #10b981' : '1px solid #1f242d',
+                            color: titleFlashing ? '#10b981' : '#94A3B8',
+                            fontWeight: titleFlashing ? 'bold' : 'normal',
+                            fontSize: '10px',
+                            padding: '5px',
+                            cursor: 'pointer',
+                            borderRadius: '2px'
+                          }}
+                        >
+                          {titleFlashing ? '✓ COPIED TITLE' : (titleEverCopied ? '✓ COPY TITLE' : 'COPY TITLE')}
+                        </button>
+                        <button
+                          onClick={() => triggerCopyWithFeedback(`desc_${artKey}`, buildCreativeSeoDesc(art.name, idx))}
+                          style={{
+                            flex: 1,
+                            backgroundColor: descFlashing ? 'rgba(16, 185, 129, 0.22)' : '#14171c',
+                            border: descFlashing ? '1px solid #10b981' : '1px solid #1f242d',
+                            color: descFlashing ? '#10b981' : '#94A3B8',
+                            fontWeight: descFlashing ? 'bold' : 'normal',
+                            fontSize: '10px',
+                            padding: '5px',
+                            cursor: 'pointer',
+                            borderRadius: '2px'
+                          }}
+                        >
+                          {descFlashing ? '✓ COPIED SEO' : (descEverCopied ? '✓ COPY SEO DESC' : 'COPY SEO DESC')}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

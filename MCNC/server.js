@@ -2309,6 +2309,9 @@ app.post('/api/campaigns/artifacts/delete', (req, res) => {
   }
 });
 
+// Oracle Tailscale Hub Bridge (NIM 8787, Chief Madothi Fund 8788, Automated Campaigns 8789)
+app.use('/api/oracle', require('./routes/oracle_bridge'));
+
 server.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`[BASE 1 MASTER DAEMON]   : Port ${PORT}`);
