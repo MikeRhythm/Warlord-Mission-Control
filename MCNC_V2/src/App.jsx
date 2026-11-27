@@ -1,12 +1,12 @@
 ﻿import React, { useState, useEffect } from 'react';
-import './index.css'; 
+import './index.css';
 import './high_finance_master.css';
 import { initGlobalInterceptor } from './utils/execBus';
 
-import Tab01Exec from './components/Tab01Exec'; 
+import Tab01Exec from './components/Tab01Exec';
 import Tab02WarRoom from './components/Tab02WarRoom';
 import Tab03Projects from './components/Tab03Projects';
-import Tab04TaskBoard from './components/Tab04TaskBoard'; 
+import Tab04TaskBoard from './components/Tab04TaskBoard';
 import Tab05Calendar from './components/Tab05Calendar';
 import Tab06Memory from './components/Tab06Memory';
 import Tab07Paperclip from './components/Tab07Paperclip';
@@ -17,6 +17,7 @@ import Tab11Campaigns from './components/Tab11Campaigns';
 import Tab12Review from './components/Tab12Review';
 import Tab13Docs from './components/Tab13Docs';
 import Tab14PipeLine from './components/Tab14PipeLine';
+import TabBriefModal from './components/TabBriefModal';
 
 // Initialize global network listener once across entire runtime
 initGlobalInterceptor();
@@ -24,7 +25,7 @@ initGlobalInterceptor();
 const TABS = [
   '01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD',
   '05 CALENDAR', '06 MEMORY', '07 PAPERCLIP', '08 PALETTES',
-  '09 PREVIEWS', '10 TOKENS', '11 CAMPAIGNS', '12 REVIEW', 
+  '09 PREVIEWS', '10 TOKENS', '11 CAMPAIGNS', '12 REVIEW',
   '13 DOCS', '14 PIPE-LINE'
 ];
 
@@ -33,10 +34,11 @@ export default function App() {
   const [mcncSocket, setMcncSocket] = useState(null);
   const [wsStatus, setWsStatus] = useState('DISCONNECTED');
   const [heartbeatActive, setHeartbeatActive] = useState(false);
-  
+
   // INITIALIZED TO FALSE: NEVER AUTO-POPS ON REFRESH
   const [showHeartbeatModal, setShowHeartbeatModal] = useState(false);
-  
+  const [showTabBriefModal, setShowTabBriefModal] = useState(false);
+
   // Universal Busy State
   const [isSystemBusy, setIsSystemBusy] = useState(false);
   const [activeModel, setActiveModel] = useState('');
@@ -50,6 +52,20 @@ export default function App() {
     setShowHeartbeatModal(prev => !prev);
     setTimeout(() => setHeartbeatActive(false), 800);
   };
+
+  // Keyboard shortcut: Shift + ? opens Tab Briefing Modal (when not typing in inputs)
+  useEffect(() => {
+    const handleShortcut = (e) => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+      if (e.key === '?' && e.shiftKey) {
+        e.preventDefault();
+        setShowTabBriefModal(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   // Sync selected brain across tabs to guard the telemetry dot
   useEffect(() => {
@@ -79,18 +95,18 @@ export default function App() {
     let ws;
     const connectWS = () => {
       ws = new WebSocket('ws://[::1]:8081');
-      
+
       ws.onopen = () => {
         setWsStatus('ACTIVE');
         setMcncSocket(ws);
         window.mcncSocket = ws;
       };
-      
+
       ws.onclose = () => {
         setWsStatus('DISCONNECTED');
         setMcncSocket(null);
         window.mcncSocket = null;
-        setTimeout(connectWS, 3000); 
+        setTimeout(connectWS, 3000);
       };
 
       ws.onerror = () => {
@@ -125,28 +141,78 @@ export default function App() {
 
   return (
     <div className="mcnc-glass-app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-      
+
       {/* GLOBAL MASTER HEADER */}
       <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(6px, 0.6vw, 10px) clamp(10px, 1vw, 16px)', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(10, 12, 16, 0.95)', flexShrink: 0 }}>
-        <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: 'var(--fs-title)' }}>
+        <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: 'var(--fs-title)' }}>
           <span>MISSION CONTROL // MCNC MASTER</span>
+
+          {/* GOLDENROD STATION BRIEFING TRIGGER (PLACED IN OPEN LEFT HEADER REAL ESTATE) */}
+          <button
+            onClick={() => setShowTabBriefModal(true)}
+            style={{
+              background: showTabBriefModal
+                ? 'linear-gradient(180deg, rgba(218, 165, 32, 0.25) 0%, rgba(16, 12, 4, 0.95) 100%)'
+                : 'linear-gradient(180deg, #16140e 0%, #0a0906 100%)',
+              border: '1px solid #DAA520',
+              color: '#ffb800',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '11px',
+              fontWeight: '700',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              letterSpacing: '1px',
+              boxShadow: '0 0 10px rgba(218, 165, 32, 0.22), inset 0 1px 0 rgba(255, 215, 0, 0.14)',
+              transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(180deg, #2b2210 0%, #140f06 100%)';
+              e.currentTarget.style.boxShadow = '0 0 14px rgba(218, 165, 32, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.color = '#FFE082';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(180deg, #16140e 0%, #0a0906 100%)';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(218, 165, 32, 0.22), inset 0 1px 0 rgba(255, 215, 0, 0.14)';
+              e.currentTarget.style.color = '#ffb800';
+            }}
+            title="Executive Briefing: What This Tab Does (Shift + ?)"
+          >
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: '#DAA520',
+              color: '#080a0c',
+              fontWeight: '900',
+              fontSize: '10px',
+              lineHeight: 1
+            }}>?</span>
+            <span>TAB BRIEF</span>
+          </button>
         </div>
 
         <div className="system-status" style={{ display: 'flex', alignItems: 'center', gap: '14px', fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--fs-meta)', color: 'var(--text-mist)' }}>
-          
+
           {/* SINGLE PINHEAD DOT: ONLY VISIBLE & BLIPPING IF A KAGGLE MODEL IS ACTIVELY RUNNING */}
           {isKaggleSelected && isSystemBusy && (
-            <span 
+            <span
               title="Kaggle Inference Active"
-              style={{ 
-                display: 'inline-block', 
-                width: '5px', 
-                height: '5px', 
-                borderRadius: '50%', 
-                backgroundColor: '#8C3A27', 
+              style={{
+                display: 'inline-block',
+                width: '5px',
+                height: '5px',
+                borderRadius: '50%',
+                backgroundColor: '#8C3A27',
                 boxShadow: '0 0 5px #8C3A27',
                 animation: 'pulse 1s infinite'
-              }} 
+              }}
             />
           )}
 
@@ -154,8 +220,8 @@ export default function App() {
           <button
             onClick={triggerHeartbeat}
             style={{
-              background: heartbeatActive 
-                ? 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.25) 0%, rgba(6, 9, 13, 0.95) 100%)' 
+              background: heartbeatActive
+                ? 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.25) 0%, rgba(6, 9, 13, 0.95) 100%)'
                 : 'linear-gradient(180deg, #12161F 0%, #080A0E 100%)',
               border: heartbeatActive ? '1px solid #10B981' : '1px solid #2B3545',
               color: heartbeatActive ? '#34D399' : '#D4AF37',
@@ -166,8 +232,8 @@ export default function App() {
               borderRadius: '4px',
               cursor: 'pointer',
               letterSpacing: '1.2px',
-              boxShadow: heartbeatActive 
-                ? '0 0 14px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)' 
+              boxShadow: heartbeatActive
+                ? '0 0 14px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
                 : '0 2px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
               transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
               display: 'inline-flex',
@@ -206,12 +272,12 @@ export default function App() {
       </header>
 
       {/* AUTO-FITTING 14-TAB NAVIGATION BAR */}
-      <nav className="tab-navigation" style={{ 
-        display: 'flex', 
-        alignItems: 'stretch', 
-        gap: '1.5px', 
-        padding: '3px 4px', 
-        background: 'rgba(0, 0, 0, 0.85)', 
+      <nav className="tab-navigation" style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: '1.5px',
+        padding: '3px 4px',
+        background: 'rgba(0, 0, 0, 0.85)',
         borderBottom: '1px solid var(--wire-border)',
         flexShrink: 0,
         boxSizing: 'border-box',
@@ -222,8 +288,8 @@ export default function App() {
           const isSelected = activeTab === tab;
 
           return (
-            <button 
-              key={tab} 
+            <button
+              key={tab}
               className={`btn-glass-nav ${isSelected ? 'active' : ''}`}
               onClick={() => setActiveTab(tab)}
               style={{
@@ -262,15 +328,15 @@ export default function App() {
         <div style={{ display: activeTab === '01 EXEC' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
           <Tab01Exec ws={mcncSocket} />
         </div>
-        
+
         <div style={{ display: activeTab === '02 WAR ROOM' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
           <Tab02WarRoom ws={mcncSocket} initialPayload={warRoomPayload} />
         </div>
-        
+
         <div style={{ display: activeTab === '03 PROJECTS' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
           <Tab03Projects />
         </div>
-        
+
         <div style={{ display: activeTab === '04 TASK BOARD' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
           <Tab04TaskBoard ws={mcncSocket} />
         </div>
@@ -316,6 +382,15 @@ export default function App() {
         </div>
       </main>
 
+      {/* SCREENSHOT-READY EXECUTIVE TAB BRIEFING OVERLAY */}
+      <TabBriefModal
+        isOpen={showTabBriefModal}
+        onClose={() => setShowTabBriefModal(false)}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        allTabs={TABS}
+      />
+
       {/* WARLORD WASP // HEARTBEAT MODAL (PORT 8085 INCLUDED) */}
       {showHeartbeatModal && (
         <div style={{
@@ -353,7 +428,7 @@ export default function App() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              
+
               {/* OPENCLAW DAEMON BRIDGE */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
