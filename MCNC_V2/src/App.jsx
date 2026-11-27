@@ -24,7 +24,7 @@ initGlobalInterceptor();
 
 const TABS = [
   '01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD',
-  '05 CALENDAR', '06 MEMORY', '07 PAPERCLIP', '08 PALETTES',
+  '05 CALENDAR', '06 MEMORY', '07 CEO ENGINE', '08 PALETTES',
   '09 PREVIEWS', '10 TOKENS', '11 CAMPAIGNS', '12 REVIEW',
   '13 DOCS', '14 PIPE-LINE'
 ];
@@ -349,7 +349,7 @@ export default function App() {
           <Tab06Memory ws={mcncSocket} />
         </div>
 
-        <div style={{ display: activeTab === '07 PAPERCLIP' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
+        <div style={{ display: activeTab === '07 CEO ENGINE' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
           <Tab07Paperclip ws={mcncSocket} />
         </div>
 
@@ -477,9 +477,9 @@ export default function App() {
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
                   <div>
                     <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
-                      PAPERCLIP INGESTION PIPE <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// LOCAL BUFFER</span>
+                      CEO ENGINE INGESTION PIPE <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// LOCAL BUFFER</span>
                     </div>
-                    <div style={{ color: '#64748b', fontSize: '10px' }}>Raw Intake &amp; Decompile Staging</div>
+                    <div style={{ color: '#64748b', fontSize: '10px' }}>Raw Intake &amp; Cascade Staging</div>
                   </div>
                 </div>
                 <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
