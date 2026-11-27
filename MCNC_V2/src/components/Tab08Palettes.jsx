@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
-  Palette, Sliders, Check, Copy, RefreshCw,
+  Palette, Sliders, Check, Copy, RefreshCw, Upload, Download,
   Monitor, Folder, Plus, Trash2, Sparkles, Maximize2, X, Layers
 } from 'lucide-react';
 import './Tab08Palettes.css';
@@ -56,8 +56,8 @@ const AFRICA_MASTER_SWATCHES = [
   { id: 'timber-w10', name: 'W-10 Bleached Limba', gradient: '#DFBAA0', sub: 'TYPE: Timber Solid', category: 'TIMBER MATRIX' }
 ];
 
-// Extensible Texture & Weave Library (42 Linked Africa Assets; future texture packs append cleanly here)
-const TEXTURE_LIBRARY = [
+// Built-in 42 Africa Weave & Texture Assets
+const BUILTIN_TEXTURE_LIBRARY = [
   { name: "Aged Ochre Weave.jpg", pack: "AFRICA WEAVES", role: "Class B: Rustic Reading Surface", type: "JPG" },
   { name: "Background 1.png", pack: "AFRICA WEAVES", role: "Class B: Layout Canvas Plate", type: "PNG" },
   { name: "Background 2.png", pack: "AFRICA WEAVES", role: "Class B: Layout Canvas Plate", type: "PNG" },
@@ -123,8 +123,9 @@ const AFRICA_KEY_BINDINGS = [
 ];
 
 function hexToHsl(hex) {
-  let clean = hex.replace('#', '');
+  let clean = (hex || '#DAA520').replace('#', '');
   if (clean.length === 3) clean = clean.split('').map(c => c + c).join('');
+  if (clean.length !== 6) return [43, 74, 49];
   const r = parseInt(clean.substring(0, 2), 16) / 255;
   const g = parseInt(clean.substring(2, 4), 16) / 255;
   const b = parseInt(clean.substring(4, 6), 16) / 255;
@@ -154,7 +155,7 @@ function hslToHex(h, s, l) {
 }
 
 function hexToRgba(hex, alpha) {
-  let clean = hex.replace('#', '');
+  let clean = (hex || '#0B0F17').replace('#', '');
   if (clean.length === 3) clean = clean.split('').map(c => c + c).join('');
   if (clean.length !== 6) return `rgba(11, 15, 23, ${alpha})`;
   const r = parseInt(clean.substring(0, 2), 16);
@@ -163,15 +164,39 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function GoldTip({ tip }) {
-  return (
-    <span
-      title={tip}
-      className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#DAA520]/20 border border-[#DAA520] text-[#DAA520] text-[8px] font-bold cursor-help flex-shrink-0"
-    >
-      ?
-    </span>
-  );
+function getTextureSrc(tex) {
+  if (!tex) return '';
+  if (tex.dataUrl) return tex.dataUrl;
+  return `/africa-assets/${encodeURIComponent(tex.name)}`;
+}
+
+function buildMaterialSurface(hexColor, textureObj, opacityPct = 35, shadingPct = 35) {
+  const shadeTop = (shadingPct / 100 * 0.16).toFixed(2);
+  const shadeBot = (shadingPct / 100 * 0.62).toFixed(2);
+  const shadingLayer = shadingPct > 0
+    ? `linear-gradient(180deg, rgba(255, 255, 255, ${shadeTop}) 0%, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, ${shadeBot}) 100%)`
+    : null;
+
+  if (!textureObj) {
+    return shadingLayer ? `${shadingLayer}, ${hexColor.toUpperCase()}` : hexColor.toUpperCase();
+  }
+
+  const tintAlpha = Math.max(0.08, Math.min(0.96, 1 - opacityPct / 100)).toFixed(2);
+  const texUrl = getTextureSrc(textureObj);
+  const tintLayer = `linear-gradient(${hexToRgba(hexColor, tintAlpha)}, ${hexToRgba(hexColor, tintAlpha)})`;
+
+  return shadingLayer
+    ? `${shadingLayer}, ${tintLayer}, url("${texUrl}") center/cover`
+    : `${tintLayer}, url("${texUrl}") center/cover`;
+}
+
+function buildElevationShadow(shadowPct = 45, accentHex = '#000000') {
+  if (shadowPct <= 0) return 'none';
+  const y1 = Math.round(4 + (shadowPct / 100) * 22);
+  const blur1 = Math.round(8 + (shadowPct / 100) * 44);
+  const alpha1 = (0.28 + (shadowPct / 100) * 0.58).toFixed(2);
+  const glowAlpha = ((shadowPct / 100) * 0.22).toFixed(2);
+  return `0 ${y1}px ${blur1}px rgba(0, 0, 0, ${alpha1}), 0 0 ${Math.round(blur1 * 0.6)}px ${hexToRgba(accentHex, glowAlpha)}, inset 0 1px 0 rgba(255, 255, 255, 0.12)`;
 }
 
 export default function Tab08Palettes({ ws }) {
@@ -182,10 +207,21 @@ export default function Tab08Palettes({ ws }) {
   const [copiedAsset, setCopiedAsset] = useState(null);
   const [previewAsset, setPreviewAsset] = useState(null);
 
-  // Custom Palettes State
+  const texInputRef = useRef(null);
+  const paletteImportRef = useRef(null);
+
+  const [importedTextures, setImportedTextures] = useState(() => {
+    try {
+      const saved = localStorage.getItem('MCNC_IMPORTED_TEXTURES_V1');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   const [customPalettes, setCustomPalettes] = useState(() => {
     try {
-      const saved = localStorage.getItem('MCNC_CUSTOM_PALETTES_V2');
+      const saved = localStorage.getItem('MCNC_CUSTOM_PALETTES_V3');
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
       return [];
@@ -193,7 +229,6 @@ export default function Tab08Palettes({ ws }) {
   });
   const [activeCustomId, setActiveCustomId] = useState(null);
 
-  // Custom Palette Studio Draft State (5 Color Swabs + Optional Dragged Texture Overlay)
   const [draftName, setDraftName] = useState('');
   const [draftPrimary, setDraftPrimary] = useState('#DAA520');
   const [draftSecondary, setDraftSecondary] = useState('#10B981');
@@ -201,8 +236,10 @@ export default function Tab08Palettes({ ws }) {
   const [draftCard, setDraftCard] = useState('#141C2B');
   const [draftText, setDraftText] = useState('#F8FAFC');
   const [draftTexture, setDraftTexture] = useState(null);
-  const [draftTextureTarget, setDraftTextureTarget] = useState('CARD'); // 'CARD' or 'BASE'
-  const [draftTextureOpacity, setDraftTextureOpacity] = useState(35);
+  const [draftTextureTarget, setDraftTextureTarget] = useState('CARD');
+  const [draftOpacity, setDraftOpacity] = useState(35);
+  const [draftShading, setDraftShading] = useState(40);
+  const [draftShadow, setDraftShadow] = useState(50);
 
   const [bindings, setBindings] = useState(() => {
     try {
@@ -223,6 +260,8 @@ export default function Tab08Palettes({ ws }) {
   useEffect(() => {
     applyTokensToDom(bindings);
   }, [bindings]);
+
+  const allTextures = [...importedTextures, ...BUILTIN_TEXTURE_LIBRARY];
 
   const handleSelectSideView = (view, customId = null) => {
     setActiveSideView(view);
@@ -248,7 +287,102 @@ export default function Tab08Palettes({ ws }) {
     setDraftText(hslToHex(h, 15, 96));
   };
 
-  // Drag texture onto Custom Builder Preview or Color Slot
+  const handleImportTextureFiles = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result;
+        if (!dataUrl) return;
+        const ext = (file.name.split('.').pop() || 'IMG').toUpperCase();
+        const newTex = {
+          name: file.name,
+          pack: 'IMPORTED CUSTOM',
+          role: 'Custom Imported Texture / Weave',
+          type: ext,
+          dataUrl
+        };
+        setImportedTextures((prev) => {
+          const filtered = prev.filter(t => t.name !== file.name);
+          const next = [newTex, ...filtered];
+          try {
+            localStorage.setItem('MCNC_IMPORTED_TEXTURES_V1', JSON.stringify(next));
+          } catch (err) {
+            alert('Browser storage limit reached for large images. Try a smaller/compressed texture file (< 500KB).');
+          }
+          return next;
+        });
+        setDraftTexture(newTex);
+        setActiveSideView('BUILDER');
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const handleImportPaletteFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const raw = String(ev.target?.result || '');
+        const parsed = JSON.parse(raw);
+        if (parsed.name) setDraftName(parsed.name);
+        if (parsed.primary) setDraftPrimary(parsed.primary);
+        if (parsed.secondary) setDraftSecondary(parsed.secondary);
+        if (parsed.surface) setDraftSurface(parsed.surface);
+        if (parsed.card) setDraftCard(parsed.card);
+        if (parsed.text) setDraftText(parsed.text);
+        if (typeof parsed.opacity === 'number') setDraftOpacity(parsed.opacity);
+        if (typeof parsed.shading === 'number') setDraftShading(parsed.shading);
+        if (typeof parsed.shadow === 'number') setDraftShadow(parsed.shadow);
+        if (parsed.texture) setDraftTexture(parsed.texture);
+        setActiveSideView('BUILDER');
+      } catch (err) {
+        const hexes = String(ev.target?.result || '').match(/#[0-9A-Fa-f]{6}/g);
+        if (hexes && hexes.length > 0) {
+          if (hexes[0]) setDraftPrimary(hexes[0].toUpperCase());
+          if (hexes[1]) setDraftSecondary(hexes[1].toUpperCase());
+          if (hexes[2]) setDraftSurface(hexes[2].toUpperCase());
+          if (hexes[3]) setDraftCard(hexes[3].toUpperCase());
+          if (hexes[4]) setDraftText(hexes[4].toUpperCase());
+          setDraftName(file.name.replace(/\.[^/.]+$/, ''));
+          setActiveSideView('BUILDER');
+        } else {
+          alert('Could not parse palette file. Please upload a JSON palette or file containing #HEX codes.');
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleExportCustomJson = (suite) => {
+    const payload = {
+      name: suite.name,
+      primary: suite.primary,
+      secondary: suite.secondary,
+      surface: suite.surface,
+      card: suite.card,
+      text: suite.text,
+      opacity: suite.opacity,
+      shading: suite.shading,
+      shadow: suite.shadow,
+      texture: suite.texture || null,
+      bindings: suite.bindings
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${suite.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-palette.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleTextureDragStart = (e, tex) => {
     e.dataTransfer.setData('application/mcnc-texture', JSON.stringify(tex));
   };
@@ -266,13 +400,6 @@ export default function Tab08Palettes({ ws }) {
     } catch (err) {}
   };
 
-  const buildBlendedBackground = (hexColor, textureObj, opacityPct) => {
-    if (!textureObj) return hexColor.toUpperCase();
-    const tintAlpha = Math.max(0.15, Math.min(0.95, 1 - opacityPct / 100)).toFixed(2);
-    const texUrl = `/africa-assets/${encodeURIComponent(textureObj.name)}`;
-    return `linear-gradient(${hexToRgba(hexColor, tintAlpha)}, ${hexToRgba(hexColor, tintAlpha)}), url("${texUrl}") center/cover`;
-  };
-
   const handleSaveCustomPalette = (e) => {
     e.preventDefault();
     const cleanName = draftName.trim() || `Custom Suite ${customPalettes.length + 1}`;
@@ -282,29 +409,38 @@ export default function Tab08Palettes({ ws }) {
       return [h, s, Math.min(26, l + 10)];
     })());
 
-    const baseBgVal = draftTexture && draftTextureTarget === 'BASE'
-      ? buildBlendedBackground(draftSurface, draftTexture, draftTextureOpacity)
-      : draftSurface.toUpperCase();
+    const baseBgVal = buildMaterialSurface(
+      draftSurface,
+      draftTexture && draftTextureTarget === 'BASE' ? draftTexture : null,
+      draftOpacity,
+      Math.round(draftShading * 0.5)
+    );
 
-    const cardBgVal = draftTexture && draftTextureTarget === 'CARD'
-      ? buildBlendedBackground(draftCard, draftTexture, draftTextureOpacity)
-      : draftCard.toUpperCase();
+    const cardBgVal = buildMaterialSurface(
+      draftCard,
+      draftTexture && draftTextureTarget === 'CARD' ? draftTexture : null,
+      draftOpacity,
+      draftShading
+    );
+
+    const ctaBgVal = buildMaterialSurface(draftPrimary, null, 0, Math.round(draftShading * 0.7));
+    const shadowVal = buildElevationShadow(draftShadow, draftPrimary);
 
     const swatches = [
-      { id: `${newId}-pri`, name: `${cleanName} Primary`, gradient: draftPrimary.toUpperCase(), sub: 'TYPE: Brand Accent', category: 'CUSTOM' },
+      { id: `${newId}-pri`, name: `${cleanName} Primary`, gradient: ctaBgVal, sub: `SHADE: ${draftShading}%`, category: 'CUSTOM' },
       { id: `${newId}-sec`, name: `${cleanName} Secondary`, gradient: draftSecondary.toUpperCase(), sub: 'TYPE: Signal Accent', category: 'CUSTOM' },
-      { id: `${newId}-surf`, name: `${cleanName} Base`, gradient: baseBgVal, sub: draftTexture && draftTextureTarget === 'BASE' ? `TEX: ${draftTexture.name}` : 'TYPE: Deep Canvas', category: 'CUSTOM' },
-      { id: `${newId}-card`, name: `${cleanName} Card`, gradient: cardBgVal, sub: draftTexture && draftTextureTarget === 'CARD' ? `TEX: ${draftTexture.name}` : 'TYPE: Card Slate', category: 'CUSTOM' },
+      { id: `${newId}-surf`, name: `${cleanName} Base`, gradient: baseBgVal, sub: draftTexture && draftTextureTarget === 'BASE' ? `OPAC: ${draftOpacity}%` : 'TYPE: Deep Canvas', category: 'CUSTOM' },
+      { id: `${newId}-card`, name: `${cleanName} Card`, gradient: cardBgVal, sub: draftTexture && draftTextureTarget === 'CARD' ? `OPAC: ${draftOpacity}%` : `SHADE: ${draftShading}%`, category: 'CUSTOM' },
       { id: `${newId}-bord`, name: `${cleanName} Wire`, gradient: borderHex, sub: 'TYPE: Border Wire', category: 'CUSTOM' },
-      { id: `${newId}-txt`, name: `${cleanName} Text`, gradient: draftText.toUpperCase(), sub: 'TYPE: High Contrast', category: 'CUSTOM' }
+      { id: `${newId}-txt`, name: `${cleanName} Text`, gradient: draftText.toUpperCase(), sub: `SHADOW: ${draftShadow}%`, category: 'CUSTOM' }
     ];
 
     if (draftTexture) {
       swatches.push({
         id: `${newId}-tex`,
         name: `Weave: ${draftTexture.name}`,
-        gradient: buildBlendedBackground(draftCard, draftTexture, draftTextureOpacity),
-        sub: `BLEND: ${draftTextureOpacity}%`,
+        gradient: buildMaterialSurface(draftCard, draftTexture, draftOpacity, draftShading),
+        sub: `OPAC ${draftOpacity}% • SHADE ${draftShading}%`,
         category: 'CUSTOM'
       });
     }
@@ -312,16 +448,24 @@ export default function Tab08Palettes({ ws }) {
     const newSuite = {
       id: newId,
       name: cleanName,
+      primary: draftPrimary.toUpperCase(),
+      secondary: draftSecondary.toUpperCase(),
+      surface: draftSurface.toUpperCase(),
+      card: draftCard.toUpperCase(),
+      text: draftText.toUpperCase(),
       texture: draftTexture,
       textureTarget: draftTextureTarget,
-      textureOpacity: draftTextureOpacity,
+      opacity: draftOpacity,
+      shading: draftShading,
+      shadow: draftShadow,
+      shadowCss: shadowVal,
       swatches,
       bindings: [
         { key: 'header-bg', label: 'Primary Header / Top Bar', targetCss: '--warlord-header-bg', assignedValue: draftSurface.toUpperCase(), description: `${cleanName} Top Bar` },
         { key: 'main-bg', label: 'Dashboard Base Canvas', targetCss: '--warlord-bg-base', assignedValue: baseBgVal, description: `${cleanName} Deep Foundation` },
         { key: 'card-bg', label: 'Card Slate & Viewports', targetCss: '--warlord-card-bg', assignedValue: cardBgVal, description: `${cleanName} Card Slate` },
         { key: 'wire-border', label: 'Structural Wire / Borders', targetCss: '--warlord-border-wire', assignedValue: borderHex, description: `${cleanName} Frame Border` },
-        { key: 'button-cta', label: 'Interactive CTA Buttons', targetCss: '--warlord-btn-cta', assignedValue: draftPrimary.toUpperCase(), description: `${cleanName} CTA Button` },
+        { key: 'button-cta', label: 'Interactive CTA Buttons', targetCss: '--warlord-btn-cta', assignedValue: ctaBgVal, description: `${cleanName} CTA Button` },
         { key: 'text-primary', label: 'Primary Heading Text', targetCss: '--warlord-text-main', assignedValue: draftText.toUpperCase(), description: `${cleanName} Typography` },
         { key: 'gold-accent', label: 'Core Signal Accent', targetCss: '--warlord-accent-gold', assignedValue: draftSecondary.toUpperCase(), description: `${cleanName} Accent Signal` }
       ]
@@ -329,7 +473,7 @@ export default function Tab08Palettes({ ws }) {
 
     const updatedList = [...customPalettes, newSuite];
     setCustomPalettes(updatedList);
-    localStorage.setItem('MCNC_CUSTOM_PALETTES_V2', JSON.stringify(updatedList));
+    localStorage.setItem('MCNC_CUSTOM_PALETTES_V3', JSON.stringify(updatedList));
     setDraftName('');
     handleSelectSideView('CUSTOM', newId);
   };
@@ -338,7 +482,7 @@ export default function Tab08Palettes({ ws }) {
     e.stopPropagation();
     const updatedList = customPalettes.filter(p => p.id !== id);
     setCustomPalettes(updatedList);
-    localStorage.setItem('MCNC_CUSTOM_PALETTES_V2', JSON.stringify(updatedList));
+    localStorage.setItem('MCNC_CUSTOM_PALETTES_V3', JSON.stringify(updatedList));
     if (activeCustomId === id) {
       handleSelectSideView('MASTER');
     }
@@ -374,7 +518,7 @@ export default function Tab08Palettes({ ws }) {
         if (rawTex) {
           const tex = JSON.parse(rawTex);
           metalToAssign = {
-            gradient: buildBlendedBackground('#141C2B', tex, 45)
+            gradient: buildMaterialSurface('#141C2B', tex, draftOpacity, draftShading)
           };
         }
       } catch (err) {}
@@ -413,7 +557,10 @@ export default function Tab08Palettes({ ws }) {
 
     const lines = [
       title,
-      ...bindings.map(b => `- ${b.label} (${b.targetCss}): ${b.assignedValue}`)
+      ...bindings.map(b => `- ${b.label} (${b.targetCss}): ${b.assignedValue}`),
+      ...(activeSideView === 'CUSTOM' && activeCustom
+        ? [`- Card Elevation Shadow (--warlord-card-shadow): ${activeCustom.shadowCss}`]
+        : [])
     ];
     navigator.clipboard.writeText(lines.join('\n'));
     setCopiedContract(true);
@@ -435,28 +582,57 @@ export default function Tab08Palettes({ ws }) {
       ? activeCustomSuite.swatches
       : HIGH_FINANCE_METALS;
 
-  const previewBaseStyle = draftTexture && draftTextureTarget === 'BASE'
-    ? buildBlendedBackground(draftSurface, draftTexture, draftTextureOpacity)
-    : draftSurface;
+  const previewBaseStyle = buildMaterialSurface(
+    draftSurface,
+    draftTexture && draftTextureTarget === 'BASE' ? draftTexture : null,
+    draftOpacity,
+    Math.round(draftShading * 0.5)
+  );
 
-  const previewCardStyle = draftTexture && draftTextureTarget === 'CARD'
-    ? buildBlendedBackground(draftCard, draftTexture, draftTextureOpacity)
-    : draftCard;
+  const previewCardStyle = buildMaterialSurface(
+    draftCard,
+    draftTexture && draftTextureTarget === 'CARD' ? draftTexture : null,
+    draftOpacity,
+    draftShading
+  );
+
+  const previewButtonStyle = buildMaterialSurface(
+    draftPrimary,
+    null,
+    0,
+    Math.round(draftShading * 0.7)
+  );
+
+  const previewShadowStyle = buildElevationShadow(draftShadow, draftPrimary);
 
   return (
     <div className="flex h-full w-full bg-[#0C0C0C] text-xs font-mono select-none p-2 gap-2 overflow-hidden text-[#E2E8F0]">
 
+      {/* Hidden File Inputs for Client Texture & Palette Import */}
+      <input
+        ref={texInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleImportTextureFiles}
+        className="hidden"
+      />
+      <input
+        ref={paletteImportRef}
+        type="file"
+        accept=".json,.txt,.css"
+        onChange={handleImportPaletteFile}
+        className="hidden"
+      />
+
       {/* 1. LEFT NAVIGATION DECK */}
       <div className="w-60 flex flex-col gap-2 overflow-hidden flex-shrink-0">
         <div className="border border-[#1E1E1E] rounded bg-[#090C0E] p-3 flex flex-col gap-2.5 flex-1 overflow-y-auto custom-scrollbar">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-[#DAA520] font-bold text-[10px] tracking-widest block uppercase">
-                WARLORD PALETTES
-              </span>
-              <span className="text-[8px] text-[#94A3B8] uppercase">DEFAULTS &amp; CUSTOM SUITES</span>
-            </div>
-            <GoldTip tip="Pre-loaded with High Finance & Africa defaults, or build your own custom brand palette with woven textures." />
+          <div>
+            <span className="text-[#DAA520] font-bold text-[10px] tracking-widest block uppercase">
+              WARLORD PALETTES
+            </span>
+            <span className="text-[8px] text-[#94A3B8] uppercase">DEFAULTS &amp; CUSTOM STUDIO</span>
           </div>
 
           <div className="space-y-1.5 pt-1">
@@ -481,22 +657,43 @@ export default function Tab08Palettes({ ws }) {
               }`}
             >
               <span>Africa Palette Master</span>
-              <span className="text-[7.5px] bg-[#DAA520]/20 text-[#DAA520] px-1.5 py-0.5 rounded">42 ASSETS</span>
+              <span className="text-[7.5px] bg-[#DAA520]/20 text-[#DAA520] px-1.5 py-0.5 rounded">{allTextures.length} WEAVES</span>
             </button>
 
             <button
               onClick={() => handleSelectSideView('BUILDER')}
               className={`w-full text-left p-2.5 rounded text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-between ${
                 activeSideView === 'BUILDER'
-                  ? 'border-[#38bdf8] text-[#38bdf8] bg-[#38bdf8]/15 shadow-[0_0_8px_rgba(56,189,248,0.3)]'
-                  : 'border-[#DAA520]/50 text-[#DAA520] hover:bg-[#DAA520]/10 bg-[#0C0C0C]'
+                  ? 'border-[#DAA520] text-black bg-[#DAA520] shadow-[0_0_14px_rgba(218,165,32,0.45)]'
+                  : 'border-[#DAA520] text-[#DAA520] hover:bg-[#DAA520] hover:text-black bg-[#DAA520]/10'
               }`}
             >
               <span className="flex items-center gap-1.5">
                 <Plus className="w-3.5 h-3.5" />
-                BUILD CUSTOM PALETTE
+                CREATE CUSTOM PALETTE
               </span>
-              <GoldTip tip="Pick 5 colors and drag any weave or texture onto your palette preview." />
+            </button>
+          </div>
+
+          {/* Quick Import Buttons */}
+          <div className="grid grid-cols-2 gap-1.5 pt-1">
+            <button
+              type="button"
+              onClick={() => texInputRef.current?.click()}
+              className="p-2 rounded border border-[#2B3545] hover:border-[#DAA520] bg-[#11151C] text-[#C5BD9F] hover:text-white text-[8.5px] font-bold uppercase flex items-center justify-center gap-1 cursor-pointer transition-colors"
+              title="Upload your own weave, leather, metal, or background image"
+            >
+              <Upload className="w-3 h-3 text-[#DAA520]" />
+              IMPORT WEAVE
+            </button>
+            <button
+              type="button"
+              onClick={() => paletteImportRef.current?.click()}
+              className="p-2 rounded border border-[#2B3545] hover:border-[#DAA520] bg-[#11151C] text-[#C5BD9F] hover:text-white text-[8.5px] font-bold uppercase flex items-center justify-center gap-1 cursor-pointer transition-colors"
+              title="Import a JSON palette or CSS/text file with #HEX colors"
+            >
+              <Upload className="w-3 h-3 text-[#38bdf8]" />
+              IMPORT JSON
             </button>
           </div>
 
@@ -521,17 +718,26 @@ export default function Tab08Palettes({ ws }) {
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span
                         className="w-3 h-3 rounded-full border border-white/30 flex-shrink-0"
-                        style={{ background: cp.swatches[0]?.gradient }}
+                        style={{ background: cp.primary || cp.swatches[0]?.gradient }}
                       />
                       <span className="truncate">{cp.name}</span>
                     </div>
-                    <button
-                      onClick={(e) => handleDeleteCustomPalette(cp.id, e)}
-                      className="text-[#64748b] hover:text-red-400 p-0.5 cursor-pointer"
-                      title="Delete custom palette"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleExportCustomJson(cp); }}
+                        className="text-[#64748b] hover:text-[#38bdf8] p-0.5 cursor-pointer"
+                        title="Export palette JSON"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteCustomPalette(cp.id, e)}
+                        className="text-[#64748b] hover:text-red-400 p-0.5 cursor-pointer"
+                        title="Delete custom palette"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -551,7 +757,7 @@ export default function Tab08Palettes({ ws }) {
           )}
 
           {activeSideView === 'CUSTOM' && activeCustomSuite && (
-            <div className="pt-2 border-t border-[#1E1E1E]">
+            <div className="pt-2 border-t border-[#1E1E1E] space-y-1.5">
               <button
                 onClick={() => handleApplySuiteBindings(activeCustomSuite.bindings)}
                 className="w-full py-2 px-2 bg-[#DAA520]/15 hover:bg-[#DAA520] text-[#DAA520] hover:text-black border border-[#DAA520] rounded text-[9px] font-bold uppercase transition-all shadow-[0_0_8px_rgba(218,165,32,0.2)] cursor-pointer"
@@ -576,61 +782,79 @@ export default function Tab08Palettes({ ws }) {
       {/* 2. CENTER: BUILDER STUDIO OR DRAGGABLE SWATCH DECK & TEXTURE THUMBNAILS */}
       <div className="flex-1 flex flex-col border border-[#1E1E1E] rounded bg-[#090C0E] overflow-hidden">
 
-        {/* Status Header */}
-        <div className="p-2.5 bg-[#0C0C0C] border-b border-[#1E1E1E] flex justify-between items-center select-none">
-          <div className="flex items-center gap-2">
-            <span className="text-[#DAA520] font-bold text-[10px] uppercase tracking-wider">
+        {/* Status Header with Prominent Goldenrod CREATE CUSTOM PALETTE CTA */}
+        <div className="p-2.5 bg-[#0C0C0C] border-b border-[#1E1E1E] flex justify-between items-center select-none gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[#DAA520] font-bold text-[10px] uppercase tracking-wider truncate">
               {activeSideView === 'AFRICA'
                 ? 'AFRICA PALETTE + WEAVE LIBRARY //'
                 : activeSideView === 'BUILDER'
-                ? 'CUSTOM PALETTE + TEXTURE STUDIO //'
+                ? 'MATERIAL & PALETTE STUDIO //'
                 : activeSideView === 'CUSTOM' && activeCustomSuite
                 ? `CUSTOM SUITE: ${activeCustomSuite.name} //`
                 : 'HIGH FINANCE METALLICS //'}
             </span>
-            <span className="text-[#94A3B8] font-bold text-[9.5px] uppercase tracking-wider">
-              {activeSideView === 'BUILDER'
-                ? '[ PICK 5 COLORS + DRAG ANY WEAVE TEXTURE ]'
-                : '[ DRAG SWATCH OR WEAVE TO RIGHT DROP SHELF ]'}
-            </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {activeSideView !== 'BUILDER' ? (
+              <button
+                onClick={() => handleSelectSideView('BUILDER')}
+                className="flex items-center gap-1.5 px-3 py-1 rounded text-[9.5px] font-mono font-bold bg-[#DAA520] hover:bg-[#ffb800] text-black uppercase tracking-wider cursor-pointer shadow-[0_0_12px_rgba(218,165,32,0.4)] transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>CREATE CUSTOM PALETTE</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => handleSelectSideView('MASTER')}
+                className="flex items-center gap-1 px-2.5 py-1 rounded text-[9px] font-mono font-bold bg-[#14171C] hover:bg-[#1E242D] text-[#C5BD9F] border border-[#2B3545] uppercase cursor-pointer"
+              >
+                <span>&larr; BACK TO SWATCHES</span>
+              </button>
+            )}
+
             <button
               onClick={handleReset}
-              className="text-[9px] text-[#94A3B8] hover:text-[#DAA520] flex items-center gap-1 cursor-pointer mr-1"
+              className="text-[9px] text-[#94A3B8] hover:text-[#DAA520] flex items-center gap-1 cursor-pointer"
               title="Reset default bindings"
             >
               <RefreshCw className="w-3 h-3" />
-              RESET DEFAULT
+              RESET
             </button>
             <button
               onClick={handleCopyContract}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer ${
                 copiedContract
                   ? 'bg-[#047857]/20 text-[#10B981] border-[#047857]'
                   : 'bg-[#14171C] hover:bg-[#DAA520]/20 text-[#DAA520] border-[#DAA520]/40'
               }`}
             >
               {copiedContract ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3 text-[#DAA520]" />}
-              <span>{copiedContract ? 'CONTRACT COPIED' : 'COPY SPEC'}</span>
+              <span>{copiedContract ? 'COPIED' : 'COPY SPEC'}</span>
             </button>
           </div>
         </div>
 
-        {/* MODE A: CUSTOM PALETTE + TEXTURE BUILDER STUDIO */}
+        {/* MODE A: CUSTOM PALETTE + MATERIAL PHYSICS STUDIO */}
         {activeSideView === 'BUILDER' ? (
-          <form onSubmit={handleSaveCustomPalette} className="flex-1 p-3 overflow-y-auto flex flex-col gap-3 custom-scrollbar">
+          <form onSubmit={handleSaveCustomPalette} className="flex-1 p-3 overflow-y-auto flex flex-col gap-2.5 custom-scrollbar">
             {/* Step 1: Name & Auto-Harmonize */}
-            <div className="bg-[#0C0C0C] border border-[#1E1E1E] rounded p-3 flex flex-col gap-2">
+            <div className="bg-[#0C0C0C] border border-[#1E1E1E] rounded p-2.5 flex flex-col gap-2">
               <div className="flex items-center justify-between border-b border-[#1E1E1E] pb-1.5">
                 <div className="flex items-center gap-2">
                   <Palette className="w-3.5 h-3.5 text-[#DAA520]" />
-                  <span className="text-[10.5px] font-bold text-white uppercase tracking-wider">
-                    1. NAME YOUR CUSTOM PALETTE
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                    1. NAME OR IMPORT PALETTE
                   </span>
                 </div>
-                <GoldTip tip="Name your palette and click Auto-Harmonize to generate matching dark slates from 1 primary color." />
+                <button
+                  type="button"
+                  onClick={() => paletteImportRef.current?.click()}
+                  className="px-2 py-0.5 rounded bg-[#141923] border border-[#2B3545] hover:border-[#38bdf8] text-[#38bdf8] text-[8.5px] font-bold uppercase cursor-pointer"
+                >
+                  + IMPORT COLORS (JSON / HEX)
+                </button>
               </div>
 
               <div className="flex gap-2">
@@ -654,12 +878,11 @@ export default function Tab08Palettes({ ws }) {
             </div>
 
             {/* Step 2: 5 Visual Color Pickers */}
-            <div className="bg-[#0C0C0C] border border-[#1E1E1E] rounded p-3 flex flex-col gap-2">
+            <div className="bg-[#0C0C0C] border border-[#1E1E1E] rounded p-2.5 flex flex-col gap-2">
               <div className="flex items-center justify-between border-b border-[#1E1E1E] pb-1.5">
-                <span className="text-[10.5px] font-bold text-white uppercase tracking-wider">
-                  2. PICK YOUR 5 COLOR SWABS
+                <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                  2. PICK YOUR 5 COLOR SWABS (CLICK ANY BOX FOR COLOR WHEEL)
                 </span>
-                <GoldTip tip="Click any color swatch to open the visual color wheel, or drop a texture onto Base/Card below." />
               </div>
 
               <div className="grid grid-cols-5 gap-2">
@@ -676,7 +899,7 @@ export default function Tab08Palettes({ ws }) {
                       key={slot.label}
                       onDragOver={slot.dropZone ? handleDragOver : undefined}
                       onDrop={slot.dropZone ? (e) => handleBuilderTextureDrop(e, slot.dropZone) : undefined}
-                      className={`bg-[#11151C] border rounded p-2 flex flex-col gap-1 transition-all ${
+                      className={`bg-[#11151C] border rounded p-1.5 flex flex-col gap-1 transition-all ${
                         hasTexHere
                           ? 'border-[#DAA520] shadow-[0_0_8px_rgba(218,165,32,0.25)]'
                           : slot.dropZone
@@ -689,10 +912,10 @@ export default function Tab08Palettes({ ws }) {
                         {hasTexHere && <span className="text-[7px] bg-[#DAA520] text-black px-1 rounded font-bold">TEX</span>}
                       </div>
                       <label
-                        className="relative h-10 w-full rounded border border-white/20 cursor-pointer overflow-hidden block shadow-inner"
+                        className="relative h-9 w-full rounded border border-white/20 cursor-pointer overflow-hidden block shadow-inner"
                         style={{
                           background: hasTexHere
-                            ? buildBlendedBackground(slot.val, draftTexture, draftTextureOpacity)
+                            ? buildMaterialSurface(slot.val, draftTexture, draftOpacity, draftShading)
                             : slot.val
                         }}
                       >
@@ -716,42 +939,108 @@ export default function Tab08Palettes({ ws }) {
               </div>
             </div>
 
-            {/* Step 3: Drag-and-Drop Texture & Weave Overlay Shelf */}
-            <div className="bg-[#0C0C0C] border border-[#1E1E1E] rounded p-3 flex flex-col gap-2">
+            {/* Step 3: Texture Shelf + Opaqueness, Shading & Shadow Physics Sliders */}
+            <div className="bg-[#0C0C0C] border border-[#1E1E1E] rounded p-2.5 flex flex-col gap-2">
               <div className="flex items-center justify-between border-b border-[#1E1E1E] pb-1.5">
                 <div className="flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5 text-[#DAA520]" />
-                  <span className="text-[10.5px] font-bold text-white uppercase tracking-wider">
-                    3. DRAG OR CLICK A TEXTURE OVERLAY (AFRICA WEAVE DATABASE)
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                    3. TEXTURE OVERLAY + OPAQUENESS, SHADING &amp; SHADOWS
                   </span>
-                  <GoldTip tip="Drag any weave thumbnail onto Base Canvas, Card Slate, or the Live Preview below—or click once to apply." />
                 </div>
 
-                {draftTexture && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8.5px] text-[#10B981] font-bold">
-                      ACTIVE: {draftTexture.name} ({draftTextureTarget})
-                    </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => texInputRef.current?.click()}
+                    className="px-2 py-0.5 rounded bg-[#DAA520]/15 border border-[#DAA520] hover:bg-[#DAA520] text-[#DAA520] hover:text-black text-[8.5px] font-bold uppercase cursor-pointer transition-colors"
+                  >
+                    + UPLOAD YOUR OWN WEAVE
+                  </button>
+                  {draftTexture && (
                     <button
                       type="button"
                       onClick={() => setDraftTexture(null)}
                       className="text-[8px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 cursor-pointer"
                     >
-                      CLEAR TEXTURE
+                      CLEAR
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* Texture Blend Controls when a texture is attached */}
+              {/* Material Physics Sliders */}
+              <div className="grid grid-cols-3 gap-2.5 bg-[#11151C] border border-[#1F2633] rounded p-2">
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[8px] font-bold text-[#C5BD9F] uppercase">TEXTURE OPAQUENESS</span>
+                    <span className="text-[8.5px] font-bold text-[#DAA520]">{draftTexture ? `${draftOpacity}%` : 'NO TEX'}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="92"
+                    disabled={!draftTexture}
+                    value={draftOpacity}
+                    onChange={(e) => setDraftOpacity(Number(e.target.value))}
+                    className="w-full accent-[#DAA520] cursor-pointer disabled:opacity-30"
+                  />
+                  <div className="flex justify-between text-[7px] text-[#64748b]">
+                    <span>Subtle Tint</span>
+                    <span>Raw Weave</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[8px] font-bold text-[#C5BD9F] uppercase">SURFACE SHADING</span>
+                    <span className="text-[8.5px] font-bold text-[#38bdf8]">{draftShading}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={draftShading}
+                    onChange={(e) => setDraftShading(Number(e.target.value))}
+                    className="w-full accent-[#38bdf8] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[7px] text-[#64748b]">
+                    <span>Flat Matte</span>
+                    <span>Deep Studio</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[8px] font-bold text-[#C5BD9F] uppercase">ELEVATION SHADOW</span>
+                    <span className="text-[8.5px] font-bold text-[#10B981]">{draftShadow}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={draftShadow}
+                    onChange={(e) => setDraftShadow(Number(e.target.value))}
+                    className="w-full accent-[#10B981] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[7px] text-[#64748b]">
+                    <span>Flush</span>
+                    <span>3D Floating</span>
+                  </div>
+                </div>
+              </div>
+
               {draftTexture && (
-                <div className="flex items-center justify-between gap-4 bg-[#11151C] border border-[#DAA520]/40 rounded px-3 py-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8.5px] text-[#C5BD9F] font-bold uppercase">APPLY TO:</span>
+                <div className="flex items-center justify-between bg-[#0E131B] border border-[#DAA520]/30 rounded px-2.5 py-1">
+                  <span className="text-[8.5px] text-[#10B981] font-bold truncate">
+                    SELECTED WEAVE: {draftTexture.name}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[8px] text-[#94A3B8] uppercase">TARGET:</span>
                     <button
                       type="button"
                       onClick={() => setDraftTextureTarget('CARD')}
-                      className={`px-2 py-0.5 rounded text-[8.5px] font-bold cursor-pointer ${
+                      className={`px-2 py-0.5 rounded text-[8px] font-bold cursor-pointer ${
                         draftTextureTarget === 'CARD' ? 'bg-[#DAA520] text-black' : 'bg-[#1A202C] text-gray-300'
                       }`}
                     >
@@ -760,35 +1049,20 @@ export default function Tab08Palettes({ ws }) {
                     <button
                       type="button"
                       onClick={() => setDraftTextureTarget('BASE')}
-                      className={`px-2 py-0.5 rounded text-[8.5px] font-bold cursor-pointer ${
+                      className={`px-2 py-0.5 rounded text-[8px] font-bold cursor-pointer ${
                         draftTextureTarget === 'BASE' ? 'bg-[#DAA520] text-black' : 'bg-[#1A202C] text-gray-300'
                       }`}
                     >
                       BASE CANVAS
                     </button>
                   </div>
-
-                  <div className="flex items-center gap-2 flex-1 max-w-xs">
-                    <span className="text-[8.5px] text-[#C5BD9F] font-bold whitespace-nowrap">
-                      WEAVE INTENSITY: {draftTextureOpacity}%
-                    </span>
-                    <input
-                      type="range"
-                      min="10"
-                      max="85"
-                      value={draftTextureOpacity}
-                      onChange={(e) => setDraftTextureOpacity(Number(e.target.value))}
-                      className="w-full accent-[#DAA520] cursor-pointer"
-                    />
-                  </div>
                 </div>
               )}
 
-              {/* Horizontal Scrollable Strip of Draggable Weave Thumbnails */}
-              <div className="flex gap-2 overflow-x-auto pb-1.5 custom-scrollbar">
-                {TEXTURE_LIBRARY.map((tex, idx) => {
+              <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                {allTextures.map((tex, idx) => {
                   const isSelectedTex = draftTexture?.name === tex.name;
-                  const texUrl = `/africa-assets/${encodeURIComponent(tex.name)}`;
+                  const texUrl = getTextureSrc(tex);
                   return (
                     <div
                       key={idx}
@@ -802,12 +1076,19 @@ export default function Tab08Palettes({ ws }) {
                       }`}
                       title={`Drag or click to apply ${tex.name}`}
                     >
-                      <img
-                        src={texUrl}
-                        alt={tex.name}
-                        loading="lazy"
-                        className="w-full h-11 object-cover rounded border border-white/10"
-                      />
+                      <div className="relative">
+                        <img
+                          src={texUrl}
+                          alt={tex.name}
+                          loading="lazy"
+                          className="w-full h-10 object-cover rounded border border-white/10"
+                        />
+                        {tex.pack === 'IMPORTED CUSTOM' && (
+                          <span className="absolute top-0.5 left-0.5 bg-[#38bdf8] text-black text-[6.5px] font-bold px-1 rounded">
+                            NEW
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[7.5px] text-gray-200 font-bold truncate block text-center">
                         {tex.name.replace(/\.[^/.]+$/, '')}
                       </span>
@@ -817,46 +1098,51 @@ export default function Tab08Palettes({ ws }) {
               </div>
             </div>
 
-            {/* Step 4: Live Textured Sandbox Card Preview (Drop Target Enabled) */}
+            {/* Step 4: Live Textured & Shaded Sandbox Preview */}
             <div
               onDragOver={handleDragOver}
               onDrop={(e) => handleBuilderTextureDrop(e)}
-              className="bg-[#0C0C0C] border border-[#1E1E1E] hover:border-[#DAA520]/60 rounded p-3 flex flex-col gap-2.5 transition-all"
+              className="bg-[#0C0C0C] border border-[#1E1E1E] hover:border-[#DAA520]/60 rounded p-2.5 flex flex-col gap-2 transition-all"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10.5px] font-bold text-white uppercase tracking-wider">
-                  4. LIVE TEXTURED SUITE PREVIEW (DROP ANY WEAVE HERE)
+                <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                  4. LIVE MATERIAL &amp; SHADOW PREVIEW (DROP ANY WEAVE HERE)
                 </span>
-                <span className="text-[8px] text-[#10B981] font-bold uppercase">REAL-TIME BLEND</span>
+                <span className="text-[8px] text-[#10B981] font-bold uppercase">
+                  OPAC {draftTexture ? draftOpacity : 0}% • SHADE {draftShading}% • SHADOW {draftShadow}%
+                </span>
               </div>
 
               <div className="p-4 rounded-lg border border-white/15 transition-all" style={{ background: previewBaseStyle }}>
-                <div className="p-3.5 rounded border border-white/15 flex flex-col gap-2 transition-all shadow-lg" style={{ background: previewCardStyle }}>
+                <div
+                  className="p-3.5 rounded-md border border-white/15 flex flex-col gap-2 transition-all"
+                  style={{ background: previewCardStyle, boxShadow: previewShadowStyle }}
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold drop-shadow" style={{ color: draftText }}>
-                      {draftName.trim() || 'Your Custom Textured Brand Portal'}
+                      {draftName.trim() || 'Your Custom Brand & Material Suite'}
                     </span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded shadow" style={{ backgroundColor: draftSecondary, color: '#080A0C' }}>
-                      {draftTexture ? `WEAVE: ${draftTexture.name}` : 'SOLID SUITE'}
+                    <span className="text-[8.5px] font-bold px-2 py-0.5 rounded shadow" style={{ backgroundColor: draftSecondary, color: '#080A0C' }}>
+                      {draftTexture ? `WEAVE: ${draftTexture.name}` : 'SHADED SURFACE'}
                     </span>
                   </div>
                   <p className="text-[11px] opacity-90 drop-shadow" style={{ color: draftText }}>
-                    Live visual preview of your 5 color swabs blended with your selected surface texture.
+                    Real-time rendering of your 5 color swabs, texture opaqueness, directional studio shading, and card elevation shadow.
                   </p>
                   <button
                     type="button"
-                    className="self-start px-4 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider shadow"
-                    style={{ backgroundColor: draftPrimary, color: '#080A0C' }}
+                    className="self-start px-4 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                    style={{ background: previewButtonStyle, color: '#080A0C', boxShadow: buildElevationShadow(Math.round(draftShadow * 0.6), draftPrimary) }}
                   >
                     SAMPLE PRIMARY ACTION
                   </button>
                 </div>
               </div>
 
-              <div className="flex justify-end pt-1">
+              <div className="flex justify-end pt-0.5">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#DAA520] hover:bg-[#ffb800] text-black font-bold text-[10.5px] rounded uppercase tracking-wider cursor-pointer shadow-[0_0_16px_rgba(218,165,32,0.35)]"
+                  className="px-5 py-2 bg-[#DAA520] hover:bg-[#ffb800] text-black font-bold text-[10px] rounded uppercase tracking-wider cursor-pointer shadow-[0_0_16px_rgba(218,165,32,0.35)]"
                 >
                   SAVE &amp; LOAD CUSTOM PALETTE
                 </button>
@@ -864,9 +1150,23 @@ export default function Tab08Palettes({ ws }) {
             </div>
           </form>
         ) : (
-          /* MODE B: SWATCHES GRID + AFRICA LIVE WEAVE THUMBNAILS */
+          /* MODE B: SWATCHES GRID + AFRICA & IMPORTED WEAVE THUMBNAILS */
           <>
             <div className={`${activeSideView === 'AFRICA' ? 'max-h-[46%]' : 'flex-1'} p-2.5 overflow-y-auto grid grid-cols-4 gap-2 custom-scrollbar`}>
+              {/* Prominent First-Slot Builder Launcher Card */}
+              <div
+                onClick={() => handleSelectSideView('BUILDER')}
+                className="border-2 border-dashed border-[#DAA520]/70 hover:border-[#DAA520] bg-[#DAA520]/5 hover:bg-[#DAA520]/15 rounded flex flex-col justify-between overflow-hidden cursor-pointer transition-all select-none p-2"
+              >
+                <div className="flex items-center gap-1.5 text-[#DAA520] font-bold text-[9.5px]">
+                  <Plus className="w-4 h-4 flex-shrink-0" />
+                  <span>NEW CUSTOM PALETTE</span>
+                </div>
+                <span className="text-[7.5px] text-[#C5BD9F] leading-tight">
+                  Pick 5 colors + blend any weave texture
+                </span>
+              </div>
+
               {activeSwatches.map((metal) => {
                 const isSelected = selectedMetal.id === metal.id;
                 return (
@@ -904,15 +1204,20 @@ export default function Tab08Palettes({ ws }) {
                 <div className="flex items-center justify-between pb-1.5 border-b border-[#1E1E1E] mb-2">
                   <span className="text-[9.5px] font-bold text-[#DAA520] flex items-center gap-1.5 uppercase">
                     <Folder className="w-3.5 h-3.5 text-[#DAA520]" />
-                    AFRICA WEAVES &amp; TEXTURE SWATCHES (42 LIVE ASSETS)
-                    <GoldTip tip="Click any weave thumbnail to zoom in, drag it to the right UI Drop Shelf, or click COPY." />
+                    WEAVES &amp; TEXTURE SWATCHES ({allTextures.length} LIVE ASSETS)
                   </span>
-                  <span className="text-[8px] text-[#10B981] font-bold">CLICK TO ZOOM • DRAG TO APPLY</span>
+                  <button
+                    type="button"
+                    onClick={() => texInputRef.current?.click()}
+                    className="text-[8px] bg-[#DAA520]/15 hover:bg-[#DAA520] text-[#DAA520] hover:text-black border border-[#DAA520] px-2 py-0.5 rounded font-bold uppercase cursor-pointer transition-colors"
+                  >
+                    + IMPORT WEAVE
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  {TEXTURE_LIBRARY.map((asset, idx) => {
-                    const imgUrl = `/africa-assets/${encodeURIComponent(asset.name)}`;
+                  {allTextures.map((asset, idx) => {
+                    const imgUrl = getTextureSrc(asset);
                     const isCopied = copiedAsset === asset.name;
                     return (
                       <div
@@ -1019,8 +1324,13 @@ export default function Tab08Palettes({ ws }) {
           </div>
 
           <div
-            className="p-2.5 rounded border border-white/10 flex flex-col gap-1.5 shadow-sm"
-            style={{ background: bindings.find(b => b.key === 'card-bg')?.assignedValue }}
+            className="p-2.5 rounded border border-white/10 flex flex-col gap-1.5"
+            style={{
+              background: bindings.find(b => b.key === 'card-bg')?.assignedValue,
+              boxShadow: activeSideView === 'CUSTOM' && activeCustomSuite
+                ? activeCustomSuite.shadowCss
+                : buildElevationShadow(draftShadow, '#DAA520')
+            }}
           >
             <div className="flex justify-between items-center">
               <span className="text-[9px] font-bold text-white">Chief Madothi Landing Scope</span>
@@ -1083,7 +1393,7 @@ export default function Tab08Palettes({ ws }) {
 
             <div className="p-4 bg-[#07090D] flex items-center justify-center max-h-[65vh] overflow-auto">
               <img
-                src={`/africa-assets/${encodeURIComponent(previewAsset.name)}`}
+                src={getTextureSrc(previewAsset)}
                 alt={previewAsset.name}
                 className="max-w-full max-h-[58vh] rounded border border-white/15 object-contain shadow-lg"
               />
