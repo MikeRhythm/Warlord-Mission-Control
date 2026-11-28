@@ -21,11 +21,11 @@ const TAB_BRIEFINGS = {
   },
   '02 WAR ROOM': {
     code: 'TAB 02 // WAR ROOM',
-    title: '3-Tier LLM Exploratory Scoping & Project Instantiation',
+    title: '3-Tier LLM Exploratory Scoping & Project Initiation',
     directors: 'CHARLIE (Coding Lead) • TESS (Quant) • JUSTIN (Compliance)',
     tagline: 'Explore scope across three LLM analysis depths, then push to create your project with an auto-populated AI CEO.',
     overview:
-      'The War Room puts your project scope under a microscope before production execution begins. Using the left menu, select from three distinct LLM analysis levels—each assigning different LLMs to evaluate complexity, dependencies, and risks. The first run is purely exploratory to uncover everything the project entails; once validated, click Push to Create Project to instantiate the workspace with its AI CEO already populated and ready to cascade the PRD down to specialist agents.',
+      'The War Room puts your project scope under a microscope before production execution begins. Using the left menu, select from three distinct LLM analysis levels—each assigning different LLMs to evaluate complexity, dependencies, and risks. The first run is purely exploratory to uncover everything the project entails; once validated, click Push to Create Project to initiate the workspace with its AI CEO already populated and ready to cascade the PRD down to specialist agents.',
     workflow: [
       'Select one of the three LLM analysis tiers on the left menu—each routing through different LLMs tailored to that depth of scope analysis.',
       'Run the initial exploratory pass to map out full project requirements, edge cases, and architecture before committing.',
@@ -91,22 +91,22 @@ const TAB_BRIEFINGS = {
       output: '11 CAMPAIGNS // Auto-Execution'
     }
   },
-  '06 MEMORY': {
-    code: 'TAB 06 // MEMORY',
-    title: 'Persistent Agent Ledgers & Sovereign Knowledge',
-    directors: 'HERMES (Agent OS) • SILAS (Persistence)',
-    tagline: 'AI agents that remember your rules permanently and never repeat a mistake.',
+  '06 LAUNCH-PAD': {
+    code: 'TAB 06 // LAUNCH-PAD',
+    title: 'Commercial Go-Live, Payment Rails & Unit Economics Cockpit',
+    directors: 'VANCE (Finance & Treasury) • ATLAS (Infrastructure) • VALERIE (Member Gate)',
+    tagline: 'Deploy external client access, configure PayPal/Stripe/PayFast rails, and model live break-even ROI.',
     overview:
-      'Unlike standard AI chats that forget everything on refresh, Tab 06 stores persistent rule ledgers and operational memory for every Director—ensuring your coding standards, brand voice, and safety rules stay locked across sessions.',
+      'Tab 06 is your commercial deployment and monetization command station. Across five dedicated modules, it walks you step-by-step through exposing MCNC securely via Cloudflare Tunnel, connecting PayPal, Stripe, and PayFast merchant rails, scaling VPS & Oracle Cloud infrastructure, routing prospects through your rhythmtradingco.com member gate, and calculating exact subscriber break-even and net profit margins.',
     workflow: [
-      'Select any of the 16 Directors to inspect their persistent rule ledger.',
-      'Lock in new permanent instructions or operational guardrails.',
-      'Audit real-time system telemetry and verified decision logs.'
+      'Step through Go-Live & Tunnel (01) and Payment Rails (02) with interactive step-by-step setup guides for PayPal, Stripe, and PayFast.',
+      'Configure VPS & Oracle Cloud Always-Free/PAYG infrastructure (03) and lock in your rhythmtradingco.com single-tier Member Gate (04).',
+      'Model subscriber pricing, server overhead, and net monthly profit in real time inside Unit Economics (05).'
     ],
     flow: {
-      input: 'Verified Rules & Telemetry',
-      tab: '06 MEMORY // Hermes Vault',
-      output: 'All 16 Directors (Global Context)'
+      input: 'Cloudflare Tunnel • Merchant Rails • VPS',
+      tab: '06 LAUNCH-PAD // Commercial Cockpit',
+      output: 'rhythmtradingco.com Members & Net ROI'
     }
   },
   '07 CEO ENGINE': {

@@ -2,7 +2,7 @@
 
 const TAB_BRIEFINGS = {
   '01 EXEC': {
-    code: 'STATION 01 // EXEC COMMAND',
+    code: 'TAB 01 // EXEC COMMAND',
     title: 'Multi-LLM Chat Workspace & Strategic Brainstorming',
     directors: 'MONTY (Chief of Staff) • ORION (Strategic Intel)',
     tagline: 'Chat naturally with Monty across your connected LLMs—brainstorm freely, or optionally push builds to the War Room.',
@@ -15,12 +15,12 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: 'Your Connected LLMs & Auto Router',
-      station: '01 EXEC // Monty Chat Studio',
+      tab: '01 EXEC // Monty Chat Studio',
       output: 'Ideas & Optional War Room Push'
     }
   },
   '02 WAR ROOM': {
-    code: 'STATION 02 // WAR ROOM',
+    code: 'TAB 02 // WAR ROOM',
     title: '3-Tier LLM Exploratory Scoping & Project Instantiation',
     directors: 'CHARLIE (Coding Lead) • TESS (Quant) • JUSTIN (Compliance)',
     tagline: 'Explore scope across three LLM analysis depths, then push to create your project with an auto-populated AI CEO.',
@@ -33,17 +33,17 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: '01 EXEC // Prompt + 3 LLM Tiers',
-      station: '02 WAR ROOM // Exploratory PRD',
+      tab: '02 WAR ROOM // Exploratory PRD',
       output: 'CREATE PROJECT // Auto-Populated AI CEO'
     }
   },
   '03 PROJECTS': {
-    code: 'STATION 03 // PROJECTS',
+    code: 'TAB 03 // PROJECTS',
     title: 'Sovereign Project Registry & Workspace Scaffolder',
     directors: 'SILAS (Database) • ATLAS (Infrastructure)',
     tagline: 'Isolated, auto-scaffolded project environments with zero cross-contamination.',
     overview:
-      'Every venture, trading model, or client campaign lives inside its own strictly isolated project directory. Station 03 provisions standardized folder trees, manifest ledgers, and deliverable vaults automatically so assets never collide.',
+      'Every venture, trading model, or client campaign lives inside its own strictly isolated project directory. Tab 03 provisions standardized folder trees, manifest ledgers, and deliverable vaults automatically so assets never collide.',
     workflow: [
       'Initialize a new project workspace or select an active venture from the registry.',
       'Inspect auto-scaffolded directories (PRDs, Finance, Brand Assets, Web & Social).',
@@ -51,12 +51,12 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: '02 WAR ROOM // Push to Create Project',
-      station: '03 PROJECTS // Isolated Vaults',
+      tab: '03 PROJECTS // Isolated Vaults',
       output: '11 CAMPAIGNS & 13 DOCS'
     }
   },
   '04 TASK BOARD': {
-    code: 'STATION 04 // TASK BOARD',
+    code: 'TAB 04 // TASK BOARD',
     title: 'Autonomous Super Kanban & Agent Dispatch',
     directors: 'MONTY (Orchestration) • JACK (Data Bridges)',
     tagline: 'Asynchronous multi-agent task queues with verified state handoffs.',
@@ -69,17 +69,17 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: '02 WAR ROOM // Cascaded Tickets',
-      station: '04 TASK BOARD // Super Kanban',
+      tab: '04 TASK BOARD // Super Kanban',
       output: '07 CEO ENGINE & 14 PIPE-LINE'
     }
   },
   '05 CALENDAR': {
-    code: 'STATION 05 // CALENDAR',
+    code: 'TAB 05 // CALENDAR',
     title: '24/7 Cron Daemons & Autonomous Schedule',
     directors: 'ATLAS (Infrastructure) • TESS (Quant & Market Scans)',
     tagline: 'Set-and-forget automation running on deterministic schedules.',
     overview:
-      'Your command center works while you sleep. Station 05 governs continuous background cron jobs—from daily marketplace scans and pool audits to scheduled content dispatches and model registry syncs.',
+      'Your command center works while you sleep. Tab 05 governs continuous background cron jobs—from daily marketplace scans and pool audits to scheduled content dispatches and model registry syncs.',
     workflow: [
       'View always-running background daemons and their exact execution intervals.',
       'Inspect daily and weekly scheduled automation blocks across your timezone.',
@@ -87,17 +87,17 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: 'Automated Cron Triggers',
-      station: '05 CALENDAR // Time Governor',
+      tab: '05 CALENDAR // Time Governor',
       output: '11 CAMPAIGNS // Auto-Execution'
     }
   },
   '06 MEMORY': {
-    code: 'STATION 06 // MEMORY',
+    code: 'TAB 06 // MEMORY',
     title: 'Persistent Agent Ledgers & Sovereign Knowledge',
     directors: 'HERMES (Agent OS) • SILAS (Persistence)',
     tagline: 'AI agents that remember your rules permanently and never repeat a mistake.',
     overview:
-      'Unlike standard AI chats that forget everything on refresh, Station 06 stores persistent rule ledgers and operational memory for every Director—ensuring your coding standards, brand voice, and safety rules stay locked across sessions.',
+      'Unlike standard AI chats that forget everything on refresh, Tab 06 stores persistent rule ledgers and operational memory for every Director—ensuring your coding standards, brand voice, and safety rules stay locked across sessions.',
     workflow: [
       'Select any of the 16 Directors to inspect their persistent rule ledger.',
       'Lock in new permanent instructions or operational guardrails.',
@@ -105,12 +105,12 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: 'Verified Rules & Telemetry',
-      station: '06 MEMORY // Hermes Vault',
+      tab: '06 MEMORY // Hermes Vault',
       output: 'All 16 Directors (Global Context)'
     }
   },
   '07 CEO ENGINE': {
-    code: 'STATION 07 // CEO ENGINE',
+    code: 'TAB 07 // CEO ENGINE',
     title: 'Project AI CEO Command, Autofire & Human-in-the-Loop Triage',
     directors: 'MONTY (Chief of Staff) • THE ASKARI (Security)',
     tagline: 'Select any project to activate its AI CEO—Autofire clears 90% of deliverables while isolating human decisions.',
@@ -123,35 +123,35 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: 'Project Selection // Assigned AI CEO',
-      station: '07 CEO ENGINE // Autofire + HITL',
+      tab: '07 CEO ENGINE // Autofire + HITL',
       output: 'Cleared Tasks + Human Sign-Offs'
     }
   },
   '08 PALETTES': {
-    code: 'STATION 08 // PALETTES',
-    title: 'Signature Design Suites: High Finance & Africa Defaults',
+    code: 'TAB 08 // PALETTES',
+    title: 'Signature Design Suites: High Finance, Africa & Custom Builds',
     directors: 'ROXY (Design & Visual Direction) • JAX (Artwork Omega)',
-    tagline: 'Pre-loaded with flagship High Finance & Africa palettes so every client build launches with executive polish.',
+    tagline: 'Pre-loaded with flagship High Finance & Africa palettes—or build and save your own custom design suites.',
     overview:
-      'Every workspace comes pre-equipped out of the box with our flagship High Finance and Africa palettes alongside institutional metallic suites. Station 08 enforces visual discipline across dashboards, client portals, and trading charts—giving you one-click access to production-ready color systems with zero design guesswork.',
+      'Every workspace comes pre-equipped out of the box with our flagship High Finance and Africa palettes alongside institutional metallic suites—and you are completely free to build, customize, and save your own brand palettes. Tab 08 enforces visual discipline across dashboards, client portals, and trading charts so every project launches with executive polish.',
     workflow: [
-      'Select from your pre-installed High Finance, Africa, or institutional metallic gradient palettes.',
+      'Select from your pre-installed High Finance and Africa palettes, or build and save your own custom color suite.',
       'Copy verified hex codes and CSS tokens to apply signature branding across web apps and landing pages.',
       'Maintain strict visual separation between client web interfaces and algorithmic chart indicators.'
     ],
     flow: {
-      input: 'High Finance & Africa Default Suites',
-      station: '08 PALETTES // Roxy Studio',
+      input: 'Defaults + Your Custom Palettes',
+      tab: '08 PALETTES // Roxy Studio',
       output: '09 PREVIEWS & Client Portals'
     }
   },
   '09 PREVIEWS': {
-    code: 'STATION 09 // PREVIEWS',
+    code: 'TAB 09 // PREVIEWS',
     title: 'Live Artifact Sandbox & Visual Inspection',
     directors: 'SKYLA (Frontend / UI) • ROXY (Visual Direction)',
     tagline: 'Test and inspect generated web apps, landing pages, and UI builds live.',
     overview:
-      'Before deploying any landing page, member portal, or dashboard update to clients, Station 09 renders the physical artifact in a live preview viewport so you can verify layout, responsiveness, and polish immediately.',
+      'Before deploying any landing page, member portal, or dashboard update to clients, Tab 09 renders the physical artifact in a live preview viewport so you can verify layout, responsiveness, and polish immediately.',
     workflow: [
       'Select any generated HTML/React web artifact from your project vault.',
       'Inspect live rendering, typography scaling, and interactive elements.',
@@ -159,35 +159,35 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: '02 WAR ROOM // Compiled UI',
-      station: '09 PREVIEWS // Live Viewport',
+      tab: '09 PREVIEWS // Live Viewport',
       output: 'Production Client Portals'
     }
   },
   '10 TOKENS': {
-    code: 'STATION 10 // TOKENS',
+    code: 'TAB 10 // TOKENS',
     title: 'Token Telemetry, Quota Meter & Free Compute Guide',
     directors: 'VANCE (Finance & Cost Control) • JACK (Backend Bridges)',
     tagline: 'Real-time credit tracking and zero-cost AI scaling with your own free API keys.',
     overview:
-      'Monitor your live token burn, OpenRouter credit balance, and storage quota from a clean-slate telemetry meter. MCNC empowers you to run enterprise AI for free: spin up your own Oracle Cloud VM, harvest free API keys from NVIDIA NIM, Google Gemini, Groq, and Kaggle, and connect them in Station 14 so you never pay inflated AI markups.',
+      'Monitor your live token burn, OpenRouter credit balance, and storage quota from a clean-slate telemetry meter. MCNC empowers you to run enterprise AI for free: spin up your own Oracle Cloud VM, harvest free API keys from NVIDIA NIM, Google Gemini, Groq, and Kaggle, and connect them in Tab 14 so you never pay inflated AI markups.',
     workflow: [
       'Track live OpenRouter balances, session token usage, and workspace storage quotas.',
       'Harvest your own free API tokens from NVIDIA NIM, Google AI Studio, Groq, and Kaggle.',
-      'Head to Station 14 (PIPE-LINE) to inject your keys and activate zero-cost multi-provider failover.'
+      'Head to Tab 14 (PIPE-LINE) to inject your keys and activate zero-cost multi-provider failover.'
     ],
     flow: {
       input: 'Free NIM / Google / Groq / Kaggle Keys',
-      station: '10 TOKENS // Telemetry & Quota',
+      tab: '10 TOKENS // Telemetry & Quota',
       output: '14 PIPE-LINE // Key Injection'
     }
   },
   '11 CAMPAIGNS': {
-    code: 'STATION 11 // CAMPAIGNS',
+    code: 'TAB 11 // CAMPAIGNS',
     title: 'Universal Automated Campaigns & Media Engine',
     directors: 'MAVERICK (Traffic) • VALERIE (Relations) • SKYLA (Media)',
     tagline: 'End-to-end automated campaign discovery, video clipping, and distribution.',
     overview:
-      'Your automated growth and outreach engine. Station 11 discovers live opportunities, extracts viral short-form clips with AI hooks, renders vertical media via FFmpeg, and manages multi-channel campaign ledgers—including humanitarian initiatives.',
+      'Your automated growth and outreach engine. Tab 11 discovers live opportunities, extracts viral short-form clips with AI hooks, renders vertical media via FFmpeg, and manages multi-channel campaign ledgers—including humanitarian initiatives.',
     workflow: [
       'Scan live marketplaces or select an active automated campaign funnel.',
       'Feed a source URL to auto-extract viral hooks and batch-render vertical Shorts.',
@@ -195,17 +195,17 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: '05 CALENDAR & Source Media',
-      station: '11 CAMPAIGNS // Action Station',
+      tab: '11 CAMPAIGNS // Action Tab',
       output: 'Rendered Media & Live Funnels'
     }
   },
   '12 REVIEW': {
-    code: 'STATION 12 // REVIEW',
+    code: 'TAB 12 // REVIEW',
     title: 'Intelligence Refinery & Research Harvester',
     directors: 'ORION (Strategic Intel) • MONTY (Triage Gatekeeper)',
     tagline: 'Distill videos, articles, and code dumps into pure engineering gold.',
     overview:
-      'Stop wasting hours watching long tutorials or reading bloated docs. Drop a YouTube link or technical dump into Station 12—the Refinery extracts only verified Core Nuggets, exact Code Implementations, and Superseded patterns straight into your vault.',
+      'Stop wasting hours watching long tutorials or reading bloated docs. Drop a YouTube link or technical dump into Tab 12—the Refinery extracts only verified Core Nuggets, exact Code Implementations, and Superseded patterns straight into your vault.',
     workflow: [
       'Paste a YouTube URL or raw technical research dump and select a domain.',
       'Click Harvest to extract structured SOP-17 engineering nuggets automatically.',
@@ -213,17 +213,17 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: 'External Videos & Research',
-      station: '12 REVIEW // AI Refinery',
+      tab: '12 REVIEW // AI Refinery',
       output: '13 DOCS // Knowledge Veins'
     }
   },
   '13 DOCS': {
-    code: 'STATION 13 // DOCS',
+    code: 'TAB 13 // DOCS',
     title: 'Living Governance, SOPs & Director Souls',
     directors: 'AMBER (Documentation) • MONTY (Chief of Staff)',
     tagline: 'Single source of truth that updates agent behavior in real time.',
     overview:
-      'Station 13 houses your Master Rules of Engagement, Standard Operating Procedures, Mission Statement, and Director Soul definitions. Editing a document here immediately re-anchors how your AI team operates on the next run.',
+      'Tab 13 houses your Master Rules of Engagement, Standard Operating Procedures, Mission Statement, and Director Soul definitions. Editing a document here immediately re-anchors how your AI team operates on the next run.',
     workflow: [
       'Browse Core Documents, Director Souls, Project PRDs, and Master Chat Ledgers.',
       'Edit and save operational rules directly from the browser editor.',
@@ -231,17 +231,17 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: '12 REVIEW & Executive Rules',
-      station: '13 DOCS // Living Vault',
+      tab: '13 DOCS // Living Vault',
       output: 'Real-Time Agent Compliance'
     }
   },
   '14 PIPE-LINE': {
-    code: 'STATION 14 // PIPE-LINE',
+    code: 'TAB 14 // PIPE-LINE',
     title: 'API Key Injection Vault, Oracle VM & Kaggle GPU Bridges',
     directors: 'JACK (Backend Bridges) • ATLAS (Infrastructure)',
     tagline: 'Plug in your free NVIDIA NIM, Google, Groq, OpenRouter & Kaggle keys for unlimited power.',
     overview:
-      'The sovereign compute engine of MCNC. Station 14 is where you inject and pool your own API keys (NVIDIA NIM, Google Gemini, Groq, OpenRouter) and link your Oracle Cloud VM or Kaggle T4 GPU tunnel. Once loaded, every Director gains automatic, zero-downtime failover across all providers.',
+      'The sovereign compute engine of MCNC. Tab 14 is where you inject and pool your own API keys (NVIDIA NIM, Google Gemini, Groq, OpenRouter) and link your Oracle Cloud VM or Kaggle T4 GPU tunnel. Once loaded, every Director gains automatic, zero-downtime failover across all providers.',
     workflow: [
       'Paste and save your personal NVIDIA NIM, Google, Groq, and OpenRouter keys into the Cluster Vaults.',
       'Bind your Oracle Cloud VM and Kaggle GPU tunnel URL for free heavy-compute inference.',
@@ -249,7 +249,7 @@ const TAB_BRIEFINGS = {
     ],
     flow: {
       input: 'NIM • Google • Groq • Kaggle • Oracle VM',
-      station: '14 PIPE-LINE // Sovereign Compute Hub',
+      tab: '14 PIPE-LINE // Sovereign Compute Hub',
       output: 'All 16 Directors (Zero-Downtime AI)'
     }
   }
@@ -276,13 +276,13 @@ export default function TabBriefModal({ isOpen, onClose, activeTab, onSelectTab,
   if (!isOpen) return null;
 
   const brief = TAB_BRIEFINGS[activeTab] || {
-    code: `STATION // ${activeTab}`,
-    title: 'MCNC Operational Station',
+    code: `TAB // ${activeTab}`,
+    title: 'MCNC Operational Tab',
     directors: 'MONTY (Chief of Staff)',
     tagline: 'Deterministic multi-agent command and execution module.',
-    overview: 'This module operates as an integrated station within the Mission Control Nerve Center.',
-    workflow: ['Select your active project context.', 'Configure station parameters.', 'Execute and verify telemetry output.'],
-    flow: { input: 'Upstream Directive', station: activeTab, output: 'Verified Output' }
+    overview: 'This module operates as an integrated tab within the Mission Control Nerve Center.',
+    workflow: ['Select your active project context.', 'Configure tab parameters.', 'Execute and verify telemetry output.'],
+    flow: { input: 'Upstream Directive', tab: activeTab, output: 'Verified Output' }
   };
 
   const currentIdx = allTabs.indexOf(activeTab);
@@ -413,7 +413,7 @@ export default function TabBriefModal({ isOpen, onClose, activeTab, onSelectTab,
           {/* EXECUTIVE OVERVIEW */}
           <div>
             <div style={{ color: '#DAA520', fontSize: '11px', fontWeight: 'bold', letterSpacing: '1.2px', marginBottom: '6px' }}>
-              01 // WHAT THIS STATION DOES
+              01 // WHAT THIS TAB DOES
             </div>
             <p
               style={{
@@ -505,8 +505,8 @@ export default function TabBriefModal({ isOpen, onClose, activeTab, onSelectTab,
               </div>
               <span style={{ color: '#DAA520', fontWeight: 'bold', fontSize: '16px' }}>→</span>
               <div style={{ padding: '7px 10px', backgroundColor: 'rgba(218, 165, 32, 0.14)', border: '1px solid #DAA520', borderRadius: '5px', color: '#ffb800' }}>
-                <div style={{ fontSize: '9px', color: '#DAA520', marginBottom: '2px', letterSpacing: '0.8px' }}>ACTIVE STATION</div>
-                <div style={{ fontWeight: 'bold' }}>{brief.flow.station}</div>
+                <div style={{ fontSize: '9px', color: '#DAA520', marginBottom: '2px', letterSpacing: '0.8px' }}>ACTIVE TAB</div>
+                <div style={{ fontWeight: 'bold' }}>{brief.flow.tab}</div>
               </div>
               <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '16px' }}>→</span>
               <div style={{ padding: '7px 10px', backgroundColor: '#0e131b', border: '1px solid #1f2937', borderRadius: '5px', color: '#10b981' }}>
@@ -570,7 +570,7 @@ export default function TabBriefModal({ isOpen, onClose, activeTab, onSelectTab,
           </div>
 
           <span style={{ color: '#64748b', fontSize: '11px', letterSpacing: '0.8px' }}>
-            {currentIdx >= 0 ? `STATION ${currentIdx + 1} OF ${allTabs.length}` : 'RHYTHM HOLDINGS // MCNC'}
+            {currentIdx >= 0 ? `TAB ${currentIdx + 1} OF ${allTabs.length}` : 'RHYTHM HOLDINGS // MCNC'}
           </span>
 
           <span

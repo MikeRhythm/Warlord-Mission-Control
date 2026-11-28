@@ -29,6 +29,29 @@ const TABS = [
   '13 DOCS', '14 PIPE-LINE'
 ];
 
+const OVERVIEW_PILLARS = [
+  {
+    code: 'STAGE 01 // COMMAND & STRATEGY',
+    tabs: '01 EXEC • 02 WAR ROOM • 03 PROJECTS',
+    summary: 'Chat directly with Chief of Staff Monty on Tab 01 to scope objectives, assemble multi-model Director councils in Tab 02 War Room, and track isolated project directories in Tab 03.'
+  },
+  {
+    code: 'STAGE 02 // OPERATIONS & COMMERCIALIZATION',
+    tabs: '04 TASK BOARD • 05 CALENDAR • 06 LAUNCH-PAD',
+    summary: 'Manage deterministic task queues, automated cron schedules, and the Tab 06 Launch-Pad commercial cockpit (PayPal, Stripe, PayFast onboarding, VPS provisioning, and break-even telemetry).'
+  },
+  {
+    code: 'STAGE 03 // AUTONOMOUS ORCHESTRATION & STUDIO',
+    tabs: '07 CEO ENGINE • 08 PALETTES • 09 PREVIEWS • 10 TOKENS',
+    summary: 'Coordinate the 16-Director matrix in CEO Engine, craft 3D woven/metallic UI suites in Palettes, inspect live builds in Previews, and monitor model compute budgets in Tokens.'
+  },
+  {
+    code: 'STAGE 04 // CAMPAIGNS, INTELLIGENCE & PIPELINE',
+    tabs: '11 CAMPAIGNS • 12 REVIEW • 13 DOCS • 14 PIPE-LINE',
+    summary: 'Run automated multi-channel campaigns, distill external media into structured knowledge veins, edit live SOP/ROE markdown doctrines, and monitor audio/data conduits in Pipe-Line.'
+  }
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('01 EXEC');
   const [mcncSocket, setMcncSocket] = useState(null);
@@ -38,6 +61,7 @@ export default function App() {
   // INITIALIZED TO FALSE: NEVER AUTO-POPS ON REFRESH
   const [showHeartbeatModal, setShowHeartbeatModal] = useState(false);
   const [showTabBriefModal, setShowTabBriefModal] = useState(false);
+  const [showOverviewModal, setShowOverviewModal] = useState(false);
 
   // Universal Busy State
   const [isSystemBusy, setIsSystemBusy] = useState(false);
@@ -46,7 +70,6 @@ export default function App() {
   // Shared state for War Room payload transfers from Tab 01
   const [warRoomPayload, setWarRoomPayload] = useState(null);
 
-  // Clean trigger: Toggles only the internal updated HUD modal directly
   const triggerHeartbeat = () => {
     setHeartbeatActive(true);
     setShowHeartbeatModal(prev => !prev);
@@ -61,6 +84,9 @@ export default function App() {
       if (e.key === '?' && e.shiftKey) {
         e.preventDefault();
         setShowTabBriefModal(prev => !prev);
+      }
+      if (e.key === 'Escape') {
+        setShowOverviewModal(false);
       }
     };
     window.addEventListener('keydown', handleShortcut);
@@ -136,7 +162,6 @@ export default function App() {
     };
   }, []);
 
-  // Hard check: Is a Kaggle model actively selected right now?
   const isKaggleSelected = Boolean(activeModel && activeModel.toUpperCase().includes('KAGGLE'));
 
   return (
@@ -144,10 +169,10 @@ export default function App() {
 
       {/* GLOBAL MASTER HEADER */}
       <header className="mcnc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(6px, 0.6vw, 10px) clamp(10px, 1vw, 16px)', borderBottom: '1px solid var(--wire-border)', backgroundColor: 'rgba(10, 12, 16, 0.95)', flexShrink: 0 }}>
-        <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: 'var(--fs-title)' }}>
+        <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: 'var(--fs-title)' }}>
           <span>MISSION CONTROL // MCNC MASTER</span>
 
-          {/* GOLDENROD STATION BRIEFING TRIGGER (PLACED IN OPEN LEFT HEADER REAL ESTATE) */}
+          {/* GOLDENROD STATION BRIEFING TRIGGER */}
           <button
             onClick={() => setShowTabBriefModal(true)}
             style={{
@@ -195,6 +220,57 @@ export default function App() {
               lineHeight: 1
             }}>?</span>
             <span>TAB BRIEF</span>
+          </button>
+
+          {/* FULL MCNC SYSTEM OVERVIEW & GUEST TOUR TRIGGER */}
+          <button
+            onClick={() => setShowOverviewModal(true)}
+            style={{
+              background: showOverviewModal
+                ? 'linear-gradient(180deg, rgba(197, 189, 159, 0.24) 0%, rgba(15, 18, 24, 0.95) 100%)'
+                : 'linear-gradient(180deg, #171c26 0%, #0c0f15 100%)',
+              border: '1px solid #C5BD9F',
+              color: '#C5BD9F',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '11px',
+              fontWeight: '700',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              letterSpacing: '1px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
+              transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.borderColor = '#DAA520';
+              e.currentTarget.style.color = '#FFE082';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(218, 165, 32, 0.35)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.borderColor = '#C5BD9F';
+              e.currentTarget.style.color = '#C5BD9F';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12)';
+            }}
+            title="Full MCNC Architecture Overview & Guest Orientation Guide"
+          >
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(218,165,32,0.2)',
+              border: '1px solid #DAA520',
+              color: '#DAA520',
+              fontWeight: '900',
+              fontSize: '10px',
+              lineHeight: 1
+            }}>?</span>
+            <span>OVERVIEW</span>
           </button>
         </div>
 
@@ -391,7 +467,176 @@ export default function App() {
         allTabs={TABS}
       />
 
-      {/* WARLORD WASP // HEARTBEAT MODAL (PORT 8085 INCLUDED) */}
+      {/* FULL MCNC MASTER ARCHITECTURE OVERVIEW & GUEST ORIENTATION MODAL */}
+      {showOverviewModal && (
+        <div
+          onClick={() => setShowOverviewModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(5, 7, 10, 0.90)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 100001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            fontFamily: "'JetBrains Mono', monospace"
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '980px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: 'linear-gradient(180deg, #131822 0%, #090c11 100%)',
+              border: '1px solid #DAA520',
+              borderRadius: '6px',
+              padding: '24px',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.95), inset 0 1px 0 rgba(255,224,130,0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px'
+            }}
+          >
+            {/* MODAL TOP BAR */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #1f2736', paddingBottom: '14px' }}>
+              <div>
+                <div style={{ display: 'inline-block', padding: '3px 9px', borderRadius: '3px', border: '1px solid #DAA520', backgroundColor: 'rgba(218,165,32,0.14)', color: '#ffb800', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '6px' }}>
+                  MISSION CONTROL NERVE CENTER // MASTER SYSTEM OVERVIEW
+                </div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 'bold', color: '#F8FAFC' }}>
+                  Sovereign Multi-Agent Orchestration &amp; Commercial Deployment Cockpit
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#94A3B8', marginTop: '4px' }}>
+                  Built by Rhythm Holdings on Base 1 to convert executive strategy into deterministic software, trading systems, and automated campaigns.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOverviewModal(false)}
+                style={{ padding: '6px 12px', backgroundColor: '#141923', border: '1px solid #2b3545', borderRadius: '4px', color: '#C5BD9F', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                [ ESC ]
+              </button>
+            </div>
+
+            {/* VISUAL END-TO-END FLOW DIAGRAM */}
+            <div style={{ padding: '14px', backgroundColor: '#080b10', border: '1px solid #1e2636', borderRadius: '5px' }}>
+              <div style={{ color: '#DAA520', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '10px' }}>
+                END-TO-END ARCHITECTURE PIPELINE (HOW DATA &amp; DECISIONS FLOW)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', alignItems: 'stretch' }}>
+                {[
+                  { step: '01 // INTAKE', title: 'Monty Exec Chat', desc: 'Discuss ideas & scope with Monty on Tab 01', color: '#DAA520' },
+                  { step: '02 // COUNCIL', title: '16-Director War Room', desc: 'Multi-LLM synthesis & PRD verification (Tab 02)', color: '#38bdf8' },
+                  { step: '03 // BUILD', title: 'Projects & Tasks', desc: 'Atomic code execution & schedules (Tabs 03–05)', color: '#C5BD9F' },
+                  { step: '04 // DEPLOY', title: 'Commercial Launch-Pad', desc: 'Payments, VPS, Member Gate & ROI (Tab 06)', color: '#10b981' },
+                  { step: '05 // TELEMETRY', title: 'Tokens & Pipe-Line', desc: 'Model budgets, SOP docs & live streams (Tabs 07–14)', color: '#a78bfa' }
+                ].map((node, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '10px',
+                      backgroundColor: '#0e131c',
+                      border: `1px solid ${node.color}55`,
+                      borderRadius: '4px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '4px'
+                    }}
+                  >
+                    <div style={{ fontSize: '9px', fontWeight: 'bold', color: node.color }}>{node.step}</div>
+                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#F8FAFC' }}>{node.title}</div>
+                    <div style={{ fontSize: '10px', color: '#94A3B8', lineHeight: 1.4 }}>{node.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 4 SYSTEM PILLARS */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {OVERVIEW_PILLARS.map((p, idx) => (
+                <div key={idx} style={{ padding: '12px', backgroundColor: '#0b0e14', border: '1px solid #1e2636', borderRadius: '4px' }}>
+                  <div style={{ color: '#DAA520', fontSize: '10px', fontWeight: 'bold' }}>{p.code}</div>
+                  <div style={{ color: '#38bdf8', fontSize: '10px', fontWeight: 'bold', marginTop: '2px' }}>{p.tabs}</div>
+                  <div style={{ color: '#cbd5e1', fontSize: '11px', marginTop: '6px', lineHeight: 1.5 }}>{p.summary}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* GUEST ORIENTATION & HOW TO USE TAB BRIEF */}
+            <div style={{ padding: '14px', backgroundColor: 'rgba(218, 165, 32, 0.08)', border: '1px solid rgba(218, 165, 32, 0.45)', borderRadius: '5px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div>
+                <div style={{ color: '#FFE082', fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>
+                  GUEST ORIENTATION GUIDE (FINDING YOUR FEET)
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '16px', color: '#e2e8f0', fontSize: '11px', lineHeight: 1.6 }}>
+                  <li><strong>Browse All 14 Stations:</strong> Click any tab across the top bar (including <strong>10 TOKENS</strong> and <strong>14 PIPE-LINE</strong>) to inspect live layouts and telemetry in Read-Only mode.</li>
+                  <li><strong>Talk to Monty on Tab 01:</strong> Head to <strong>01 EXEC</strong> to open a conversation with Monty on Base 1 and ask questions about the platform.</li>
+                  <li><strong>Unlock Full Control:</strong> Execution dispatches, server writes, and autonomous pipelines unlock once you activate a full membership at <strong>rhythmtradingco.com</strong>.</li>
+                </ul>
+              </div>
+
+              <div>
+                <div style={{ color: '#FFE082', fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>
+                  HOW TO USE THE [ ? TAB BRIEF ] BUTTON
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '16px', color: '#e2e8f0', fontSize: '11px', lineHeight: 1.6 }}>
+                  <li><strong>Instant Station Manual:</strong> On any tab, click the goldenrod <strong>? TAB BRIEF</strong> button (or press <strong>Shift + ?</strong>) to see what that exact station does, who commands it, and how its inputs and outputs connect.</li>
+                  <li><strong>Step Through All 14 Tabs:</strong> Use <strong>&larr; PREV TAB</strong> and <strong>NEXT TAB &rarr;</strong> inside the Tab Brief modal to tour the entire cockpit without losing your place.</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* FOOTER ACTIONS */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOverviewModal(false);
+                  setShowTabBriefModal(true);
+                }}
+                style={{
+                  padding: '9px 16px',
+                  backgroundColor: '#141923',
+                  border: '1px solid #DAA520',
+                  borderRadius: '4px',
+                  color: '#FFE082',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                OPEN CURRENT TAB BRIEF (? )
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowOverviewModal(false)}
+                style={{
+                  padding: '9px 22px',
+                  background: 'linear-gradient(180deg, #F7D154 0%, #DAA520 100%)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: '#080a0c',
+                  fontSize: '11px',
+                  fontWeight: '900',
+                  cursor: 'pointer',
+                  letterSpacing: '1px'
+                }}
+              >
+                START EXPLORING MCNC
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WARLORD WASP // HEARTBEAT MODAL */}
       {showHeartbeatModal && (
         <div style={{
           position: 'fixed',
@@ -428,91 +673,27 @@ export default function App() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-
-              {/* OPENCLAW DAEMON BRIDGE */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
-                  <div>
-                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
-                      OPENCLAW DAEMON BRIDGE <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 8081</span>
+              {[
+                { name: 'OPENCLAW DAEMON BRIDGE', port: 'PORT 8081', desc: 'WebSocket Inter-Agent Conduit' },
+                { name: 'BACKEND PIPELINE SERVER', port: 'PORT 8082', desc: 'Express Pipeline & JSON Ledgers' },
+                { name: 'VITE COCKPIT FRONTEND', port: 'PORT 5173', desc: 'React HMR Live Presentation' },
+                { name: 'CEO ENGINE INGESTION PIPE', port: 'LOCAL BUFFER', desc: 'Raw Intake & Cascade Staging' },
+                { name: 'HERMES 3 / OLLAMA RUNTIME', port: 'PORT 11434', desc: 'Local Neural Sovereign Engine' },
+                { name: 'WARLORD MAIL GATEWAY', port: 'PORT 8085', desc: 'IMAP Triage & Whitelist Protection' }
+              ].map((svc, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
+                    <div>
+                      <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
+                        {svc.name} <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// {svc.port}</span>
+                      </div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>{svc.desc}</div>
                     </div>
-                    <div style={{ color: '#64748b', fontSize: '10px' }}>WebSocket Inter-Agent Conduit</div>
                   </div>
+                  <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
                 </div>
-                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
-              </div>
-
-              {/* BACKEND PIPELINE SERVER */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
-                  <div>
-                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
-                      BACKEND PIPELINE SERVER <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 8082</span>
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: '10px' }}>Express Pipeline &amp; JSON Ledgers</div>
-                  </div>
-                </div>
-                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
-              </div>
-
-              {/* VITE COCKPIT FRONTEND */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
-                  <div>
-                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
-                      VITE COCKPIT FRONTEND <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 5173</span>
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: '10px' }}>React HMR Live Presentation</div>
-                  </div>
-                </div>
-                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
-              </div>
-
-              {/* PAPERCLIP INGESTION PIPE */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
-                  <div>
-                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
-                      CEO ENGINE INGESTION PIPE <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// LOCAL BUFFER</span>
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: '10px' }}>Raw Intake &amp; Cascade Staging</div>
-                  </div>
-                </div>
-                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
-              </div>
-
-              {/* HERMES 3 / OLLAMA RUNTIME */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
-                  <div>
-                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
-                      HERMES 3 / OLLAMA RUNTIME <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 11434</span>
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: '10px' }}>Local Neural Sovereign Engine</div>
-                  </div>
-                </div>
-                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
-              </div>
-
-              {/* WARLORD MAIL GATEWAY */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#06080d', border: '1px solid #141c28', borderRadius: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ffc4', boxShadow: '0 0 8px #00ffc4' }} />
-                  <div>
-                    <div style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>
-                      WARLORD MAIL GATEWAY <span style={{ color: '#f59e0b', fontSize: '10px', marginLeft: '6px' }}>// PORT 8085</span>
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: '10px' }}>IMAP Triage &amp; Whitelist Protection</div>
-                  </div>
-                </div>
-                <div style={{ color: '#00ffc4', fontSize: '11px', fontWeight: 'bold' }}>[OPEN]</div>
-              </div>
-
+              ))}
             </div>
 
             <button
@@ -541,6 +722,3 @@ export default function App() {
     </div>
   );
 }
-
-
-

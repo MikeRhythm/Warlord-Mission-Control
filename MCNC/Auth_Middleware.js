@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
 const { DatabaseSync } = require('node:sqlite');
 
 module.exports = function registerAuthAndTenants(app, DATA_PATH) {
@@ -72,6 +73,74 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         const salt = crypto.randomBytes(16).toString('hex');
         const hash = crypto.scryptSync(plainText, salt, 64).toString('hex');
         return { salt, hash };
+    }
+
+    function escapeHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    async function sendInviteEmail({ toEmail, recipientName, inviteUrl, customMessage, inviteRole }) {
+        const host = process.env.SMTP_RHYTHM_HOST;
+        const port = Number(process.env.SMTP_RHYTHM_PORT || 465);
+        const secure = String(process.env.SMTP_RHYTHM_SECURE || 'true').toLowerCase() !== 'false';
+        const user = process.env.SMTP_RHYTHM_USER;
+        const pass = process.env.SMTP_RHYTHM_PASS;
+        const from = process.env.SMTP_RHYTHM_FROM || user;
+
+        if (!host || !user || !pass) {
+            throw new Error('SMTP_RHYTHM_* credentials not configured in MCNC/.env');
+        }
+
+        const transporter = nodemailer.createTransport({
+            host,
+            port,
+            secure,
+            auth: { user, pass }
+        });
+
+        const tierLabel = inviteRole === 'GUEST_OBSERVER'
+            ? 'Guest Observer Pass (Read-Only Dashboard + Live Monty Chat)'
+            : 'Full Collaborator Invitation';
+
+        const safeMessageHtml = escapeHtml(customMessage).replace(/\r?\n/g, '<br/>');
+        const subject = `Your Private MCNC Access Pass — Rhythm Holdings`;
+
+        const textBody = `${customMessage}\n\nAccess Tier: ${tierLabel}\nOpen your private MCNC workspace here:\n${inviteUrl}\n\n— Mike // Rhythm Holdings`;
+
+        const htmlBody = `
+            <div style="background:#080a0c;color:#e2e8f0;font-family:'Segoe UI',Arial,sans-serif;padding:28px;border:1px solid #1f242d;border-radius:8px;max-width:600px;margin:0 auto;">
+                <div style="color:#DAA520;font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;">
+                    RHYTHM HOLDINGS // MISSION CONTROL NERVE CENTER
+                </div>
+                <h2 style="color:#ffffff;margin:0 0 14px 0;font-size:20px;">Private Access Invitation for ${escapeHtml(recipientName)}</h2>
+                <div style="background:#0d1016;border:1px solid #1f2633;border-radius:6px;padding:16px;color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:18px;">
+                    ${safeMessageHtml}
+                </div>
+                <div style="font-size:12px;color:#94a3b8;margin-bottom:16px;">
+                    <strong style="color:#C5BD9F;">ACCESS TIER:</strong> ${escapeHtml(tierLabel)}
+                </div>
+                <div style="margin-bottom:20px;">
+                    <a href="${escapeHtml(inviteUrl)}" style="display:inline-block;background:#DAA520;color:#080a0c;text-decoration:none;font-weight:800;font-size:13px;padding:12px 22px;border-radius:5px;letter-spacing:0.8px;">
+                        LAUNCH MCNC DASHBOARD
+                    </a>
+                </div>
+                <div style="font-size:11px;color:#64748b;word-break:break-all;border-top:1px solid #1a212e;padding-top:12px;">
+                    Direct Link: ${escapeHtml(inviteUrl)}
+                </div>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from,
+            to: toEmail,
+            subject,
+            text: textBody,
+            html: htmlBody
+        });
     }
 
     function logAudit(actorId, targetTenant, action, targetPath = '') {
@@ -182,7 +251,7 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
-    // 1B. Guest Pass Session Minting (Signed Guest Link for Egmond, Mike van E, Tyrone, etc.)
+    // 1B. Guest Pass Session Minting
     app.post('/api/auth/guest-login', (req, res) => {
         const { guestToken, guestName } = req.body || {};
         if (guestToken) {
@@ -232,7 +301,7 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         });
     });
 
-    // 1C. Forgot Password Recovery Code Generator (Logs code to Base 1 Server Console & Audit Trail)
+    // 1C. Forgot Password Recovery Code Generator
     app.post('/api/auth/forgot-password', (req, res) => {
         const { username } = req.body || {};
         const cleanUser = String(username || '').trim();
@@ -422,46 +491,72 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
-    // 6. Admin One-Click Invite Link Generator (EXEC_ADMIN only — supports COLLABORATOR or GUEST_OBSERVER)
-    app.post('/api/auth/invite', requireAuth, (req, res) => {
+    // 6. Admin One-Click Invite Link Generator + SMTP Email Dispatch (EXEC_ADMIN only)
+    app.post('/api/auth/invite', requireAuth, async (req, res) => {
         if (req.mcncAuth.role !== 'EXEC_ADMIN') {
             return res.status(403).json({ success: false, error: 'Executive Admin required' });
         }
-        const { tenantName, email, quotaMb, inviteRole } = req.body || {};
-        const cleanTenant = String(tenantName || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+        const { tenantName, email, quotaMb, inviteRole, customMessage, originUrl } = req.body || {};
+        const cleanTenant = String(tenantName || '').trim().replace(/[^a-zA-Z0-9 _-]/g, '');
         if (!cleanTenant) {
-            return res.status(400).json({ success: false, error: 'tenantName is required (e.g., Egmond)' });
+            return res.status(400).json({ success: false, error: 'Visitor name is required (e.g., Egmond)' });
         }
 
-        if (inviteRole === 'GUEST_OBSERVER') {
-            const guestToken = signToken({
-                userId: `GUEST_${cleanTenant.toUpperCase()}`,
+        const role = inviteRole === 'COLLABORATOR' ? 'COLLABORATOR' : 'GUEST_OBSERVER';
+        let inviteToken;
+        if (role === 'GUEST_OBSERVER') {
+            inviteToken = signToken({
+                userId: `GUEST_${cleanTenant.toUpperCase().replace(/\s+/g, '_')}`,
                 username: cleanTenant,
                 role: 'GUEST_OBSERVER',
-                tenantId: cleanTenant
+                tenantId: cleanTenant.replace(/\s+/g, '_')
             }, 14 * 24 * 3600);
-            logAudit(req.mcncAuth.userId, cleanTenant, 'GUEST_PASS_CREATED', cleanTenant);
-            return res.json({
-                success: true,
-                tenantName: cleanTenant,
-                inviteRole: 'GUEST_OBSERVER',
-                inviteToken: guestToken
-            });
+        } else {
+            inviteToken = signToken({
+                purpose: 'MCNC_INVITE',
+                tenantId: cleanTenant.replace(/\s+/g, '_'),
+                email: String(email || '').trim(),
+                quotaMb: Number(quotaMb || 500)
+            }, 7 * 24 * 3600);
         }
 
-        const inviteToken = signToken({
-            purpose: 'MCNC_INVITE',
-            tenantId: cleanTenant,
-            email: String(email || '').trim(),
-            quotaMb: Number(quotaMb || 500)
-        }, 7 * 24 * 3600);
+        const baseOrigin = String(originUrl || 'https://rhythmtradingco.com').replace(/\/+$/, '');
+        const param = role === 'GUEST_OBSERVER'
+            ? `guest_token=${encodeURIComponent(inviteToken)}`
+            : `invite=${encodeURIComponent(inviteToken)}`;
+        const inviteUrl = `${baseOrigin}/?${param}`;
 
-        logAudit(req.mcncAuth.userId, cleanTenant, 'INVITE_CREATED', email || cleanTenant);
+        let emailSent = false;
+        let emailError = '';
+        const cleanEmail = String(email || '').trim();
+        if (cleanEmail) {
+            try {
+                const msgBody = String(customMessage || '').trim() ||
+                    `Hi ${cleanTenant},\n\nYou've been invited to preview the Rhythm Holdings Mission Control Nerve Center (MCNC). You can browse all 14 stations in Read-Only mode, click OVERVIEW and TAB BRIEF on any screen, and chat live with Monty on Tab 01.`;
+                await sendInviteEmail({
+                    toEmail: cleanEmail,
+                    recipientName: cleanTenant,
+                    inviteUrl,
+                    customMessage: msgBody,
+                    inviteRole: role
+                });
+                emailSent = true;
+            } catch (err) {
+                emailError = err.message;
+                console.error('[MCNC INVITE EMAIL ERROR]', err.message);
+            }
+        }
+
+        logAudit(req.mcncAuth.userId, cleanTenant, emailSent ? 'INVITE_EMAILED' : 'INVITE_CREATED', cleanEmail || cleanTenant);
+
         return res.json({
             success: true,
             tenantName: cleanTenant,
-            inviteRole: 'COLLABORATOR',
-            inviteToken
+            inviteRole: role,
+            inviteToken,
+            inviteUrl,
+            emailSent,
+            emailError
         });
     });
 
@@ -583,5 +678,5 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
-    console.log('[AUTH & TENANT ENGINE]   : /api/auth/* & Guest Observer Gate MOUNTED');
+    console.log('[AUTH & TENANT ENGINE]   : /api/auth/* + SMTP_RHYTHM Invite Mailer MOUNTED');
 };

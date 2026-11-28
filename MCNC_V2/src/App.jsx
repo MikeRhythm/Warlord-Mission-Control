@@ -172,11 +172,11 @@ export default function App() {
         <div className="brand-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--gold-core)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 'bold', letterSpacing: '1px', fontSize: 'var(--fs-title)' }}>
           <span>MISSION CONTROL // MCNC MASTER</span>
 
-          {/* GOLDENROD STATION BRIEFING TRIGGER */}
+          {/* 1. PRIMARY GOLDENROD OVERVIEW TRIGGER (IMMEDIATELY NEXT TO TITLE) */}
           <button
-            onClick={() => setShowTabBriefModal(true)}
+            onClick={() => setShowOverviewModal(true)}
             style={{
-              background: showTabBriefModal
+              background: showOverviewModal
                 ? 'linear-gradient(180deg, rgba(218, 165, 32, 0.25) 0%, rgba(16, 12, 4, 0.95) 100%)'
                 : 'linear-gradient(180deg, #16140e 0%, #0a0906 100%)',
               border: '1px solid #DAA520',
@@ -204,7 +204,7 @@ export default function App() {
               e.currentTarget.style.boxShadow = '0 0 10px rgba(218, 165, 32, 0.22), inset 0 1px 0 rgba(255, 215, 0, 0.14)';
               e.currentTarget.style.color = '#ffb800';
             }}
-            title="Executive Briefing: What This Tab Does (Shift + ?)"
+            title="Full MCNC Architecture Overview & Guest Orientation Guide"
           >
             <span style={{
               display: 'inline-flex',
@@ -219,14 +219,14 @@ export default function App() {
               fontSize: '10px',
               lineHeight: 1
             }}>?</span>
-            <span>TAB BRIEF</span>
+            <span>OVERVIEW</span>
           </button>
 
-          {/* FULL MCNC SYSTEM OVERVIEW & GUEST TOUR TRIGGER */}
+          {/* 2. SECONDARY METAL CHAMPAGNE STATION BRIEFING TRIGGER */}
           <button
-            onClick={() => setShowOverviewModal(true)}
+            onClick={() => setShowTabBriefModal(true)}
             style={{
-              background: showOverviewModal
+              background: showTabBriefModal
                 ? 'linear-gradient(180deg, rgba(197, 189, 159, 0.24) 0%, rgba(15, 18, 24, 0.95) 100%)'
                 : 'linear-gradient(180deg, #171c26 0%, #0c0f15 100%)',
               border: '1px solid #C5BD9F',
@@ -254,7 +254,7 @@ export default function App() {
               e.currentTarget.style.color = '#C5BD9F';
               e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12)';
             }}
-            title="Full MCNC Architecture Overview & Guest Orientation Guide"
+            title="Executive Briefing: What This Tab Does (Shift + ?)"
           >
             <span style={{
               display: 'inline-flex',
@@ -270,7 +270,7 @@ export default function App() {
               fontSize: '10px',
               lineHeight: 1
             }}>?</span>
-            <span>OVERVIEW</span>
+            <span>TAB BRIEF</span>
           </button>
         </div>
 
@@ -586,7 +586,7 @@ export default function App() {
                   HOW TO USE THE [ ? TAB BRIEF ] BUTTON
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '16px', color: '#e2e8f0', fontSize: '11px', lineHeight: 1.6 }}>
-                  <li><strong>Instant Station Manual:</strong> On any tab, click the goldenrod <strong>? TAB BRIEF</strong> button (or press <strong>Shift + ?</strong>) to see what that exact station does, who commands it, and how its inputs and outputs connect.</li>
+                  <li><strong>Instant Station Manual:</strong> On any tab, click the <strong>? TAB BRIEF</strong> button (or press <strong>Shift + ?</strong>) to see what that exact station does, who commands it, and how its inputs and outputs connect.</li>
                   <li><strong>Step Through All 14 Tabs:</strong> Use <strong>&larr; PREV TAB</strong> and <strong>NEXT TAB &rarr;</strong> inside the Tab Brief modal to tour the entire cockpit without losing your place.</li>
                 </ul>
               </div>
@@ -611,7 +611,7 @@ export default function App() {
                   cursor: 'pointer'
                 }}
               >
-                OPEN CURRENT TAB BRIEF (? )
+                OPEN CURRENT TAB BRIEF ( ? )
               </button>
 
               <button

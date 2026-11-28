@@ -34,6 +34,11 @@
         return Boolean(user && user.role === 'GUEST_OBSERVER');
     }
 
+    function buildGenericInviteText(name) {
+        const clean = String(name || 'there').trim() || 'there';
+        return `Hi ${clean},\n\nYou've been invited to explore the Rhythm Holdings Mission Control Nerve Center (MCNC).\n\nYour Guest Observer pass lets you tour all 14 stations in Read-Only mode, open the OVERVIEW and TAB BRIEF guides on any screen, and chat directly with Chief of Staff Monty on Tab 01.`;
+    }
+
     // Intercept /api/ fetch calls to inject Bearer token & X-Target-Tenant
     const originalFetch = window.fetch.bind(window);
     window.fetch = function (input, init) {
@@ -65,8 +70,8 @@
                 font-family: 'JetBrains Mono', 'Consolas', monospace;
             }
             .mcnc-auth-card {
-                width: 100%; max-width: 410px; padding: 28px;
-                background: rgba(13, 15, 18, 0.96);
+                width: 100%; max-width: 440px; padding: 26px;
+                background: rgba(13, 15, 18, 0.97);
                 backdrop-filter: blur(12px);
                 border: 1px solid #263042;
                 border-radius: 6px;
@@ -77,28 +82,49 @@
                 letter-spacing: 1.2px; margin-bottom: 6px; text-transform: uppercase;
             }
             .mcnc-auth-sub {
-                color: #94A3B8; font-size: 11px; margin-bottom: 18px; line-height: 1.45;
+                color: #94A3B8; font-size: 11px; margin-bottom: 16px; line-height: 1.45;
             }
             .mcnc-auth-label {
                 display: block; color: #C5BD9F; font-size: 10px; font-weight: 700;
                 margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.7px;
             }
-            .mcnc-auth-input {
-                width: 100%; box-sizing: border-box; padding: 10px 12px;
-                margin-bottom: 13px; background: #080a0c; color: #F8FAFC;
+            .mcnc-auth-input, .mcnc-auth-textarea {
+                width: 100%; box-sizing: border-box; padding: 9px 11px;
+                margin-bottom: 12px; background: #080a0c; color: #F8FAFC;
                 border: 1px solid #253042; border-radius: 4px;
                 font-family: inherit; font-size: 12px; outline: none;
             }
-            .mcnc-auth-input:focus { border-color: #DAA520; box-shadow: 0 0 0 1px rgba(218,165,32,0.35); }
+            .mcnc-auth-textarea {
+                min-height: 105px; resize: vertical; line-height: 1.45;
+                font-family: 'Inter', 'Segoe UI', sans-serif;
+            }
+            .mcnc-auth-input:focus, .mcnc-auth-textarea:focus {
+                border-color: #DAA520; box-shadow: 0 0 0 1px rgba(218,165,32,0.35);
+            }
             .mcnc-auth-btn {
                 width: 100%; padding: 11px;
                 background: linear-gradient(180deg, #F7D154 0%, #DAA520 100%);
                 color: #080a0c; border: none; border-radius: 4px; font-family: inherit;
-                font-size: 12px; font-weight: 900; letter-spacing: 1px;
+                font-size: 11px; font-weight: 900; letter-spacing: 1px;
                 cursor: pointer; text-transform: uppercase;
                 box-shadow: 0 4px 12px rgba(218,165,32,0.28);
             }
             .mcnc-auth-btn:hover { filter: brightness(1.06); }
+            .mcnc-mode-tabs {
+                display: flex; gap: 6px; margin-bottom: 10px;
+            }
+            .mcnc-mode-tab {
+                flex: 1; padding: 7px 10px; border-radius: 4px;
+                font-family: inherit; font-size: 10px; font-weight: 800;
+                letter-spacing: 0.8px; cursor: pointer; text-transform: uppercase;
+                background: #0d1016; color: #94A3B8; border: 1px solid #253042;
+                transition: all 0.15s ease;
+            }
+            .mcnc-mode-tab.active {
+                background: rgba(218, 165, 32, 0.18);
+                color: #ffb800; border-color: #DAA520;
+                box-shadow: 0 0 10px rgba(218,165,32,0.2);
+            }
             .mcnc-auth-link-row {
                 display: flex; justify-content: space-between; align-items: center;
                 margin-top: 12px; padding-top: 10px; border-top: 1px solid #1a212e;
@@ -110,7 +136,7 @@
             }
             .mcnc-link-btn:hover { color: #FFE082; }
             .mcnc-auth-err {
-                color: #ef4444; font-size: 11px; margin-top: 10px; min-height: 15px;
+                color: #ef4444; font-size: 11px; margin-top: 10px; min-height: 15px; line-height: 1.4;
             }
             .mcnc-hud-controls {
                 display: flex; align-items: center; gap: 6px;
@@ -216,7 +242,6 @@
             `;
             document.body.appendChild(overlay);
 
-            // Login submit handler + Password Manager credential save notification
             document.getElementById('mcnc-login-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const errEl = document.getElementById('mcnc-login-err');
@@ -251,7 +276,6 @@
                 }
             });
 
-            // Toggle Forgot Password View
             document.getElementById('mcnc-forgot-open').addEventListener('click', () => {
                 document.getElementById('mcnc-auth-view-login').style.display = 'none';
                 document.getElementById('mcnc-auth-view-forgot').style.display = 'block';
@@ -320,7 +344,6 @@
                 }
             });
 
-            // Guest Preview Entry
             document.getElementById('mcnc-guest-enter').addEventListener('click', async () => {
                 const guestName = window.prompt('Enter your name for Guest Read-Only + Monty Chat access:', 'Egmond');
                 if (guestName === null) return;
@@ -351,7 +374,6 @@
         }
     }
 
-    // Enforce Guest Read-Only UI Guard (All 14 tabs visible incl. 10 TOKENS & 14 PIPE-LINE; Monty chat open; mutations blocked)
     function attachGuestClickGuard() {
         if (window.__mcncGuestGuardAttached) return;
         window.__mcncGuestGuardAttached = true;
@@ -363,13 +385,11 @@
             const btn = e.target.closest('button');
             if (!btn) return;
 
-            // Allow navigation tabs, Overview/Tab Brief modals, audio briefs, and Monty chat send button
             if (btn.closest('nav') || btn.closest('.mcnc-hud-controls')) return;
             const txt = (btn.innerText || btn.title || '').toUpperCase();
             const safeKeywords = ['TAB BRIEF', 'OVERVIEW', 'GOT IT', 'PREV', 'NEXT', 'ESC', 'ACKNOWLEDGE', 'BRIEF', 'SEND', 'ASK MONTY', 'CLEAR', 'COPY', '01 //', '02 //', '03 //', '04 //', '05 //', 'SETUP GUIDE'];
             if (safeKeywords.some((kw) => txt.includes(kw))) return;
 
-            // Block heavy compute / write / dispatch buttons for Guest visitors
             const restrictedKeywords = ['DISPATCH', 'AUTHORIZE', 'PUSH TO WAR ROOM', 'CREATE PROMPT', 'GO-LIVE', 'STATUS:', 'DELETE', 'SAVE', 'ADD', 'LAUNCH', 'EXECUTE', 'RUN', 'SYNC', 'PURGE', 'APPLY'];
             if (restrictedKeywords.some((kw) => txt.includes(kw))) {
                 e.preventDefault();
@@ -415,7 +435,7 @@
                 ${guestMode ? 'GUEST (READ + MONTY): ' + user.username : (isOverride ? 'ADMIN OVERRIDE: ' + activeTenant : 'OPERATOR: ' + user.username)}
             </span>
             ${switcherHtml}
-            ${user.role === 'EXEC_ADMIN' ? '<button id="mcnc-invite-open-btn" class="mcnc-hud-btn" type="button">+ INVITE</button>' : ''}
+            ${user.role === 'EXEC_ADMIN' ? '<button id="mcnc-invite-open-btn" class="mcnc-hud-btn" type="button" style="border-color:#DAA520;color:#ffb800;">+ INVITE</button>' : ''}
             ${!guestMode ? '<button id="mcnc-pwd-open-btn" class="mcnc-hud-btn" type="button">PASSWORD</button>' : ''}
             <button id="mcnc-logout-btn" class="mcnc-hud-btn" type="button">LOGOUT</button>
         `;
@@ -438,7 +458,13 @@
             ensureInviteModal();
             const invBtn = document.getElementById('mcnc-invite-open-btn');
             if (invBtn) invBtn.addEventListener('click', () => {
-                document.getElementById('mcnc-invite-modal').style.display = 'flex';
+                const modal = document.getElementById('mcnc-invite-modal');
+                const msgBox = document.getElementById('mcnc-inv-message');
+                const nameVal = document.getElementById('mcnc-inv-name').value.trim();
+                if (!msgBox.value.trim()) {
+                    msgBox.value = buildGenericInviteText(nameVal);
+                }
+                modal.style.display = 'flex';
             });
         }
 
@@ -456,27 +482,77 @@
         const modal = document.createElement('div');
         modal.id = 'mcnc-invite-modal';
         modal.innerHTML = `
-            <div class="mcnc-auth-card">
-                <div class="mcnc-auth-title">+ GENERATE GUEST / MEMBER INVITE</div>
-                <div class="mcnc-auth-sub">Create a signed Read-Only + Monty Chat guest link for Egmond, Mike van E, or Tyrone.</div>
+            <div class="mcnc-auth-card" style="max-width:480px;">
+                <div class="mcnc-auth-title">+ INVITE CLIENT / PROSPECT TO MCNC</div>
+                <div class="mcnc-auth-sub">Enter their email, pick Generic or Personal note, and dispatch a signed Guest Observer or Member invite.</div>
                 <form id="mcnc-invite-form">
-                    <label class="mcnc-auth-label" for="mcnc-inv-name">Visitor / Prospect Name</label>
-                    <input id="mcnc-inv-name" class="mcnc-auth-input" type="text" placeholder="Egmond" required />
+                    <div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:8px;">
+                        <div>
+                            <label class="mcnc-auth-label" for="mcnc-inv-name">Visitor Name</label>
+                            <input id="mcnc-inv-name" class="mcnc-auth-input" type="text" placeholder="Mike van E" required />
+                        </div>
+                        <div>
+                            <label class="mcnc-auth-label" for="mcnc-inv-email">Email Address</label>
+                            <input id="mcnc-inv-email" class="mcnc-auth-input" type="email" placeholder="mike@example.com" required />
+                        </div>
+                    </div>
+
                     <label class="mcnc-auth-label" for="mcnc-inv-role">Access Tier</label>
                     <select id="mcnc-inv-role" class="mcnc-auth-input">
                         <option value="GUEST_OBSERVER">GUEST OBSERVER (Read-Only All Tabs + Monty Chat)</option>
                         <option value="COLLABORATOR">FULL COLLABORATOR (Signed-Up Member)</option>
                     </select>
+
+                    <label class="mcnc-auth-label">Invitation Message Mode</label>
+                    <div class="mcnc-mode-tabs">
+                        <button type="button" id="mcnc-inv-tab-generic" class="mcnc-mode-tab active">GENERIC TEMPLATE</button>
+                        <button type="button" id="mcnc-inv-tab-personal" class="mcnc-mode-tab">PERSONAL NOTE</button>
+                    </div>
+
+                    <textarea id="mcnc-inv-message" class="mcnc-auth-textarea" placeholder="Type your personal message here..."></textarea>
+
                     <div style="display:flex; gap:8px;">
-                        <button type="submit" class="mcnc-auth-btn">MINT INVITE LINK</button>
+                        <button type="submit" id="mcnc-inv-submit-btn" class="mcnc-auth-btn">SEND INVITE &amp; COPY LINK</button>
                         <button type="button" id="mcnc-inv-cancel" class="mcnc-hud-btn" style="padding:10px 14px;">CLOSE</button>
                     </div>
-                    <input id="mcnc-inv-link-out" class="mcnc-auth-input" style="margin-top:12px; display:none; color:#10b981;" type="text" readonly />
+
+                    <input id="mcnc-inv-link-out" class="mcnc-auth-input" style="margin-top:12px; margin-bottom:0; display:none; color:#10b981; font-size:11px;" type="text" readonly />
                     <div id="mcnc-inv-msg" class="mcnc-auth-err"></div>
                 </form>
             </div>
         `;
         document.body.appendChild(modal);
+
+        let currentMode = 'GENERIC';
+        const nameInput = document.getElementById('mcnc-inv-name');
+        const msgBox = document.getElementById('mcnc-inv-message');
+        const btnGeneric = document.getElementById('mcnc-inv-tab-generic');
+        const btnPersonal = document.getElementById('mcnc-inv-tab-personal');
+
+        msgBox.value = buildGenericInviteText('');
+
+        nameInput.addEventListener('input', () => {
+            if (currentMode === 'GENERIC') {
+                msgBox.value = buildGenericInviteText(nameInput.value);
+            }
+        });
+
+        btnGeneric.addEventListener('click', () => {
+            currentMode = 'GENERIC';
+            btnGeneric.classList.add('active');
+            btnPersonal.classList.remove('active');
+            msgBox.value = buildGenericInviteText(nameInput.value);
+        });
+
+        btnPersonal.addEventListener('click', () => {
+            currentMode = 'PERSONAL';
+            btnPersonal.classList.add('active');
+            btnGeneric.classList.remove('active');
+            const firstName = (nameInput.value.trim().split(/\s+/)[0]) || 'mate';
+            msgBox.value = `Hey ${firstName}, how's it? How are you doing?\n\n`;
+            msgBox.focus();
+            msgBox.setSelectionRange(msgBox.value.length, msgBox.value.length);
+        });
 
         document.getElementById('mcnc-inv-cancel').addEventListener('click', () => {
             modal.style.display = 'none';
@@ -484,34 +560,53 @@
 
         document.getElementById('mcnc-invite-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const submitBtn = document.getElementById('mcnc-inv-submit-btn');
             const msgEl = document.getElementById('mcnc-inv-msg');
             const outEl = document.getElementById('mcnc-inv-link-out');
             msgEl.style.color = '#ef4444';
             msgEl.textContent = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'DISPATCHING INVITE...';
 
-            const tenantName = document.getElementById('mcnc-inv-name').value.trim();
+            const tenantName = nameInput.value.trim();
+            const email = document.getElementById('mcnc-inv-email').value.trim();
             const inviteRole = document.getElementById('mcnc-inv-role').value;
+            const customMessage = msgBox.value.trim();
+
             try {
                 const res = await window.fetch('/api/auth/invite', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tenantName, inviteRole })
+                    body: JSON.stringify({
+                        tenantName,
+                        email,
+                        inviteRole,
+                        customMessage,
+                        originUrl: window.location.origin
+                    })
                 });
                 const data = await res.json();
                 if (!res.ok || !data.success) {
-                    msgEl.textContent = data.error || 'Failed to generate link.';
+                    msgEl.textContent = data.error || 'Failed to generate invite.';
                     return;
                 }
-                const param = inviteRole === 'GUEST_OBSERVER' ? `guest_token=${encodeURIComponent(data.inviteToken)}` : `invite=${encodeURIComponent(data.inviteToken)}`;
-                const fullUrl = `${window.location.origin}/?${param}`;
-                outEl.value = fullUrl;
+                outEl.value = data.inviteUrl;
                 outEl.style.display = 'block';
                 outEl.select();
-                navigator.clipboard.writeText(fullUrl).catch(() => {});
-                msgEl.style.color = '#10b981';
-                msgEl.textContent = 'Invite link copied to clipboard!';
+                navigator.clipboard.writeText(data.inviteUrl).catch(() => {});
+
+                if (data.emailSent) {
+                    msgEl.style.color = '#10b981';
+                    msgEl.textContent = `Invite emailed to ${email} and link copied to clipboard!`;
+                } else {
+                    msgEl.style.color = '#f59e0b';
+                    msgEl.textContent = `Link minted & copied to clipboard (SMTP notice: ${data.emailError || 'not sent'}).`;
+                }
             } catch (err) {
                 msgEl.textContent = 'Error: ' + err.message;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'SEND INVITE & COPY LINK';
             }
         });
     }
@@ -578,7 +673,6 @@
     async function bootAuthGate() {
         injectStyles();
 
-        // Check URL parameters for one-click Guest Invite links (?guest_token=... or ?guest=Egmond)
         const params = new URLSearchParams(window.location.search);
         const guestToken = params.get('guest_token');
         const guestName = params.get('guest');
