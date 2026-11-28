@@ -8,7 +8,7 @@ import Tab02WarRoom from './components/Tab02WarRoom';
 import Tab03Projects from './components/Tab03Projects';
 import Tab04TaskBoard from './components/Tab04TaskBoard';
 import Tab05Calendar from './components/Tab05Calendar';
-import Tab06Memory from './components/Tab06Memory';
+import Tab06LaunchPad from './components/Tab06LaunchPad';
 import Tab07Paperclip from './components/Tab07Paperclip';
 import Tab08Palettes from './components/Tab08Palettes';
 import Tab09Previews from './components/Tab09Previews';
@@ -24,7 +24,7 @@ initGlobalInterceptor();
 
 const TABS = [
   '01 EXEC', '02 WAR ROOM', '03 PROJECTS', '04 TASK BOARD',
-  '05 CALENDAR', '06 MEMORY', '07 CEO ENGINE', '08 PALETTES',
+  '05 CALENDAR', '06 LAUNCH-PAD', '07 CEO ENGINE', '08 PALETTES',
   '09 PREVIEWS', '10 TOKENS', '11 CAMPAIGNS', '12 REVIEW',
   '13 DOCS', '14 PIPE-LINE'
 ];
@@ -345,8 +345,8 @@ export default function App() {
           <Tab05Calendar ws={mcncSocket} />
         </div>
 
-        <div style={{ display: activeTab === '06 MEMORY' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
-          <Tab06Memory ws={mcncSocket} />
+        <div style={{ display: activeTab === '06 LAUNCH-PAD' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
+          <Tab06LaunchPad ws={mcncSocket} />
         </div>
 
         <div style={{ display: activeTab === '07 CEO ENGINE' ? 'flex' : 'none', flex: 1, minHeight: 0, height: '100%' }}>
@@ -541,3 +541,6 @@ export default function App() {
     </div>
   );
 }
+
+
+

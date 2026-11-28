@@ -1,0 +1,836 @@
+﻿import React, { useState, useEffect } from 'react';
+import {
+  Rocket, Globe, Lock, Unlock, CreditCard, CheckCircle2,
+  Circle, Copy, Check, Plus, Trash2, ShieldCheck, Calculator, Send
+} from 'lucide-react';
+import SpeakerBtn from './SpeakerBtn';
+
+const STORAGE_KEY = 'MCNC_06_LAUNCH_PAD_V1';
+
+const DEFAULT_LAUNCHPAD = {
+  liveUrl: 'https://rhythmtradingco.com',
+  tunnelConduit: 'Cloudflare Tunnel + Tailscale Mesh',
+  goLive: false,
+  accessMode: 'MEMBERS_ONLY',
+  primaryTier: 'rhythmtradingco AI — Member Access',
+  price: 29,
+  billing: 'MONTHLY',
+  paymentRail: 'Stripe',
+  checkoutUrl: 'https://rhythmtradingco.com/members',
+  feePct: 2.9,
+  monthlyStackCost: 15,
+  gates: {
+    dnsAndRouteReady: true,
+    tlsAndAuthReady: true,
+    checkoutLive: false,
+    smokeTested: false
+  },
+  offers: [
+    {
+      id: 'offer-1',
+      name: 'Single-Tier Member Access',
+      price: 29,
+      billing: 'MONTHLY',
+      rail: 'Stripe',
+      mode: 'MEMBERS_ONLY',
+      url: 'https://rhythmtradingco.com/members'
+    },
+    {
+      id: 'offer-2',
+      name: 'Direct Support / Supporter Tier',
+      price: 15,
+      billing: 'ONE-TIME',
+      rail: 'PayFast',
+      mode: 'PUBLIC_CHECKOUT',
+      url: 'https://rhythmtradingco.com/support'
+    }
+  ]
+};
+
+export default function Tab06LaunchPad({ ws }) {
+  const [cfg, setCfg] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? { ...DEFAULT_LAUNCHPAD, ...JSON.parse(saved) } : DEFAULT_LAUNCHPAD;
+    } catch (e) {
+      return DEFAULT_LAUNCHPAD;
+    }
+  });
+
+  const [offerTitle, setOfferTitle] = useState('');
+  const [offerPrice, setOfferPrice] = useState('49');
+  const [offerBilling, setOfferBilling] = useState('MONTHLY');
+  const [copiedKey, setCopiedKey] = useState(null);
+  const [dispatchNotice, setDispatchNotice] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    } catch (e) {}
+  }, [cfg]);
+
+  const setVal = (key, value) => {
+    setCfg((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleGate = (key) => {
+    setCfg((prev) => ({
+      ...prev,
+      gates: { ...prev.gates, [key]: !prev.gates[key] }
+    }));
+  };
+
+  const copyPayload = (text, key) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1600);
+  };
+
+  const handleAddOffer = (e) => {
+    e.preventDefault();
+    const cleanName = offerTitle.trim();
+    if (!cleanName) return;
+    const nextOffer = {
+      id: `lp-${Date.now()}`,
+      name: cleanName,
+      price: Math.max(0, Number(offerPrice) || 0),
+      billing: offerBilling,
+      rail: cfg.paymentRail,
+      mode: cfg.accessMode,
+      url: cfg.checkoutUrl.trim() || cfg.liveUrl.trim()
+    };
+    setCfg((prev) => ({ ...prev, offers: [nextOffer, ...prev.offers] }));
+    setOfferTitle('');
+  };
+
+  const handleRemoveOffer = (id) => {
+    setCfg((prev) => ({ ...prev, offers: prev.offers.filter((o) => o.id !== id) }));
+  };
+
+  const handleBroadcastLaunchState = () => {
+    const payload = {
+      type: 'LAUNCH_PAD_STATE',
+      goLive: cfg.goLive,
+      liveUrl: cfg.liveUrl,
+      accessMode: cfg.accessMode,
+      primaryTier: cfg.primaryTier,
+      price: Number(cfg.price) || 0,
+      billing: cfg.billing,
+      paymentRail: cfg.paymentRail,
+      checkoutUrl: cfg.checkoutUrl
+    };
+    window.dispatchEvent(new CustomEvent('mcnc-launchpad-updated', { detail: payload }));
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+    }
+    setDispatchNotice('SYNCED');
+    setTimeout(() => setDispatchNotice(''), 1800);
+  };
+
+  const priceNum = Math.max(0, Number(cfg.price) || 0);
+  const feeNum = Math.max(0, Number(cfg.feePct) || 0);
+  const stackNum = Math.max(0, Number(cfg.monthlyStackCost) || 0);
+  const netPerSale = priceNum - priceNum * (feeNum / 100);
+  const breakEvenSales = netPerSale > 0 ? Math.ceil(stackNum / netPerSale) : 0;
+  const netAt25Sales = netPerSale * 25 - stackNum;
+
+  const gatesPassed = Object.values(cfg.gates).filter(Boolean).length;
+  const gatesTotal = Object.keys(cfg.gates).length;
+
+  const briefText = `06 LAUNCH-PAD status. Target URL ${cfg.liveUrl}. Go-live is ${cfg.goLive ? 'LIVE' : 'STANDBY'}. Mode is ${cfg.accessMode === 'MEMBERS_ONLY' ? 'members only' : 'open checkout'}. Offer is $${priceNum} ${cfg.billing} via ${cfg.paymentRail}. Net per sale $${netPerSale.toFixed(2)}, break-even ${breakEvenSales} conversions.`;
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        width: '100%',
+        padding: '14px',
+        boxSizing: 'border-box',
+        gap: '12px',
+        backgroundColor: '#090b0e',
+        color: '#e2e8f0',
+        fontFamily: "'JetBrains Mono', monospace"
+      }}
+    >
+      {/* HEADER BAR */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid #1f242d',
+          paddingBottom: '10px',
+          gap: '10px'
+        }}
+      >
+        <div>
+          <div style={{ color: '#DAA520', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '1px' }}>
+            06 LAUNCH-PAD // DEPLOYMENT, ACCESS GATES &amp; REVENUE ENGINE
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#8fa0b5', marginTop: '2px' }}>
+            Ship live URLs, enforce member gating, wire payment rails, and track break-even economics
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <SpeakerBtn text={briefText} label="READ BRIEF" />
+
+          <button
+            type="button"
+            onClick={handleBroadcastLaunchState}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 10px',
+              backgroundColor: '#121822',
+              border: '1px solid #2b3545',
+              color: '#38bdf8',
+              borderRadius: '3px',
+              fontSize: '0.7rem',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            <Send style={{ width: '12px', height: '12px' }} />
+            <span>{dispatchNotice || 'SYNC STATE'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setVal('goLive', !cfg.goLive)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              backgroundColor: cfg.goLive ? 'rgba(16, 185, 129, 0.16)' : 'rgba(218, 165, 32, 0.14)',
+              border: cfg.goLive ? '1px solid #10b981' : '1px solid #DAA520',
+              color: cfg.goLive ? '#10b981' : '#DAA520',
+              borderRadius: '3px',
+              fontSize: '0.72rem',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            <Rocket style={{ width: '13px', height: '13px' }} />
+            <span>{cfg.goLive ? 'LAUNCH: LIVE' : 'LAUNCH: STAGED'}</span>
+          </button>
+
+          <div
+            style={{
+              padding: '6px 10px',
+              backgroundColor: '#101318',
+              border: '1px solid #1f242d',
+              borderRadius: '3px',
+              fontSize: '0.7rem'
+            }}
+          >
+            <span style={{ color: '#64748b' }}>GATES: </span>
+            <span style={{ color: gatesPassed === gatesTotal ? '#10b981' : '#DAA520', fontWeight: 'bold' }}>
+              {gatesPassed}/{gatesTotal}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3-COLUMN LAUNCH-PAD WORKSPACE */}
+      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr 300px', gap: '12px', flex: 1, minHeight: 0 }}>
+
+        {/* LEFT: DOMAIN, TUNNEL & GO-LIVE GATES */}
+        <aside
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            backgroundColor: '#0d1015',
+            border: '1px solid #1f242d',
+            borderRadius: '3px',
+            padding: '12px',
+            overflowY: 'auto'
+          }}
+          className="custom-scrollbar"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1b212c', paddingBottom: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#DAA520', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Globe style={{ width: '14px', height: '14px' }} />
+              LIVE TARGET &amp; CONDUIT
+            </span>
+            <span style={{ fontSize: '0.65rem', color: cfg.goLive ? '#10b981' : '#94a3b8' }}>
+              {cfg.goLive ? 'LIVE' : 'STAGED'}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '0.66rem', color: '#94a3b8', textTransform: 'uppercase' }}>Live Domain / Portal URL</label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                value={cfg.liveUrl}
+                onChange={(e) => setVal('liveUrl', e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '7px 9px',
+                  backgroundColor: '#101318',
+                  border: '1px solid #232a36',
+                  borderRadius: '3px',
+                  color: '#fff',
+                  fontSize: '0.73rem',
+                  outline: 'none'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => copyPayload(cfg.liveUrl, 'url')}
+                style={{
+                  padding: '0 8px',
+                  backgroundColor: '#141922',
+                  border: '1px solid #2b3545',
+                  borderRadius: '3px',
+                  color: '#DAA520',
+                  cursor: 'pointer'
+                }}
+                title="Copy URL"
+              >
+                {copiedKey === 'url' ? <Check style={{ width: '13px', height: '13px' }} /> : <Copy style={{ width: '13px', height: '13px' }} />}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '0.66rem', color: '#94a3b8', textTransform: 'uppercase' }}>Tunnel / Edge Conduit</label>
+            <input
+              type="text"
+              value={cfg.tunnelConduit}
+              onChange={(e) => setVal('tunnelConduit', e.target.value)}
+              style={{
+                padding: '7px 9px',
+                backgroundColor: '#101318',
+                border: '1px solid #232a36',
+                borderRadius: '3px',
+                color: '#cbd5e1',
+                fontSize: '0.72rem',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+            <span style={{ fontSize: '0.66rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>
+              RELEASE CHECKPOINTS
+            </span>
+
+            {[
+              { key: 'dnsAndRouteReady', label: 'DNS & Tunnel Route Mapped' },
+              { key: 'tlsAndAuthReady', label: 'HTTPS & Member Auth Wired' },
+              { key: 'checkoutLive', label: 'Payment / Checkout Link Active' },
+              { key: 'smokeTested', label: 'End-to-End Smoke Test Passed' }
+            ].map((item) => {
+              const active = Boolean(cfg.gates[item.key]);
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => toggleGate(item.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    backgroundColor: '#101318',
+                    border: active ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid #1d232e',
+                    borderRadius: '3px',
+                    color: active ? '#e2e8f0' : '#8fa0b5',
+                    fontSize: '0.72rem',
+                    textAlign: 'left',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {active ? (
+                    <CheckCircle2 style={{ width: '14px', height: '14px', color: '#10b981', flexShrink: 0 }} />
+                  ) : (
+                    <Circle style={{ width: '14px', height: '14px', color: '#64748b', flexShrink: 0 }} />
+                  )}
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            style={{
+              marginTop: 'auto',
+              padding: '10px',
+              backgroundColor: '#10151f',
+              border: '1px solid #222b3a',
+              borderRadius: '3px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '5px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <ShieldCheck style={{ width: '13px', height: '13px' }} />
+                LAUNCH MANIFEST
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  copyPayload(
+                    `URL: ${cfg.liveUrl}\nStatus: ${cfg.goLive ? 'LIVE' : 'STAGED'}\nGate: ${cfg.accessMode}\nOffer: ${cfg.primaryTier} ($${priceNum} ${cfg.billing})\nCheckout: ${cfg.checkoutUrl}`,
+                    'manifest'
+                  )
+                }
+                style={{
+                  padding: '2px 7px',
+                  backgroundColor: '#18202c',
+                  border: '1px solid #2d384b',
+                  borderRadius: '2px',
+                  color: '#DAA520',
+                  fontSize: '0.65rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                {copiedKey === 'manifest' ? 'COPIED' : 'COPY'}
+              </button>
+            </div>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8', wordBreak: 'break-all' }}>
+              {cfg.primaryTier} • ${priceNum} ({cfg.billing})
+            </div>
+          </div>
+        </aside>
+
+        {/* CENTER: ACCESS GATES, PAYMENT RAIL & OFFER STACK */}
+        <main
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            backgroundColor: '#0d1015',
+            border: '1px solid #1f242d',
+            borderRadius: '3px',
+            padding: '14px',
+            overflowY: 'auto'
+          }}
+          className="custom-scrollbar"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid #1b212c', paddingBottom: '12px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#DAA520', textTransform: 'uppercase' }}>
+              1. ACCESS GATE &amp; PRIMARY OFFER
+            </span>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setVal('accessMode', 'MEMBERS_ONLY')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '9px',
+                  borderRadius: '3px',
+                  fontSize: '0.72rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  border: cfg.accessMode === 'MEMBERS_ONLY' ? '1px solid #DAA520' : '1px solid #222a38',
+                  backgroundColor: cfg.accessMode === 'MEMBERS_ONLY' ? 'rgba(218, 165, 32, 0.14)' : '#10141c',
+                  color: cfg.accessMode === 'MEMBERS_ONLY' ? '#DAA520' : '#8fa0b5'
+                }}
+              >
+                <Lock style={{ width: '13px', height: '13px' }} />
+                <span>MEMBERS-ONLY PORTAL</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVal('accessMode', 'PUBLIC_CHECKOUT')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '9px',
+                  borderRadius: '3px',
+                  fontSize: '0.72rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  border: cfg.accessMode === 'PUBLIC_CHECKOUT' ? '1px solid #10b981' : '1px solid #222a38',
+                  backgroundColor: cfg.accessMode === 'PUBLIC_CHECKOUT' ? 'rgba(16, 185, 129, 0.14)' : '#10141c',
+                  color: cfg.accessMode === 'PUBLIC_CHECKOUT' ? '#10b981' : '#8fa0b5'
+                }}
+              >
+                <Unlock style={{ width: '13px', height: '13px' }} />
+                <span>PUBLIC + CHECKOUT</span>
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 125px', gap: '8px', marginTop: '4px' }}>
+              <div>
+                <label style={{ fontSize: '0.66rem', color: '#94a3b8', display: 'block', marginBottom: '3px' }}>Primary Tier / Offer</label>
+                <input
+                  type="text"
+                  value={cfg.primaryTier}
+                  onChange={(e) => setVal('primaryTier', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '7px 9px',
+                    backgroundColor: '#101318',
+                    border: '1px solid #232a36',
+                    borderRadius: '3px',
+                    color: '#fff',
+                    fontSize: '0.73rem',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.66rem', color: '#94a3b8', display: 'block', marginBottom: '3px' }}>Price ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={cfg.price}
+                  onChange={(e) => setVal('price', Number(e.target.value))}
+                  style={{
+                    width: '100%',
+                    padding: '7px 9px',
+                    backgroundColor: '#101318',
+                    border: '1px solid #232a36',
+                    borderRadius: '3px',
+                    color: '#10b981',
+                    fontWeight: 'bold',
+                    fontSize: '0.73rem',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.66rem', color: '#94a3b8', display: 'block', marginBottom: '3px' }}>Billing</label>
+                <select
+                  value={cfg.billing}
+                  onChange={(e) => setVal('billing', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '7px 8px',
+                    backgroundColor: '#101318',
+                    border: '1px solid #232a36',
+                    borderRadius: '3px',
+                    color: '#e2e8f0',
+                    fontSize: '0.72rem',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="MONTHLY">MONTHLY</option>
+                  <option value="ONE-TIME">ONE-TIME</option>
+                  <option value="ANNUAL">ANNUAL</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid #1b212c', paddingBottom: '12px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#DAA520', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <CreditCard style={{ width: '14px', height: '14px' }} />
+              2. CHECKOUT RAIL &amp; LINK
+            </span>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '8px' }}>
+              <select
+                value={cfg.paymentRail}
+                onChange={(e) => setVal('paymentRail', e.target.value)}
+                style={{
+                  padding: '7px 8px',
+                  backgroundColor: '#101318',
+                  border: '1px solid #232a36',
+                  borderRadius: '3px',
+                  color: '#fff',
+                  fontSize: '0.72rem',
+                  outline: 'none'
+                }}
+              >
+                <option value="Stripe">Stripe</option>
+                <option value="PayFast">PayFast</option>
+                <option value="PayPal">PayPal</option>
+                <option value="Custom Link">Custom Link</option>
+              </select>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  value={cfg.checkoutUrl}
+                  onChange={(e) => setVal('checkoutUrl', e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '7px 9px',
+                    backgroundColor: '#101318',
+                    border: '1px solid #232a36',
+                    borderRadius: '3px',
+                    color: '#38bdf8',
+                    fontSize: '0.72rem',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => copyPayload(cfg.checkoutUrl, 'checkout')}
+                  style={{
+                    padding: '0 9px',
+                    backgroundColor: '#141922',
+                    border: '1px solid #2b3545',
+                    borderRadius: '3px',
+                    color: '#DAA520',
+                    cursor: 'pointer'
+                  }}
+                  title="Copy checkout URL"
+                >
+                  {copiedKey === 'checkout' ? <Check style={{ width: '13px', height: '13px' }} /> : <Copy style={{ width: '13px', height: '13px' }} />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#DAA520', textTransform: 'uppercase' }}>
+              3. LAUNCH OFFERS &amp; TIERS ({cfg.offers.length})
+            </span>
+
+            <form onSubmit={handleAddOffer} style={{ display: 'grid', gridTemplateColumns: '1fr 86px 104px 76px', gap: '6px' }}>
+              <input
+                type="text"
+                value={offerTitle}
+                onChange={(e) => setOfferTitle(e.target.value)}
+                placeholder="Offer or pass title..."
+                style={{
+                  padding: '6px 8px',
+                  backgroundColor: '#101318',
+                  border: '1px solid #232a36',
+                  borderRadius: '3px',
+                  color: '#fff',
+                  fontSize: '0.72rem',
+                  outline: 'none'
+                }}
+              />
+              <input
+                type="number"
+                min="0"
+                value={offerPrice}
+                onChange={(e) => setOfferPrice(e.target.value)}
+                style={{
+                  padding: '6px 8px',
+                  backgroundColor: '#101318',
+                  border: '1px solid #232a36',
+                  borderRadius: '3px',
+                  color: '#10b981',
+                  fontSize: '0.72rem',
+                  outline: 'none'
+                }}
+              />
+              <select
+                value={offerBilling}
+                onChange={(e) => setOfferBilling(e.target.value)}
+                style={{
+                  padding: '6px 6px',
+                  backgroundColor: '#101318',
+                  border: '1px solid #232a36',
+                  borderRadius: '3px',
+                  color: '#e2e8f0',
+                  fontSize: '0.7rem',
+                  outline: 'none'
+                }}
+              >
+                <option value="MONTHLY">MONTHLY</option>
+                <option value="ONE-TIME">ONE-TIME</option>
+                <option value="ANNUAL">ANNUAL</option>
+              </select>
+              <button
+                type="submit"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  padding: '6px 8px',
+                  backgroundColor: '#DAA520',
+                  color: '#090b0e',
+                  fontWeight: 'bold',
+                  fontSize: '0.7rem',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Plus style={{ width: '13px', height: '13px' }} />
+                <span>ADD</span>
+              </button>
+            </form>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {cfg.offers.map((offer) => (
+                <div
+                  key={offer.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '9px 11px',
+                    backgroundColor: '#10141c',
+                    border: '1px solid #1e2634',
+                    borderRadius: '3px',
+                    gap: '8px'
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {offer.name}
+                    </div>
+                    <div style={{ fontSize: '0.66rem', color: '#8fa0b5', marginTop: '2px' }}>
+                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>${offer.price}</span> ({offer.billing}) • {offer.rail} • {offer.mode === 'MEMBERS_ONLY' ? 'Members Only' : 'Open'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => copyPayload(`${offer.name} — $${offer.price} (${offer.billing}) — ${offer.url}`, offer.id)}
+                      style={{
+                        padding: '4px 8px',
+                        backgroundColor: '#161c26',
+                        border: '1px solid #2a3446',
+                        borderRadius: '2px',
+                        color: '#DAA520',
+                        fontSize: '0.66rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {copiedKey === offer.id ? <Check style={{ width: '11px', height: '11px' }} /> : <Copy style={{ width: '11px', height: '11px' }} />}
+                      <span>{copiedKey === offer.id ? 'COPIED' : 'COPY'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveOffer(offer.id)}
+                      style={{
+                        padding: '4px 6px',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #262e3d',
+                        borderRadius: '2px',
+                        color: '#94a3b8',
+                        cursor: 'pointer'
+                      }}
+                      title="Remove offer"
+                    >
+                      <Trash2 style={{ width: '12px', height: '12px' }} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+
+        {/* RIGHT: UNIT ECONOMICS & BREAK-EVEN */}
+        <aside
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            backgroundColor: '#0d1015',
+            border: '1px solid #1f242d',
+            borderRadius: '3px',
+            padding: '12px',
+            overflowY: 'auto'
+          }}
+          className="custom-scrollbar"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1b212c', paddingBottom: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Calculator style={{ width: '14px', height: '14px' }} />
+              UNIT ECONOMICS
+            </span>
+            <span style={{ fontSize: '0.65rem', color: '#8fa0b5' }}>LIVE</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div>
+              <label style={{ fontSize: '0.66rem', color: '#94a3b8', display: 'block', marginBottom: '3px' }}>Fee (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="30"
+                step="0.1"
+                value={cfg.feePct}
+                onChange={(e) => setVal('feePct', Number(e.target.value))}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  backgroundColor: '#101318',
+                  border: '1px solid #232a36',
+                  borderRadius: '3px',
+                  color: '#e2e8f0',
+                  fontSize: '0.72rem',
+                  boxSizing: 'border-box',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.66rem', color: '#94a3b8', display: 'block', marginBottom: '3px' }}>Monthly Cost ($)</label>
+              <input
+                type="number"
+                min="0"
+                value={cfg.monthlyStackCost}
+                onChange={(e) => setVal('monthlyStackCost', Number(e.target.value))}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  backgroundColor: '#101318',
+                  border: '1px solid #232a36',
+                  borderRadius: '3px',
+                  color: '#e2e8f0',
+                  fontSize: '0.72rem',
+                  boxSizing: 'border-box',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+            <div style={{ padding: '10px', backgroundColor: '#10141c', border: '1px solid #1e2634', borderRadius: '3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>NET PER SALE</span>
+              <span style={{ fontSize: '0.88rem', fontWeight: 'bold', color: '#10b981' }}>${netPerSale.toFixed(2)}</span>
+            </div>
+
+            <div style={{ padding: '10px', backgroundColor: '#10141c', border: '1px solid #1e2634', borderRadius: '3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>BREAK-EVEN</span>
+              <span style={{ fontSize: '0.88rem', fontWeight: 'bold', color: '#DAA520' }}>
+                {netPerSale > 0 ? `${breakEvenSales} sales` : 'Set price > fee'}
+              </span>
+            </div>
+
+            <div style={{ padding: '10px', backgroundColor: '#10141c', border: '1px solid #1e2634', borderRadius: '3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>NET AT 25 SALES</span>
+              <span style={{ fontSize: '0.88rem', fontWeight: 'bold', color: netAt25Sales >= 0 ? '#38bdf8' : '#f87171' }}>
+                ${netAt25Sales.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </div>
+  );
+}
