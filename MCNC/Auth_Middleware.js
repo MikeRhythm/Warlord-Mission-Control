@@ -9,8 +9,8 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
     const AUTH_DB_PATH = path.join(DATA_PATH, 'MCNC_Auth.db');
     const TENANTS_ROOT = path.join(DATA_PATH, 'Tenants');
     const VALID_TENANTS = ['Mike', 'Adine', 'Claire', 'Egmond'];
+    const RESET_CODES = new Map(); // username_lower -> { code, expiresAt }
 
-    // Derive deterministic signing secret from .env JWT_SECRET or machine fallback
     const SECRET_SEED = process.env.MCNC_AUTH_SECRET || process.env.API_KEY || 'MCNC_RHYTHM_SOVEREIGN_BASE1_KEY_2026';
     const SIGNING_KEY = crypto.createHash('sha256').update(SECRET_SEED).digest();
 
@@ -24,7 +24,7 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         return Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
     }
 
-    function signToken(payloadObj, ttlSeconds = 7200) {
+    function signToken(payloadObj, ttlSeconds = 86400) {
         const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
         const nowSec = Math.floor(Date.now() / 1000);
         const body = base64UrlEncode(JSON.stringify({
@@ -96,7 +96,6 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
             return res.status(401).json({ success: false, error: 'Unauthorized or expired session' });
         }
 
-        // Enforce strict tenant isolation vs EXEC_ADMIN context switch
         let effectiveTenant = claims.tenantId;
         const requestedTarget = (req.headers['x-target-tenant'] || '').trim();
         if (claims.role === 'EXEC_ADMIN' && requestedTarget && VALID_TENANTS.includes(requestedTarget)) {
@@ -115,6 +114,25 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         };
         next();
     }
+
+    // Global Guard: Block GUEST_OBSERVER from all write/mutation API calls except Monty chat
+    app.use('/api', (req, res, next) => {
+        if (req.method === 'GET' || req.path.startsWith('/auth/')) return next();
+        const authHeader = req.headers['authorization'] || '';
+        const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+        const claims = verifyToken(token);
+        if (claims && claims.role === 'GUEST_OBSERVER') {
+            const allowedGuestPosts = ['/api/chat', '/api/monty', '/api/exec/chat'];
+            if (!allowedGuestPosts.some(p => req.originalUrl.startsWith(p))) {
+                logAudit(claims.userId, claims.tenantId, 'GUEST_WRITE_BLOCKED', req.originalUrl);
+                return res.status(403).json({
+                    success: false,
+                    error: 'Read-Only Guest Access: Sign up for full membership at rhythmtradingco.com to unlock execution & pipelines.'
+                });
+            }
+        }
+        next();
+    });
 
     // 1. Login Endpoint
     app.post('/api/auth/login', (req, res) => {
@@ -164,6 +182,129 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
+    // 1B. Guest Pass Session Minting (Signed Guest Link for Egmond, Mike van E, Tyrone, etc.)
+    app.post('/api/auth/guest-login', (req, res) => {
+        const { guestToken, guestName } = req.body || {};
+        if (guestToken) {
+            const claims = verifyToken(guestToken);
+            if (!claims || claims.role !== 'GUEST_OBSERVER') {
+                return res.status(401).json({ success: false, error: 'Invalid or expired guest pass' });
+            }
+            const sessionToken = signToken({
+                userId: claims.userId,
+                username: claims.username,
+                role: 'GUEST_OBSERVER',
+                tenantId: claims.tenantId
+            }, 43200);
+            logAudit(claims.userId, claims.tenantId, 'GUEST_LOGIN', claims.username);
+            return res.json({
+                success: true,
+                token: sessionToken,
+                user: {
+                    userId: claims.userId,
+                    username: claims.username,
+                    role: 'GUEST_OBSERVER',
+                    tenantId: claims.tenantId,
+                    availableTenants: [claims.tenantId]
+                }
+            });
+        }
+
+        const cleanGuest = String(guestName || 'Guest_Visitor').trim().replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 32) || 'Guest_Visitor';
+        const guestId = `GUEST_${cleanGuest.toUpperCase().replace(/\s+/g, '_')}`;
+        const sessionToken = signToken({
+            userId: guestId,
+            username: cleanGuest,
+            role: 'GUEST_OBSERVER',
+            tenantId: 'GUEST_PREVIEW'
+        }, 21600);
+        logAudit(guestId, 'GUEST_PREVIEW', 'GUEST_PREVIEW_STARTED', cleanGuest);
+        return res.json({
+            success: true,
+            token: sessionToken,
+            user: {
+                userId: guestId,
+                username: cleanGuest,
+                role: 'GUEST_OBSERVER',
+                tenantId: 'GUEST_PREVIEW',
+                availableTenants: ['GUEST_PREVIEW']
+            }
+        });
+    });
+
+    // 1C. Forgot Password Recovery Code Generator (Logs code to Base 1 Server Console & Audit Trail)
+    app.post('/api/auth/forgot-password', (req, res) => {
+        const { username } = req.body || {};
+        const cleanUser = String(username || '').trim();
+        if (!cleanUser) {
+            return res.status(400).json({ success: false, error: 'Enter your operator username first' });
+        }
+
+        let db;
+        try {
+            db = new DatabaseSync(AUTH_DB_PATH);
+            const user = db.prepare('SELECT User_ID, Username, Tenant_ID FROM Users WHERE LOWER(Username) = LOWER(?)').get(cleanUser);
+            if (!user) {
+                return res.status(404).json({ success: false, error: 'Operator username not found' });
+            }
+
+            const code = String(crypto.randomInt(100000, 999999));
+            RESET_CODES.set(user.Username.toLowerCase(), {
+                code,
+                expiresAt: Date.now() + 15 * 60 * 1000
+            });
+
+            console.log(`\n======================================================`);
+            console.log(`[MCNC PASSWORD RECOVERY] Operator: ${user.Username}`);
+            console.log(`[MCNC PASSWORD RECOVERY] 6-Digit Reset Code: ${code} (Valid 15m)`);
+            console.log(`======================================================\n`);
+            logAudit(user.User_ID, user.Tenant_ID, 'PASSWORD_RESET_REQUESTED', '/api/auth/forgot-password');
+
+            return res.json({
+                success: true,
+                message: '6-digit recovery code dispatched to Base 1 Server Terminal (valid 15 mins).'
+            });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        } finally {
+            if (db) db.close();
+        }
+    });
+
+    // 1D. Verify Recovery Code & Set New Password
+    app.post('/api/auth/reset-password', (req, res) => {
+        const { username, code, newPassword } = req.body || {};
+        const cleanUser = String(username || '').trim().toLowerCase();
+        if (!cleanUser || !code || !newPassword || String(newPassword).length < 8) {
+            return res.status(400).json({ success: false, error: 'Username, 6-digit code, and new password (min 8 chars) required' });
+        }
+
+        const record = RESET_CODES.get(cleanUser);
+        if (!record || record.expiresAt < Date.now() || record.code !== String(code).trim()) {
+            return res.status(400).json({ success: false, error: 'Invalid or expired recovery code' });
+        }
+
+        let db;
+        try {
+            db = new DatabaseSync(AUTH_DB_PATH);
+            const user = db.prepare('SELECT User_ID, Tenant_ID FROM Users WHERE LOWER(Username) = LOWER(?)').get(cleanUser);
+            if (!user) {
+                return res.status(404).json({ success: false, error: 'Operator account not found' });
+            }
+
+            const { salt, hash } = hashNewPassword(String(newPassword));
+            db.prepare('UPDATE Users SET Password_Hash = ?, Password_Salt = ? WHERE User_ID = ?').run(hash, salt, user.User_ID);
+            RESET_CODES.delete(cleanUser);
+            logAudit(user.User_ID, user.Tenant_ID, 'PASSWORD_RESET_COMPLETED', '/api/auth/reset-password');
+
+            return res.json({ success: true, message: 'Password reset complete. You may now authenticate.' });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        } finally {
+            if (db) db.close();
+        }
+    });
+
     // 2. Session Check Endpoint
     app.get('/api/auth/me', requireAuth, (req, res) => {
         return res.json({
@@ -181,6 +322,9 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
 
     // 3. Self-Service Password Rotation Endpoint
     app.post('/api/auth/change-password', requireAuth, (req, res) => {
+        if (req.mcncAuth.role === 'GUEST_OBSERVER') {
+            return res.status(403).json({ success: false, error: 'Guest sessions cannot modify passwords' });
+        }
         const { currentPassword, newPassword } = req.body || {};
         if (!currentPassword || !newPassword || String(newPassword).length < 8) {
             return res.status(400).json({ success: false, error: 'New password must be at least 8 characters' });
@@ -229,6 +373,9 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
 
     // 5. Scoped Tenant Bounty Ledger Upsert
     app.post('/api/tenant/bounties', requireAuth, (req, res) => {
+        if (req.mcncAuth.role === 'GUEST_OBSERVER') {
+            return res.status(403).json({ success: false, error: 'Read-only guest access' });
+        }
         const { bountyId, platform, campaignName, targetChannels, clipUrl, status, views, payoutUsd } = req.body || {};
         if (!campaignName) {
             return res.status(400).json({ success: false, error: 'campaignName is required' });
@@ -275,16 +422,31 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
-    
-    // 6. Admin One-Click Invite Link Generator (EXEC_ADMIN only)
+    // 6. Admin One-Click Invite Link Generator (EXEC_ADMIN only — supports COLLABORATOR or GUEST_OBSERVER)
     app.post('/api/auth/invite', requireAuth, (req, res) => {
         if (req.mcncAuth.role !== 'EXEC_ADMIN') {
             return res.status(403).json({ success: false, error: 'Executive Admin required' });
         }
-        const { tenantName, email, quotaMb } = req.body || {};
+        const { tenantName, email, quotaMb, inviteRole } = req.body || {};
         const cleanTenant = String(tenantName || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
         if (!cleanTenant) {
-            return res.status(400).json({ success: false, error: 'tenantName is required (e.g., Adine)' });
+            return res.status(400).json({ success: false, error: 'tenantName is required (e.g., Egmond)' });
+        }
+
+        if (inviteRole === 'GUEST_OBSERVER') {
+            const guestToken = signToken({
+                userId: `GUEST_${cleanTenant.toUpperCase()}`,
+                username: cleanTenant,
+                role: 'GUEST_OBSERVER',
+                tenantId: cleanTenant
+            }, 14 * 24 * 3600);
+            logAudit(req.mcncAuth.userId, cleanTenant, 'GUEST_PASS_CREATED', cleanTenant);
+            return res.json({
+                success: true,
+                tenantName: cleanTenant,
+                inviteRole: 'GUEST_OBSERVER',
+                inviteToken: guestToken
+            });
         }
 
         const inviteToken = signToken({
@@ -292,12 +454,13 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
             tenantId: cleanTenant,
             email: String(email || '').trim(),
             quotaMb: Number(quotaMb || 500)
-        }, 7 * 24 * 3600); // Valid for 7 days
+        }, 7 * 24 * 3600);
 
         logAudit(req.mcncAuth.userId, cleanTenant, 'INVITE_CREATED', email || cleanTenant);
         return res.json({
             success: true,
             tenantName: cleanTenant,
+            inviteRole: 'COLLABORATOR',
             inviteToken
         });
     });
@@ -321,7 +484,6 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
             if (!fs.existsSync(full)) fs.mkdirSync(full, { recursive: true });
         });
 
-        // Initialize clean-slate Bounty_Ledger.db if missing
         const ledgerPath = path.join(tenantBase, 'Bounty_Clipping', 'Bounty_Ledger.db');
         const ledgerDb = new DatabaseSync(ledgerPath);
         ledgerDb.exec(`
@@ -390,8 +552,7 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
-    
-    // 8. Live Tenant Usage & Billing Telemetry (Disk, Credits, Tokens, Renders)
+    // 8. Live Tenant Usage & Billing Telemetry
     const { getTenantUsage, topUpTenantCredits } = require('./Credit_Meter');
 
     app.get('/api/auth/usage', requireAuth, (req, res) => {
@@ -404,7 +565,7 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
-    // 9. Admin Credit Top-Up & Plan Upgrade Endpoint (EXEC_ADMIN only)
+    // 9. Admin Credit Top-Up & Plan Upgrade Endpoint
     app.post('/api/auth/topup', requireAuth, (req, res) => {
         if (req.mcncAuth.role !== 'EXEC_ADMIN') {
             return res.status(403).json({ success: false, error: 'Executive Admin required' });
@@ -422,8 +583,5 @@ module.exports = function registerAuthAndTenants(app, DATA_PATH) {
         }
     });
 
-    console.log('[AUTH & TENANT ENGINE]   : /api/auth/* & /api/tenant/bounties MOUNTED (Mike/Adine/Claire)');
+    console.log('[AUTH & TENANT ENGINE]   : /api/auth/* & Guest Observer Gate MOUNTED');
 };
-
-
-

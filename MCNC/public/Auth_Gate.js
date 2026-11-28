@@ -5,9 +5,6 @@
     const USER_KEY = 'mcnc_user_profile';
     const TARGET_TENANT_KEY = 'mcnc_target_tenant';
 
-    // Collaborator allowed routes (blocks EXEC, WAR ROOM, MEMORY, PAPERCLIP, TOKENS, DOCS, etc.)
-    const COLLABORATOR_ALLOWED_HREFS = ['/projects', '/taskboard', '/calendar', '/galaxy', '/review'];
-
     function getToken() {
         return sessionStorage.getItem(TOKEN_KEY) || '';
     }
@@ -33,7 +30,11 @@
         sessionStorage.removeItem(TARGET_TENANT_KEY);
     }
 
-    // Intercept all /api/ fetch calls to inject Bearer token & X-Target-Tenant automatically
+    function isGuestRole(user) {
+        return Boolean(user && user.role === 'GUEST_OBSERVER');
+    }
+
+    // Intercept /api/ fetch calls to inject Bearer token & X-Target-Tenant
     const originalFetch = window.fetch.bind(window);
     window.fetch = function (input, init) {
         const url = typeof input === 'string' ? input : (input && input.url) || '';
@@ -59,53 +60,69 @@
         style.textContent = `
             #mcnc-login-overlay {
                 position: fixed; inset: 0; z-index: 99999;
-                background: #080a0c;
+                background: radial-gradient(circle at top, #121722 0%, #080a0c 70%);
                 display: flex; align-items: center; justify-content: center;
                 font-family: 'JetBrains Mono', 'Consolas', monospace;
             }
             .mcnc-auth-card {
-                width: 100%; max-width: 390px; padding: 28px;
-                background: rgba(13, 15, 18, 0.92);
+                width: 100%; max-width: 410px; padding: 28px;
+                background: rgba(13, 15, 18, 0.96);
                 backdrop-filter: blur(12px);
-                border: 1px solid #1f242d;
+                border: 1px solid #263042;
                 border-radius: 6px;
-                box-shadow: 0 20px 50px rgba(0,0,0,0.85);
+                box-shadow: 0 24px 60px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,215,0,0.12);
             }
             .mcnc-auth-title {
-                color: #ffb800; font-size: 13px; font-weight: 700;
+                color: #ffb800; font-size: 13px; font-weight: 800;
                 letter-spacing: 1.2px; margin-bottom: 6px; text-transform: uppercase;
             }
             .mcnc-auth-sub {
-                color: #94A3B8; font-size: 11px; margin-bottom: 20px;
+                color: #94A3B8; font-size: 11px; margin-bottom: 18px; line-height: 1.45;
             }
             .mcnc-auth-label {
-                display: block; color: #C5BD9F; font-size: 11px;
-                margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.6px;
+                display: block; color: #C5BD9F; font-size: 10px; font-weight: 700;
+                margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.7px;
             }
             .mcnc-auth-input {
                 width: 100%; box-sizing: border-box; padding: 10px 12px;
-                margin-bottom: 14px; background: #080a0c; color: #E2E8F0;
-                border: 1px solid #1f242d; border-radius: 4px;
+                margin-bottom: 13px; background: #080a0c; color: #F8FAFC;
+                border: 1px solid #253042; border-radius: 4px;
                 font-family: inherit; font-size: 12px; outline: none;
             }
-            .mcnc-auth-input:focus { border-color: #DAA520; }
+            .mcnc-auth-input:focus { border-color: #DAA520; box-shadow: 0 0 0 1px rgba(218,165,32,0.35); }
             .mcnc-auth-btn {
-                width: 100%; padding: 10px; background: #ffb800; color: #080a0c;
-                border: none; border-radius: 4px; font-family: inherit;
-                font-size: 12px; font-weight: 800; letter-spacing: 1px;
+                width: 100%; padding: 11px;
+                background: linear-gradient(180deg, #F7D154 0%, #DAA520 100%);
+                color: #080a0c; border: none; border-radius: 4px; font-family: inherit;
+                font-size: 12px; font-weight: 900; letter-spacing: 1px;
                 cursor: pointer; text-transform: uppercase;
+                box-shadow: 0 4px 12px rgba(218,165,32,0.28);
             }
-            .mcnc-auth-btn:hover { background: #DAA520; }
+            .mcnc-auth-btn:hover { filter: brightness(1.06); }
+            .mcnc-auth-link-row {
+                display: flex; justify-content: space-between; align-items: center;
+                margin-top: 12px; padding-top: 10px; border-top: 1px solid #1a212e;
+            }
+            .mcnc-link-btn {
+                background: none; border: none; padding: 0;
+                color: #DAA520; font-family: inherit; font-size: 10px;
+                font-weight: 700; cursor: pointer; text-decoration: underline;
+            }
+            .mcnc-link-btn:hover { color: #FFE082; }
             .mcnc-auth-err {
                 color: #ef4444; font-size: 11px; margin-top: 10px; min-height: 15px;
             }
             .mcnc-hud-controls {
-                display: flex; align-items: center; gap: 8px;
+                display: flex; align-items: center; gap: 6px;
             }
             .mcnc-hud-badge {
                 padding: 3px 8px; border-radius: 3px; font-size: 10px;
                 font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
                 background: #14171c; color: #C5BD9F; border: 1px solid #1f242d;
+            }
+            .mcnc-hud-badge.guest-mode {
+                background: rgba(218, 165, 32, 0.16);
+                color: #FFE082; border-color: #DAA520;
             }
             .mcnc-hud-badge.admin-override {
                 background: rgba(56, 189, 248, 0.14);
@@ -119,14 +136,36 @@
             .mcnc-hud-select:focus, .mcnc-hud-btn:hover {
                 border-color: #ffb800; color: #ffb800;
             }
-            #mcnc-pwd-modal {
+            #mcnc-pwd-modal, #mcnc-invite-modal {
                 position: fixed; inset: 0; z-index: 99998;
-                background: rgba(8, 10, 12, 0.85);
+                background: rgba(8, 10, 12, 0.88);
                 display: none; align-items: center; justify-content: center;
                 font-family: 'JetBrains Mono', 'Consolas', monospace;
             }
+            #mcnc-guest-toast {
+                position: fixed; bottom: 16px; right: 16px; z-index: 99997;
+                background: linear-gradient(180deg, #241c0d 0%, #110d06 100%);
+                border: 1px solid #DAA520; color: #FFE082;
+                padding: 10px 14px; border-radius: 4px; font-size: 11px;
+                font-family: 'JetBrains Mono', monospace;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.85);
+                display: none; max-width: 380px;
+            }
         `;
         document.head.appendChild(style);
+    }
+
+    function showGuestToast(msg) {
+        let toast = document.getElementById('mcnc-guest-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'mcnc-guest-toast';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3200);
     }
 
     function renderLoginOverlay(errorMsg = '') {
@@ -136,20 +175,48 @@
             overlay.id = 'mcnc-login-overlay';
             overlay.innerHTML = `
                 <div class="mcnc-auth-card">
-                    <div class="mcnc-auth-title">MCNC // SOVEREIGN ACCESS GATE</div>
-                    <div class="mcnc-auth-sub">Authenticate to initialize isolated tenant workspace.</div>
-                    <form id="mcnc-login-form">
-                        <label class="mcnc-auth-label" for="mcnc-user-in">Operator Username</label>
-                        <input id="mcnc-user-in" class="mcnc-auth-input" type="text" autocomplete="username" required />
-                        <label class="mcnc-auth-label" for="mcnc-pass-in">Access Key / Password</label>
-                        <input id="mcnc-pass-in" class="mcnc-auth-input" type="password" autocomplete="current-password" required />
-                        <button type="submit" class="mcnc-auth-btn">AUTHENTICATE</button>
-                        <div id="mcnc-login-err" class="mcnc-auth-err"></div>
-                    </form>
+                    <div id="mcnc-auth-view-login">
+                        <div class="mcnc-auth-title">MCNC // SOVEREIGN ACCESS GATE</div>
+                        <div class="mcnc-auth-sub">Sign in with your Operator credentials (RoboForm &amp; Browser Autofill compatible) or enter as a Read-Only Guest.</div>
+                        <form id="mcnc-login-form" action="/api/auth/login" method="post" autocomplete="on">
+                            <label class="mcnc-auth-label" for="mcnc-user-in">Operator Username</label>
+                            <input id="mcnc-user-in" name="username" class="mcnc-auth-input" type="text" autocomplete="username" placeholder="Mike" required />
+                            <label class="mcnc-auth-label" for="mcnc-pass-in">Access Key / Password</label>
+                            <input id="mcnc-pass-in" name="password" class="mcnc-auth-input" type="password" autocomplete="current-password" placeholder="••••••••" required />
+                            <button type="submit" class="mcnc-auth-btn">AUTHENTICATE</button>
+                            <div id="mcnc-login-err" class="mcnc-auth-err"></div>
+                        </form>
+                        <div class="mcnc-auth-link-row">
+                            <button type="button" id="mcnc-forgot-open" class="mcnc-link-btn">FORGOT PASSWORD?</button>
+                            <button type="button" id="mcnc-guest-enter" class="mcnc-link-btn">GUEST PREVIEW (READ + MONTY)</button>
+                        </div>
+                    </div>
+
+                    <div id="mcnc-auth-view-forgot" style="display:none;">
+                        <div class="mcnc-auth-title">MCNC // PASSWORD RECOVERY</div>
+                        <div class="mcnc-auth-sub">Step 1: Request a 6-digit recovery code (logged to Base 1 terminal). Step 2: Enter code &amp; new password.</div>
+                        <form id="mcnc-forgot-form">
+                            <label class="mcnc-auth-label" for="mcnc-rec-user">Operator Username</label>
+                            <div style="display:flex; gap:6px; margin-bottom:12px;">
+                                <input id="mcnc-rec-user" class="mcnc-auth-input" style="margin-bottom:0;" type="text" placeholder="Mike" required />
+                                <button type="button" id="mcnc-send-code-btn" class="mcnc-hud-btn" style="padding:0 12px; border-color:#DAA520; color:#DAA520;">SEND CODE</button>
+                            </div>
+                            <label class="mcnc-auth-label" for="mcnc-rec-code">6-Digit Recovery Code</label>
+                            <input id="mcnc-rec-code" class="mcnc-auth-input" type="text" maxlength="6" placeholder="123456" required />
+                            <label class="mcnc-auth-label" for="mcnc-rec-newpass">New Password (Min 8 Chars)</label>
+                            <input id="mcnc-rec-newpass" class="mcnc-auth-input" type="password" minlength="8" autocomplete="new-password" required />
+                            <button type="submit" class="mcnc-auth-btn">RESET &amp; SAVE PASSWORD</button>
+                            <div id="mcnc-forgot-msg" class="mcnc-auth-err"></div>
+                        </form>
+                        <div class="mcnc-auth-link-row">
+                            <button type="button" id="mcnc-forgot-back" class="mcnc-link-btn">&larr; BACK TO LOGIN</button>
+                        </div>
+                    </div>
                 </div>
             `;
             document.body.appendChild(overlay);
 
+            // Login submit handler + Password Manager credential save notification
             document.getElementById('mcnc-login-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const errEl = document.getElementById('mcnc-login-err');
@@ -168,6 +235,12 @@
                         errEl.textContent = data.error || 'Authentication denied.';
                         return;
                     }
+                    if (window.PasswordCredential && navigator.credentials) {
+                        try {
+                            const cred = new window.PasswordCredential({ id: username, password: password, name: username });
+                            await navigator.credentials.store(cred);
+                        } catch (_) {}
+                    }
                     sessionStorage.setItem(TOKEN_KEY, data.token);
                     sessionStorage.setItem(USER_KEY, JSON.stringify(data.user));
                     sessionStorage.setItem(TARGET_TENANT_KEY, data.user.tenantId);
@@ -177,6 +250,83 @@
                     errEl.textContent = 'Connection error: ' + err.message;
                 }
             });
+
+            // Toggle Forgot Password View
+            document.getElementById('mcnc-forgot-open').addEventListener('click', () => {
+                document.getElementById('mcnc-auth-view-login').style.display = 'none';
+                document.getElementById('mcnc-auth-view-forgot').style.display = 'block';
+                const u = document.getElementById('mcnc-user-in').value.trim();
+                if (u) document.getElementById('mcnc-rec-user').value = u;
+            });
+
+            document.getElementById('mcnc-forgot-back').addEventListener('click', () => {
+                document.getElementById('mcnc-auth-view-forgot').style.display = 'none';
+                document.getElementById('mcnc-auth-view-login').style.display = 'block';
+            });
+
+            document.getElementById('mcnc-send-code-btn').addEventListener('click', async () => {
+                const msgEl = document.getElementById('mcnc-forgot-msg');
+                msgEl.style.color = '#ef4444';
+                const username = document.getElementById('mcnc-rec-user').value.trim();
+                if (!username) {
+                    msgEl.textContent = 'Enter your username first.';
+                    return;
+                }
+                try {
+                    const res = await originalFetch('/api/auth/forgot-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username })
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.success) {
+                        msgEl.textContent = data.error || 'Could not generate recovery code.';
+                        return;
+                    }
+                    msgEl.style.color = '#10b981';
+                    msgEl.textContent = data.message;
+                } catch (err) {
+                    msgEl.textContent = 'Error: ' + err.message;
+                }
+            });
+
+            document.getElementById('mcnc-forgot-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const msgEl = document.getElementById('mcnc-forgot-msg');
+                msgEl.style.color = '#ef4444';
+                const username = document.getElementById('mcnc-rec-user').value.trim();
+                const code = document.getElementById('mcnc-rec-code').value.trim();
+                const newPassword = document.getElementById('mcnc-rec-newpass').value;
+                try {
+                    const res = await originalFetch('/api/auth/reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, code, newPassword })
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.success) {
+                        msgEl.textContent = data.error || 'Reset failed.';
+                        return;
+                    }
+                    msgEl.style.color = '#10b981';
+                    msgEl.textContent = data.message;
+                    setTimeout(() => {
+                        document.getElementById('mcnc-forgot-back').click();
+                        document.getElementById('mcnc-user-in').value = username;
+                        document.getElementById('mcnc-pass-in').value = newPassword;
+                    }, 1100);
+                } catch (err) {
+                    msgEl.textContent = 'Error: ' + err.message;
+                }
+            });
+
+            // Guest Preview Entry
+            document.getElementById('mcnc-guest-enter').addEventListener('click', async () => {
+                const guestName = window.prompt('Enter your name for Guest Read-Only + Monty Chat access:', 'Egmond');
+                if (guestName === null) return;
+                await startGuestSession({ guestName });
+                overlay.remove();
+            });
         }
         if (errorMsg) {
             const errEl = document.getElementById('mcnc-login-err');
@@ -184,53 +334,89 @@
         }
     }
 
-    function applyAuthenticatedState(user) {
-        // 1. Enforce Role-Based Tab Visibility
-        const navTabs = document.querySelectorAll('.mcnc-top-nav .nav-tab');
-        if (user.role !== 'EXEC_ADMIN') {
-            navTabs.forEach((tab) => {
-                const href = tab.getAttribute('href') || '';
-                if (!COLLABORATOR_ALLOWED_HREFS.includes(href)) {
-                    tab.style.display = 'none';
-                }
-            });
-            // Redirect collaborator if currently on a restricted route
-            const currentPath = window.location.pathname;
-            if (currentPath === '/' || !COLLABORATOR_ALLOWED_HREFS.includes(currentPath)) {
-                window.location.replace('/galaxy');
-                return;
+    async function startGuestSession(payload) {
+        const res = await originalFetch('/api/auth/guest-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            sessionStorage.setItem(TOKEN_KEY, data.token);
+            sessionStorage.setItem(USER_KEY, JSON.stringify(data.user));
+            sessionStorage.setItem(TARGET_TENANT_KEY, data.user.tenantId);
+            applyAuthenticatedState(data.user);
+        } else {
+            renderLoginOverlay(data.error || 'Guest pass invalid or expired.');
+        }
+    }
+
+    // Enforce Guest Read-Only UI Guard (All 14 tabs visible incl. 10 TOKENS & 14 PIPE-LINE; Monty chat open; mutations blocked)
+    function attachGuestClickGuard() {
+        if (window.__mcncGuestGuardAttached) return;
+        window.__mcncGuestGuardAttached = true;
+
+        document.addEventListener('click', (e) => {
+            const user = getUser();
+            if (!isGuestRole(user)) return;
+
+            const btn = e.target.closest('button');
+            if (!btn) return;
+
+            // Allow navigation tabs, Overview/Tab Brief modals, audio briefs, and Monty chat send button
+            if (btn.closest('nav') || btn.closest('.mcnc-hud-controls')) return;
+            const txt = (btn.innerText || btn.title || '').toUpperCase();
+            const safeKeywords = ['TAB BRIEF', 'OVERVIEW', 'GOT IT', 'PREV', 'NEXT', 'ESC', 'ACKNOWLEDGE', 'BRIEF', 'SEND', 'ASK MONTY', 'CLEAR', 'COPY', '01 //', '02 //', '03 //', '04 //', '05 //', 'SETUP GUIDE'];
+            if (safeKeywords.some((kw) => txt.includes(kw))) return;
+
+            // Block heavy compute / write / dispatch buttons for Guest visitors
+            const restrictedKeywords = ['DISPATCH', 'AUTHORIZE', 'PUSH TO WAR ROOM', 'CREATE PROMPT', 'GO-LIVE', 'STATUS:', 'DELETE', 'SAVE', 'ADD', 'LAUNCH', 'EXECUTE', 'RUN', 'SYNC', 'PURGE', 'APPLY'];
+            if (restrictedKeywords.some((kw) => txt.includes(kw))) {
+                e.preventDefault();
+                e.stopPropagation();
+                showGuestToast('READ-ONLY GUEST MODE: Chat with Monty on Tab 01 or sign up at rhythmtradingco.com to unlock execution.');
             }
+        }, true);
+    }
+
+    function applyAuthenticatedState(user) {
+        window.mcncCurrentUser = user;
+        window.dispatchEvent(new CustomEvent('mcnc:auth-ready', { detail: { user } }));
+
+        if (isGuestRole(user)) {
+            attachGuestClickGuard();
         }
 
-        // 2. Render Top-Bar Operator HUD, Admin Switcher & Password Rotation
-        const topBar = document.querySelector('.mcnc-top-bar');
-        if (!topBar) return;
+        const headerRight = document.querySelector('.system-status') || document.querySelector('.mcnc-header');
+        if (!headerRight) return;
 
         let hud = document.getElementById('mcnc-hud-controls');
         if (!hud) {
             hud = document.createElement('div');
             hud.id = 'mcnc-hud-controls';
             hud.className = 'mcnc-hud-controls';
-            topBar.appendChild(hud);
+            headerRight.prepend(hud);
         }
 
+        const guestMode = isGuestRole(user);
         const activeTenant = getTargetTenant();
         const isOverride = user.role === 'EXEC_ADMIN' && activeTenant !== user.tenantId;
 
         let switcherHtml = '';
         if (user.role === 'EXEC_ADMIN') {
-            const options = (user.availableTenants || ['Mike', 'Adine', 'Claire'])
+            const options = (user.availableTenants || ['Mike', 'Adine', 'Claire', 'Egmond'])
                 .map((t) => `<option value="${t}" ${t === activeTenant ? 'selected' : ''}>VIEW: ${t.toUpperCase()}</option>`)
                 .join('');
             switcherHtml = `<select id="mcnc-tenant-switcher" class="mcnc-hud-select" title="Switch Active Tenant Workspace">${options}</select>`;
         }
 
         hud.innerHTML = `
-            <span class="mcnc-hud-badge ${isOverride ? 'admin-override' : ''}">
-                ${isOverride ? 'ADMIN OVERRIDE: ' + activeTenant : 'OPERATOR: ' + user.username}
+            <span class="mcnc-hud-badge ${guestMode ? 'guest-mode' : (isOverride ? 'admin-override' : '')}">
+                ${guestMode ? 'GUEST (READ + MONTY): ' + user.username : (isOverride ? 'ADMIN OVERRIDE: ' + activeTenant : 'OPERATOR: ' + user.username)}
             </span>
             ${switcherHtml}
-            <button id="mcnc-pwd-open-btn" class="mcnc-hud-btn" type="button">PASSWORD</button>
+            ${user.role === 'EXEC_ADMIN' ? '<button id="mcnc-invite-open-btn" class="mcnc-hud-btn" type="button">+ INVITE</button>' : ''}
+            ${!guestMode ? '<button id="mcnc-pwd-open-btn" class="mcnc-hud-btn" type="button">PASSWORD</button>' : ''}
             <button id="mcnc-logout-btn" class="mcnc-hud-btn" type="button">LOGOUT</button>
         `;
 
@@ -248,9 +434,85 @@
             window.location.reload();
         });
 
-        ensurePasswordModal();
-        document.getElementById('mcnc-pwd-open-btn').addEventListener('click', () => {
-            document.getElementById('mcnc-pwd-modal').style.display = 'flex';
+        if (user.role === 'EXEC_ADMIN') {
+            ensureInviteModal();
+            const invBtn = document.getElementById('mcnc-invite-open-btn');
+            if (invBtn) invBtn.addEventListener('click', () => {
+                document.getElementById('mcnc-invite-modal').style.display = 'flex';
+            });
+        }
+
+        if (!guestMode) {
+            ensurePasswordModal();
+            const pwdBtn = document.getElementById('mcnc-pwd-open-btn');
+            if (pwdBtn) pwdBtn.addEventListener('click', () => {
+                document.getElementById('mcnc-pwd-modal').style.display = 'flex';
+            });
+        }
+    }
+
+    function ensureInviteModal() {
+        if (document.getElementById('mcnc-invite-modal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'mcnc-invite-modal';
+        modal.innerHTML = `
+            <div class="mcnc-auth-card">
+                <div class="mcnc-auth-title">+ GENERATE GUEST / MEMBER INVITE</div>
+                <div class="mcnc-auth-sub">Create a signed Read-Only + Monty Chat guest link for Egmond, Mike van E, or Tyrone.</div>
+                <form id="mcnc-invite-form">
+                    <label class="mcnc-auth-label" for="mcnc-inv-name">Visitor / Prospect Name</label>
+                    <input id="mcnc-inv-name" class="mcnc-auth-input" type="text" placeholder="Egmond" required />
+                    <label class="mcnc-auth-label" for="mcnc-inv-role">Access Tier</label>
+                    <select id="mcnc-inv-role" class="mcnc-auth-input">
+                        <option value="GUEST_OBSERVER">GUEST OBSERVER (Read-Only All Tabs + Monty Chat)</option>
+                        <option value="COLLABORATOR">FULL COLLABORATOR (Signed-Up Member)</option>
+                    </select>
+                    <div style="display:flex; gap:8px;">
+                        <button type="submit" class="mcnc-auth-btn">MINT INVITE LINK</button>
+                        <button type="button" id="mcnc-inv-cancel" class="mcnc-hud-btn" style="padding:10px 14px;">CLOSE</button>
+                    </div>
+                    <input id="mcnc-inv-link-out" class="mcnc-auth-input" style="margin-top:12px; display:none; color:#10b981;" type="text" readonly />
+                    <div id="mcnc-inv-msg" class="mcnc-auth-err"></div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('mcnc-inv-cancel').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        document.getElementById('mcnc-invite-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('mcnc-inv-msg');
+            const outEl = document.getElementById('mcnc-inv-link-out');
+            msgEl.style.color = '#ef4444';
+            msgEl.textContent = '';
+
+            const tenantName = document.getElementById('mcnc-inv-name').value.trim();
+            const inviteRole = document.getElementById('mcnc-inv-role').value;
+            try {
+                const res = await window.fetch('/api/auth/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tenantName, inviteRole })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    msgEl.textContent = data.error || 'Failed to generate link.';
+                    return;
+                }
+                const param = inviteRole === 'GUEST_OBSERVER' ? `guest_token=${encodeURIComponent(data.inviteToken)}` : `invite=${encodeURIComponent(data.inviteToken)}`;
+                const fullUrl = `${window.location.origin}/?${param}`;
+                outEl.value = fullUrl;
+                outEl.style.display = 'block';
+                outEl.select();
+                navigator.clipboard.writeText(fullUrl).catch(() => {});
+                msgEl.style.color = '#10b981';
+                msgEl.textContent = 'Invite link copied to clipboard!';
+            } catch (err) {
+                msgEl.textContent = 'Error: ' + err.message;
+            }
         });
     }
 
@@ -264,9 +526,9 @@
                 <div class="mcnc-auth-sub">Minimum 8 characters required.</div>
                 <form id="mcnc-pwd-form">
                     <label class="mcnc-auth-label" for="mcnc-cur-pwd">Current Password</label>
-                    <input id="mcnc-cur-pwd" class="mcnc-auth-input" type="password" required />
+                    <input id="mcnc-cur-pwd" class="mcnc-auth-input" type="password" autocomplete="current-password" required />
                     <label class="mcnc-auth-label" for="mcnc-new-pwd">New Password</label>
-                    <input id="mcnc-new-pwd" class="mcnc-auth-input" type="password" minlength="8" required />
+                    <input id="mcnc-new-pwd" class="mcnc-auth-input" type="password" minlength="8" autocomplete="new-password" required />
                     <div style="display:flex; gap:8px;">
                         <button type="submit" class="mcnc-auth-btn">UPDATE KEY</button>
                         <button type="button" id="mcnc-pwd-cancel" class="mcnc-hud-btn" style="padding:10px 14px;">CANCEL</button>
@@ -315,6 +577,17 @@
 
     async function bootAuthGate() {
         injectStyles();
+
+        // Check URL parameters for one-click Guest Invite links (?guest_token=... or ?guest=Egmond)
+        const params = new URLSearchParams(window.location.search);
+        const guestToken = params.get('guest_token');
+        const guestName = params.get('guest');
+        if (guestToken || guestName) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            await startGuestSession(guestToken ? { guestToken } : { guestName });
+            return;
+        }
+
         const token = getToken();
         const user = getUser();
         if (!token || !user) {
